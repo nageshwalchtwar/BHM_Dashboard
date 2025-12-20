@@ -1,0 +1,207 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { RefreshCw, Activity } from "lucide-react"
+import { CSVSensorData } from "@/lib/csv-handler"
+
+interface LatestDataChartProps {
+  title: string
+  dataKey: 'vibration' | 'acceleration' | 'strain' | 'temperature'
+  unit: string
+  color: string
+  thresholds?: {
+    warning: number
+    critical: number
+  }
+}
+
+export function LatestDataChart({ title, dataKey, unit, color, thresholds }: LatestDataChartProps) {
+  const [data, setData] = useState<CSVSensorData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchLatestData = async () => {
+    setIsLoading(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/csv-data?minutes=1')
+      const result = await response.json()
+      
+      if (result.success) {
+        setData(result.data)
+        setLastUpdate(new Date())
+      } else {
+        setError(result.error || 'Failed to fetch data')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchLatestData()
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchLatestData, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('en-US', { 
+      hour12: false,
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const value = payload[0].value
+      const time = new Date(label)
+      
+      return (
+        <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
+          <p className="text-sm text-slate-600 mb-1">{time.toLocaleString()}</p>
+          <p className="text-sm font-semibold" style={{ color }}>
+            {title}: {typeof value === 'number' ? value.toFixed(2) : value} {unit}
+          </p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  const getStatus = (currentValue: number) => {
+    if (!thresholds) return 'normal'
+    if (currentValue >= thresholds.critical) return 'critical'
+    if (currentValue >= thresholds.warning) return 'warning'
+    return 'normal'
+  }
+
+  const latestValue = data.length > 0 ? data[data.length - 1][dataKey] : 0
+  const status = getStatus(latestValue)
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchLatestData}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="text-red-500 text-sm">Error: {error}</div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <Badge 
+            variant={status === 'critical' ? 'destructive' : status === 'warning' ? 'secondary' : 'outline'}
+          >
+            {status}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <div className="text-2xl font-bold" style={{ color }}>
+              {typeof latestValue === 'number' ? latestValue.toFixed(2) : '--'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {unit} • {data.length} points
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchLatestData}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-xs text-muted-foreground mb-2">
+          Last 1 minute • Updated: {lastUpdate.toLocaleTimeString()}
+        </div>
+        {isLoading ? (
+          <div className="h-[200px] flex items-center justify-center bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 animate-pulse" />
+              <span className="text-slate-600">Loading latest data...</span>
+            </div>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="h-[200px] flex items-center justify-center bg-slate-50 rounded-lg">
+            <span className="text-slate-600">No recent data available</span>
+          </div>
+        ) : (
+          <div className="h-[200px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTime}
+                  stroke="#64748b" 
+                  fontSize={10}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={10}
+                  domain={['dataMin - 5%', 'dataMax + 5%']}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey={dataKey}
+                  stroke={color}
+                  strokeWidth={2}
+                  dot={{ fill: color, strokeWidth: 2, r: 3 }}
+                  activeDot={{ r: 5, stroke: color, strokeWidth: 2 }}
+                />
+                {thresholds && (
+                  <>
+                    <ReferenceLine 
+                      y={thresholds.warning} 
+                      stroke="#f59e0b" 
+                      strokeDasharray="5 5"
+                      label={{ value: "Warning", position: "topRight" }}
+                    />
+                    <ReferenceLine 
+                      y={thresholds.critical} 
+                      stroke="#ef4444" 
+                      strokeDasharray="5 5"
+                      label={{ value: "Critical", position: "topRight" }}
+                    />
+                  </>
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

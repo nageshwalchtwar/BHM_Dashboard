@@ -122,7 +122,15 @@ export default function BridgeHealthDashboard() {
             <h1 className="text-4xl font-extrabold text-gray-900 mb-2">Bridge Health Monitoring Dashboard</h1>
             <p className="text-lg text-gray-600">Real-time structural integrity monitoring & analysis</p>
           </div>
-          <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+          <div className="flex items-center gap-4">
+            <a
+              href="/latest"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Latest 1-Min Data
+            </a>
+            <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Metric Cards - keep clean, no extra borders/shadows */}
