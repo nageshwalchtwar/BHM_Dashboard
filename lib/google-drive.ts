@@ -30,6 +30,33 @@ export class GoogleDriveCSVReader {
   }
 
   /**
+   * Try to access public files directly without API key (experimental)
+   */
+  async tryDirectPublicAccess(): Promise<string | null> {
+    try {
+      // For public folders, we can try to construct direct download URLs
+      // This is a fallback method when API access is not available
+      
+      // Try a few common file patterns based on your folder structure
+      const now = new Date()
+      const timePatterns = [
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(Math.floor(now.getMinutes() / 10) * 10).padStart(2, '0')}`,
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours() - 1).padStart(2, '0')}-${String(Math.floor(now.getMinutes() / 10) * 10).padStart(2, '0')}`,
+      ]
+      
+      console.log('Trying direct public access for folder:', this.config.folderId)
+      
+      // This approach has limitations but can work for public files
+      // For now, return null to force API usage
+      return null
+      
+    } catch (error) {
+      console.log('Direct public access failed:', error)
+      return null
+    }
+  }
+
+  /**
    * List all CSV files in the specified Google Drive folder
    */
   async listCSVFiles(): Promise<GoogleDriveFile[]> {
@@ -37,17 +64,18 @@ export class GoogleDriveCSVReader {
       throw new Error('Access token or API key is required')
     }
 
-    const query = `'${this.config.folderId}' in parents and mimeType='text/csv' and trashed=false`
+    const query = `'${this.config.folderId}' in parents and (mimeType='text/csv' or name contains '.csv') and trashed=false`
     const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc&fields=files(id,name,mimeType,modifiedTime,size)`
 
+    let finalUrl = url
     const headers: Record<string, string> = {}
     if (this.config.accessToken) {
       headers['Authorization'] = `Bearer ${this.config.accessToken}`
     } else if (this.config.apiKey) {
-      url.concat(`&key=${this.config.apiKey}`)
+      finalUrl = `${url}&key=${this.config.apiKey}`
     }
 
-    const response = await fetch(url, { headers })
+    const response = await fetch(finalUrl, { headers })
     
     if (!response.ok) {
       throw new Error(`Failed to list files: ${response.statusText}`)
@@ -95,7 +123,7 @@ export class GoogleDriveCSVReader {
    * Get the content of the latest CSV file
    */
   async getLatestCSVContent(): Promise<string | null> {
-    const latestFile = await getLatestCSVFile()
+    const latestFile = await this.getLatestCSVFile()
     if (!latestFile) {
       return null
     }

@@ -1,5 +1,5 @@
 import { SensorData } from './data-generator'
-import { createGoogleDriveReader, EXTRACTED_FOLDER_ID } from './google-drive'
+import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from './google-drive'
 
 export interface CSVSensorData extends SensorData {
   id?: string
@@ -11,33 +11,69 @@ export interface CSVSensorData extends SensorData {
  */
 export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
   const lines = csvContent.trim().split('\n')
+  if (lines.length < 2) return [] // Need at least header + 1 data row
+  
   const headers = lines[0].toLowerCase().split(',').map(h => h.trim())
+  console.log('CSV headers found:', headers)
   
   const data: CSVSensorData[] = []
   
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(',').map(v => v.trim())
-    const row: any = {}
+    if (values.length !== headers.length) {
+      console.warn(`Row ${i} has ${values.length} columns but expected ${headers.length}`)
+      continue
+    }
     
+    const row: any = {}
     headers.forEach((header, index) => {
       row[header] = values[index]
     })
     
     // Convert to standard sensor data format
     try {
-      const sensorData: CSVSensorData = {
-        timestamp: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
-        vibration: parseFloat(row.vibration || row.field1 || '0'),
-        acceleration: parseFloat(row.acceleration || row.field2 || '0'),
-        strain: parseFloat(row.strain || row.field3 || '0'),
-        temperature: parseFloat(row.temperature || row.field4 || '0'),
-        id: row.entry_id || row.id,
-        created_at: row.created_at
+      // Try to find timestamp column (various possible names)
+      let timestamp = Date.now()
+      const timeFields = ['created_at', 'timestamp', 'time', 'date', 'datetime']
+      for (const field of timeFields) {
+        if (row[field] && row[field] !== '') {
+          const parsedTime = new Date(row[field]).getTime()
+          if (!isNaN(parsedTime)) {
+            timestamp = parsedTime
+            break
+          }
+        }
       }
       
-      // Only add if we have valid data
-      if (!isNaN(sensorData.vibration) || !isNaN(sensorData.acceleration) || 
-          !isNaN(sensorData.strain) || !isNaN(sensorData.temperature)) {
+      // Try to find sensor data columns (flexible field mapping)
+      const vibrationFields = ['vibration', 'field1', 'vib', 'hz', 'frequency']
+      const accelerationFields = ['acceleration', 'field2', 'acc', 'accel', 'g-force']
+      const strainFields = ['strain', 'field3', 'stress', 'tension', 'με', 'microstrain']
+      const temperatureFields = ['temperature', 'field4', 'temp', 'celsius', 'c']
+      
+      const findValue = (fields: string[]): number => {
+        for (const field of fields) {
+          if (row[field] && row[field] !== '') {
+            const val = parseFloat(row[field])
+            if (!isNaN(val)) return val
+          }
+        }
+        return 0
+      }
+      
+      const sensorData: CSVSensorData = {
+        timestamp,
+        vibration: findValue(vibrationFields),
+        acceleration: findValue(accelerationFields),
+        strain: findValue(strainFields),
+        temperature: findValue(temperatureFields),
+        id: row.entry_id || row.id || `${i}`,
+        created_at: row.created_at || new Date(timestamp).toISOString()
+      }
+      
+      // Only add if we have at least one valid sensor reading
+      if (sensorData.vibration !== 0 || sensorData.acceleration !== 0 || 
+          sensorData.strain !== 0 || sensorData.temperature !== 0) {
         data.push(sensorData)
       }
     } catch (error) {
@@ -45,6 +81,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
     }
   }
   
+  console.log(`Successfully parsed ${data.length} valid data points from ${lines.length - 1} rows`)
   return data
 }
 
@@ -87,27 +124,58 @@ export function getLatestFile(files: { name: string, lastModified?: number, cont
  */
 export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
   try {
-    // Try to use Google Drive API if configured
-    if (process.env.GOOGLE_DRIVE_FOLDER_ID && process.env.GOOGLE_DRIVE_ACCESS_TOKEN) {
-      const driveReader = createGoogleDriveReader()
-      const csvContent = await driveReader.getLatestCSVContent()
-      
-      if (csvContent) {
-        const parsedData = parseCSVToSensorData(csvContent)
-        return getRecentData(parsedData, 1) // Get last 1 minute of data
+    // Always try to use Google Drive API first (with the extracted folder ID)
+    const driveReader = new GoogleDriveCSVReader({
+      folderId: EXTRACTED_FOLDER_ID,
+      apiKey: process.env.GOOGLE_DRIVE_API_KEY,
+      accessToken: process.env.GOOGLE_DRIVE_ACCESS_TOKEN
+    })
+    
+    console.log('Attempting to fetch from Google Drive folder:', EXTRACTED_FOLDER_ID)
+    
+    // If no API key or access token, try direct public access first
+    if (!process.env.GOOGLE_DRIVE_API_KEY && !process.env.GOOGLE_DRIVE_ACCESS_TOKEN) {
+      console.log('No API credentials found, trying direct public access...')
+      const directContent = await driveReader.tryDirectPublicAccess()
+      if (directContent) {
+        const parsedData = parseCSVToSensorData(directContent)
+        return getRecentData(parsedData, 1)
       }
     }
     
-    // Fallback to mock data for development/demo
-    console.log('Using mock data - configure Google Drive credentials for real data')
+    // Try to list files from the API
+    const files = await driveReader.listCSVFiles()
+    console.log(`Found ${files.length} CSV files in Google Drive`)
+    
+    if (files.length > 0) {
+      const latestFile = files[0] // Already sorted by modifiedTime desc
+      console.log('Latest file:', latestFile.name, 'modified:', latestFile.modifiedTime)
+      
+      const csvContent = await driveReader.readFileContent(latestFile.id)
+      console.log('CSV content length:', csvContent.length, 'characters')
+      
+      if (csvContent && csvContent.trim()) {
+        const parsedData = parseCSVToSensorData(csvContent)
+        console.log('Parsed', parsedData.length, 'data points from CSV')
+        
+        const recentData = getRecentData(parsedData, 1) // Get last 1 minute of data
+        console.log('Filtered to', recentData.length, 'recent data points')
+        return recentData
+      }
+    }
+    
+    // If no files or empty content, fall back to mock data
+    console.log('No valid CSV data found, using mock data for demo')
     const mockCSVContent = generateMockCSVContent()
     const parsedData = parseCSVToSensorData(mockCSVContent)
-    return getRecentData(parsedData, 1) // Get last 1 minute of data
+    return getRecentData(parsedData, 1)
     
   } catch (error) {
-    console.error('Error fetching CSV data:', error)
+    console.error('Error fetching CSV data from Google Drive:', error)
+    console.log('Error details:', error instanceof Error ? error.message : error)
     
     // Fallback to mock data on error
+    console.log('Falling back to mock data due to error')
     const mockCSVContent = generateMockCSVContent()
     const parsedData = parseCSVToSensorData(mockCSVContent)
     return getRecentData(parsedData, 1)
