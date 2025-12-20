@@ -124,6 +124,12 @@ export default function BridgeHealthDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <a
+              href="/upload"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+            >
+              Upload CSV
+            </a>
+            <a
               href="/latest"
               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
             >

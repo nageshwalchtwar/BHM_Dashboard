@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
+import { AutoFetchStatus } from "@/components/auto-fetch-status"
 
 export default function LatestDataPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -49,6 +50,9 @@ export default function LatestDataPage() {
         </div>
       </div>
 
+      {/* Auto-fetch Status */}
+      <AutoFetchStatus onDataUpdate={() => handleGlobalRefresh()} />
+
       {/* Status Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -57,9 +61,9 @@ export default function LatestDataPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Latest CSV</div>
+            <div className="text-2xl font-bold">CSV Data</div>
             <p className="text-xs text-muted-foreground">
-              From Google Drive folder
+              Uploaded or Google Drive
             </p>
           </CardContent>
         </Card>
