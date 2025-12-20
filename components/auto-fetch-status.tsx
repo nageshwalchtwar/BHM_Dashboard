@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, Upload, AlertCircle, CheckCircle } from 'lucide-react'
+import { RefreshCw, Upload, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 interface AutoFetchStatusProps {
@@ -15,6 +15,7 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error'>('idle')
   const [dataSource, setDataSource] = useState<string>('none')
   const [message, setMessage] = useState<string>('')
+  const [showRealDataHelp, setShowRealDataHelp] = useState(false)
   const router = useRouter()
 
   const checkDataStatus = async () => {
@@ -36,6 +37,22 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
     } catch (error) {
       setFetchStatus('error')
       setMessage('Failed to check data status')
+    }
+  }
+
+  const showRealDataInstructions = async () => {
+    setShowRealDataHelp(true)
+    try {
+      const response = await fetch('/api/real-data-help')
+      const help = await response.json()
+      
+      if (help.success) {
+        // Show instructions in a more user-friendly way
+        setMessage('📋 Real data instructions loaded. Check browser console for details, or use the upload method.')
+        console.log('🎯 REAL DATA ACCESS INSTRUCTIONS:', help)
+      }
+    } catch (error) {
+      setMessage('❌ Failed to load real data instructions')
     }
   }
 
@@ -74,14 +91,18 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
 
   const getDataSourceLabel = () => {
     switch (dataSource) {
+      case 'real-csv-file':
+        return '🎯 Real CSV file from Google Drive'
       case 'auto-drive':
+      case 'simple-auto': 
+      case 'direct-auto':
         return '🤖 Auto-fetched from Google Drive'
       case 'uploaded':
-        return '📁 Using uploaded data'
+        return '📁 Using uploaded real data'
       case 'google-drive-api':
         return '🔑 Google Drive API'
       default:
-        return '⏳ Waiting for data'
+        return '⏳ Searching for real CSV files'
     }
   }
 
@@ -128,28 +149,45 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
             Refresh
           </Button>
           
-          {dataSource === 'none' && (
-            <Button
-              onClick={() => router.push('/upload')}
-              size="sm"
-              variant="default"
-            >
-              <Upload className="h-4 w-4 mr-1" />
-              Upload CSV
-            </Button>
+          {(dataSource === 'none' || dataSource === 'cached') && (
+            <>
+              <Button
+                onClick={showRealDataInstructions}
+                size="sm"
+                variant="secondary"
+              >
+                <HelpCircle className="h-4 w-4 mr-1" />
+                Get Real Data
+              </Button>
+              
+              <Button
+                onClick={() => router.push('/upload')}
+                size="sm"
+                variant="default"
+              >
+                <Upload className="h-4 w-4 mr-1" />
+                Upload CSV
+              </Button>
+            </>
           )}
         </div>
         
-        {dataSource === 'auto-drive' && (
+        {(dataSource === 'real-csv-file' || dataSource === 'auto-drive' || dataSource === 'simple-auto' || dataSource === 'direct-auto') && (
           <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-            ✅ Automatic fetching is working! Data updates every 2 minutes.
+            ✅ Successfully accessing your real CSV files! Data updates every 2 minutes.
+          </div>
+        )}
+        
+        {dataSource === 'uploaded' && (
+          <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            📁 Using your uploaded CSV data. Upload newer files to update the dashboard.
           </div>
         )}
         
         {dataSource === 'none' && (
           <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
-            🔄 System is trying to auto-fetch from Google Drive every 2 minutes. 
-            If this doesn't work, you can upload CSV files manually.
+            🔍 Searching for your real CSV files (2025-12-20_20-50, etc.). 
+            Click "Get Real Data" for instructions or upload manually.
           </div>
         )}
       </CardContent>
