@@ -106,44 +106,55 @@ export default function LatestDataPage() {
         </Card>
       </div>
 
-      {/* Sensor Charts Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Sensor Charts Grid - Your CSV Columns */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <LatestDataChart
-          title="Vibration Frequency"
-          dataKey="vibration"
-          unit="Hz"
+          title="X-Axis Acceleration"
+          dataKey="x"
+          unit="g"
           color="#3b82f6"
           thresholds={{
-            warning: 2.0,
-            critical: 2.5
+            warning: 30,
+            critical: 35
           }}
         />
         
         <LatestDataChart
-          title="Acceleration"
-          dataKey="acceleration"
+          title="Y-Axis Acceleration"
+          dataKey="y"
           unit="g"
           color="#10b981"
           thresholds={{
-            warning: 0.4,
-            critical: 0.6
+            warning: 0.5,
+            critical: 0.8
           }}
         />
         
         <LatestDataChart
-          title="Strain"
-          dataKey="strain"
-          unit="με"
+          title="Z-Axis Acceleration"
+          dataKey="z"
+          unit="g"
+          color="#8b5cf6"
+          thresholds={{
+            warning: -0.7,
+            critical: -0.9
+          }}
+        />
+        
+        <LatestDataChart
+          title="Stroke"
+          dataKey="stroke_mm"
+          unit="mm"
           color="#f59e0b"
           thresholds={{
-            warning: 150,
-            critical: 200
+            warning: 0.05,
+            critical: 0.1
           }}
         />
         
         <LatestDataChart
           title="Temperature"
-          dataKey="temperature"
+          dataKey="temperature_c"
           unit="°C"
           color="#ef4444"
           thresholds={{
@@ -175,9 +186,8 @@ export default function LatestDataPage() {
           <div>
             <h4 className="font-semibold">Current Implementation:</h4>
             <p className="text-sm text-muted-foreground mt-1">
-              The system is currently using mock data. To connect to your actual CSV files, 
-              update the <code className="bg-slate-100 px-1 rounded">fetchLatestCSVData</code> function 
-              in <code className="bg-slate-100 px-1 rounded">lib/csv-handler.ts</code>.
+              Now displaying your direct CSV columns: <strong>X, Y, Z, Stroke_mm, Temperature_C</strong>.
+              The system reads from your CSV structure: Device, Timestamp, X, Y, Z, Stroke_mm, Temperature_C.
             </p>
           </div>
         </CardContent>

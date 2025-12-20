@@ -4,6 +4,12 @@ import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from './google-drive'
 export interface CSVSensorData extends SensorData {
   id?: string
   created_at?: string
+  // Your specific CSV columns
+  x?: number
+  y?: number
+  z?: number
+  stroke_mm?: number
+  temperature_c?: number
 }
 
 /**
@@ -54,61 +60,46 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         }
       }
       
-      // Map your specific CSV columns to sensor data
-      // Your format: Device, Timestamp, X, Y, Z, Stroke_mm, Temperature_C
-      const vibrationFields = ['x', 'y', 'z', 'vibration', 'field1', 'vib', 'hz', 'frequency']
-      const accelerationFields = ['x', 'y', 'z', 'acceleration', 'field2', 'acc', 'accel', 'g-force']
-      const strainFields = ['stroke_mm', 'strain', 'field3', 'stress', 'tension', 'με', 'microstrain']
-      const temperatureFields = ['temperature_c', 'temperature', 'field4', 'temp', 'celsius', 'c']
-      
-      const findValue = (fields: string[]): number => {
-        for (const field of fields) {
-          if (row[field] && row[field] !== '') {
-            const val = parseFloat(row[field])
-            if (!isNaN(val)) return val
-          }
+      // Parse your specific CSV columns directly
+      const parseValue = (field: string): number => {
+        if (row[field] && row[field] !== '') {
+          const val = parseFloat(row[field])
+          if (!isNaN(val)) return val
         }
         return 0
       }
       
-      // Calculate vibration magnitude from X, Y, Z components if available
-      let vibration = findValue(vibrationFields)
-      if (vibration === 0 && row['x'] && row['y'] && row['z']) {
-        const x = parseFloat(row['x']) || 0
-        const y = parseFloat(row['y']) || 0  
-        const z = parseFloat(row['z']) || 0
-        vibration = Math.sqrt(x*x + y*y + z*z) // Magnitude of acceleration vector
-      }
-      
-      // Use X-axis acceleration as primary acceleration reading
-      let acceleration = findValue(accelerationFields)
-      if (acceleration === 0 && row['x']) {
-        acceleration = Math.abs(parseFloat(row['x']) || 0)
-      }
-      
       const sensorData: CSVSensorData = {
         timestamp,
-        vibration,
-        acceleration,
-        strain: findValue(strainFields),
-        temperature: findValue(temperatureFields),
+        // Map directly to your CSV columns
+        x: parseValue('x'),
+        y: parseValue('y'), 
+        z: parseValue('z'),
+        stroke_mm: parseValue('stroke_mm'),
+        temperature_c: parseValue('temperature_c'),
+        // Keep legacy fields for backward compatibility
+        vibration: parseValue('x'), // Use X for vibration chart
+        acceleration: parseValue('y'), // Use Y for acceleration chart
+        strain: parseValue('stroke_mm'), // Use stroke for strain chart
+        temperature: parseValue('temperature_c'), // Use temp_c for temperature chart
         id: row.device || row.entry_id || row.id || `${i}`,
         created_at: row.created_at || new Date(timestamp).toISOString()
       }
       
       // Only add if we have at least one valid sensor reading
-      if (sensorData.vibration !== 0 || sensorData.acceleration !== 0 || 
-          sensorData.strain !== 0 || sensorData.temperature !== 0) {
+      if (sensorData.x !== 0 || sensorData.y !== 0 || sensorData.z !== 0 || 
+          sensorData.stroke_mm !== 0 || sensorData.temperature_c !== 0) {
         data.push(sensorData)
         
         // Log first few data points for debugging
         if (data.length <= 3) {
           console.log(`Sample data point ${data.length}:`, {
             timestamp: new Date(sensorData.timestamp).toLocaleString(),
-            vibration: sensorData.vibration,
-            acceleration: sensorData.acceleration,
-            strain: sensorData.strain,
-            temperature: sensorData.temperature,
+            x: sensorData.x,
+            y: sensorData.y,
+            z: sensorData.z,
+            stroke_mm: sensorData.stroke_mm,
+            temperature_c: sensorData.temperature_c,
             rawRow: row
           })
         }

@@ -10,7 +10,7 @@ import { CSVSensorData } from "@/lib/csv-handler"
 
 interface LatestDataChartProps {
   title: string
-  dataKey: 'vibration' | 'acceleration' | 'strain' | 'temperature'
+  dataKey: 'x' | 'y' | 'z' | 'stroke_mm' | 'temperature_c' | 'vibration' | 'acceleration' | 'strain' | 'temperature'
   unit: string
   color: string
   thresholds?: {
