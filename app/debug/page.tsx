@@ -59,6 +59,33 @@ export default function DebugPage() {
         </div>
       </div>
 
+      {/* Quick Setup Alert */}
+      <Card className="border-orange-200 bg-orange-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-orange-800">
+            <AlertTriangle className="h-5 w-5" />
+            API Key Required
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-orange-700 mb-3">
+            Your dashboard is showing "No recent data available" because a Google Drive API key is needed to access your CSV files.
+          </p>
+          <div className="bg-white p-3 rounded border text-xs">
+            <p className="font-semibold mb-2">Quick Setup (5 minutes):</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Visit <a href="https://console.cloud.google.com/" target="_blank" className="text-blue-600 underline">Google Cloud Console</a></li>
+              <li>Create project → Enable "Google Drive API"</li>
+              <li>Go to "Credentials" → "Create API Key"</li>
+              <li>Copy the API key</li>
+              <li>In Vercel: Project Settings → Environment Variables</li>
+              <li>Add: <code>GOOGLE_DRIVE_API_KEY</code> = your API key</li>
+              <li>Redeploy your app</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Test Controls */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -264,10 +291,21 @@ export default function DebugPage() {
           <div>
             <h4 className="font-semibold">To enable access:</h4>
             <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground mt-2">
-              <li>Make your Google Drive folder public (Anyone with the link can view)</li>
-              <li>Get a Google Drive API key from Google Cloud Console</li>
-              <li>Add the API key to your environment variables</li>
-              <li>Test the connection using the buttons above</li>
+              <li><strong>Get Google Drive API Key:</strong>
+                <ul className="list-disc list-inside ml-4 mt-1">
+                  <li>Go to <a href="https://console.cloud.google.com/" target="_blank" className="text-blue-600">Google Cloud Console</a></li>
+                  <li>Create/select project → Enable Google Drive API</li>
+                  <li>Credentials → Create API Key</li>
+                </ul>
+              </li>
+              <li><strong>Add to Vercel:</strong>
+                <ul className="list-disc list-inside ml-4 mt-1">
+                  <li>Go to your Vercel dashboard</li>
+                  <li>Project Settings → Environment Variables</li>
+                  <li>Add: <code className="bg-slate-100 px-1">GOOGLE_DRIVE_API_KEY</code></li>
+                </ul>
+              </li>
+              <li><strong>Your folder is public ✅</strong> - No folder permissions needed</li>
             </ol>
           </div>
           

@@ -230,6 +230,14 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
     console.error('Error fetching CSV data from Google Drive:', error)
     console.log('Error details:', error instanceof Error ? error.message : error)
     
+    // Check if it's an API key error
+    if (error instanceof Error && error.message.includes('API key')) {
+      console.log('🔑 Google Drive API key is required to access your CSV files')
+      console.log('📁 Your folder ID:', EXTRACTED_FOLDER_ID)
+      console.log('🌐 Folder URL: https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai')
+      console.log('⚙️  Setup: Get API key from Google Cloud Console → Add to Vercel environment variables')
+    }
+    
     // Fallback to mock data on error
     console.log('Falling back to mock data due to error')
     const mockCSVContent = generateMockCSVContent()
