@@ -37,7 +37,16 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       const timeFields = ['created_at', 'timestamp', 'time', 'date', 'datetime']
       for (const field of timeFields) {
         if (row[field] && row[field] !== '') {
-          const parsedTime = new Date(row[field]).getTime()
+          let parsedTime
+          
+          // Handle time-only format (like "19:59:09") - combine with today's date
+          if (row[field].match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+            const today = new Date().toISOString().split('T')[0] // Get today's date
+            parsedTime = new Date(`${today}T${row[field]}`).getTime()
+          } else {
+            parsedTime = new Date(row[field]).getTime()
+          }
+          
           if (!isNaN(parsedTime)) {
             timestamp = parsedTime
             break
@@ -45,11 +54,12 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         }
       }
       
-      // Try to find sensor data columns (flexible field mapping)
-      const vibrationFields = ['vibration', 'field1', 'vib', 'hz', 'frequency']
-      const accelerationFields = ['acceleration', 'field2', 'acc', 'accel', 'g-force']
-      const strainFields = ['strain', 'field3', 'stress', 'tension', 'με', 'microstrain']
-      const temperatureFields = ['temperature', 'field4', 'temp', 'celsius', 'c']
+      // Map your specific CSV columns to sensor data
+      // Your format: Device, Timestamp, X, Y, Z, Stroke_mm, Temperature_C
+      const vibrationFields = ['x', 'y', 'z', 'vibration', 'field1', 'vib', 'hz', 'frequency']
+      const accelerationFields = ['x', 'y', 'z', 'acceleration', 'field2', 'acc', 'accel', 'g-force']
+      const strainFields = ['stroke_mm', 'strain', 'field3', 'stress', 'tension', 'με', 'microstrain']
+      const temperatureFields = ['temperature_c', 'temperature', 'field4', 'temp', 'celsius', 'c']
       
       const findValue = (fields: string[]): number => {
         for (const field of fields) {
@@ -61,13 +71,28 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         return 0
       }
       
+      // Calculate vibration magnitude from X, Y, Z components if available
+      let vibration = findValue(vibrationFields)
+      if (vibration === 0 && row['x'] && row['y'] && row['z']) {
+        const x = parseFloat(row['x']) || 0
+        const y = parseFloat(row['y']) || 0  
+        const z = parseFloat(row['z']) || 0
+        vibration = Math.sqrt(x*x + y*y + z*z) // Magnitude of acceleration vector
+      }
+      
+      // Use X-axis acceleration as primary acceleration reading
+      let acceleration = findValue(accelerationFields)
+      if (acceleration === 0 && row['x']) {
+        acceleration = Math.abs(parseFloat(row['x']) || 0)
+      }
+      
       const sensorData: CSVSensorData = {
         timestamp,
-        vibration: findValue(vibrationFields),
-        acceleration: findValue(accelerationFields),
+        vibration,
+        acceleration,
         strain: findValue(strainFields),
         temperature: findValue(temperatureFields),
-        id: row.entry_id || row.id || `${i}`,
+        id: row.device || row.entry_id || row.id || `${i}`,
         created_at: row.created_at || new Date(timestamp).toISOString()
       }
       
@@ -75,6 +100,20 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       if (sensorData.vibration !== 0 || sensorData.acceleration !== 0 || 
           sensorData.strain !== 0 || sensorData.temperature !== 0) {
         data.push(sensorData)
+        
+        // Log first few data points for debugging
+        if (data.length <= 3) {
+          console.log(`Sample data point ${data.length}:`, {
+            timestamp: new Date(sensorData.timestamp).toLocaleString(),
+            vibration: sensorData.vibration,
+            acceleration: sensorData.acceleration,
+            strain: sensorData.strain,
+            temperature: sensorData.temperature,
+            rawRow: row
+          })
+        }
+      } else {
+        console.warn(`Row ${i} skipped - no valid sensor data:`, row)
       }
     } catch (error) {
       console.warn('Error parsing row:', i, error)
@@ -91,14 +130,26 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
 export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
   if (data.length === 0) return []
   
-  const now = Date.now()
-  const cutoffTime = now - (minutes * 60 * 1000) // Convert minutes to milliseconds
-  
   // Sort by timestamp descending (most recent first)
   const sortedData = data.sort((a, b) => b.timestamp - a.timestamp)
   
-  // Filter for recent data
-  return sortedData.filter(item => item.timestamp >= cutoffTime)
+  // If we have time-only timestamps (same day), just return the most recent entries
+  // Check if all timestamps are from today
+  const now = Date.now()
+  const oneDayAgo = now - (24 * 60 * 60 * 1000)
+  const allFromToday = sortedData.every(item => item.timestamp > oneDayAgo)
+  
+  if (allFromToday && minutes === 1) {
+    // For time-only data, return last 20 data points (roughly 1 minute worth)
+    console.log(`Returning last ${Math.min(20, sortedData.length)} data points from today's data`)
+    return sortedData.slice(0, Math.min(20, sortedData.length))
+  }
+  
+  const cutoffTime = now - (minutes * 60 * 1000) // Convert minutes to milliseconds
+  const filteredData = sortedData.filter(item => item.timestamp >= cutoffTime)
+  
+  console.log(`Filtered ${sortedData.length} total points to ${filteredData.length} recent points (last ${minutes} minutes)`)
+  return filteredData
 }
 
 /**
@@ -149,9 +200,15 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
     
     if (files.length > 0) {
       const latestFile = files[0] // Already sorted by modifiedTime desc
-      console.log('Latest file:', latestFile.name, 'modified:', latestFile.modifiedTime)
+      console.log('Latest file details:', {
+        name: latestFile.name,
+        modified: latestFile.modifiedTime,
+        size: latestFile.size,
+        id: latestFile.id
+      })
       
       const csvContent = await driveReader.readFileContent(latestFile.id)
+      console.log('CSV content preview:', csvContent.substring(0, 200) + '...')
       console.log('CSV content length:', csvContent.length, 'characters')
       
       if (csvContent && csvContent.trim()) {
@@ -160,8 +217,16 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
         
         const recentData = getRecentData(parsedData, 1) // Get last 1 minute of data
         console.log('Filtered to', recentData.length, 'recent data points')
-        return recentData
+        
+        if (recentData.length > 0) {
+          console.log('Successfully returning real CSV data!')
+          return recentData
+        } else {
+          console.log('No recent data found in CSV, using mock data')
+        }
       }
+    } else {
+      console.log('No CSV files found in the Google Drive folder')
     }
     
     // If no files or empty content, fall back to mock data
