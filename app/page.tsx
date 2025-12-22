@@ -15,42 +15,11 @@ export default function HomePage() {
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
         <h1 className="text-2xl font-bold mb-4">Bridge Health Monitor</h1>
-        <p className="text-muted-foreground">Loading simple dashboard...</p>
+        <p className="text-muted-foreground">Redirecting to simple dashboard...</p>
       </div>
     </div>
   )
 }
-  const router = useRouter()
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date>(new Date())
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      if (!isLoggedIn) {
-        router.replace("/login");
-      }
-    }
-  }, [router]);
-
-  const handleGlobalRefresh = async () => {
-    setIsRefreshing(true)
-    // Trigger refresh in all chart components
-    window.dispatchEvent(new CustomEvent('refreshLatestData'))
-    
-    // Simulate refresh delay
-    setTimeout(() => {
-      setIsRefreshing(false)
-      setLastGlobalUpdate(new Date())
-    }, 2000)
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    router.replace("/login");
-  };
-
-  return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
