@@ -81,18 +81,21 @@ export function CSVFileSelector({ onDataUpdate }: CSVSelectorProps) {
       const data = await response.json()
       
       if (data.success && data.data && data.data.length > 0) {
+        const actualFile = data.metadata?.actualFile || fileName;
         setResult({
           success: true,
           dataPoints: data.data.length,
-          source: data.metadata?.fetchMethod || 'specific-file',
-          message: `Successfully loaded ${data.data.length} data points from ${fileName}!`,
-          fileName: fileName,
-          fetchMethod: data.metadata?.fetchMethod
+          source: data.metadata?.fetchMethod || 'latest-file',
+          message: `Successfully loaded ${data.data.length} data points from ${actualFile}! (Latest 1 minute)`,
+          fileName: actualFile,
+          fetchMethod: data.metadata?.fetchMethod,
+          timeRange: data.metadata?.timeRange
         })
         onDataUpdate?.(data)
         setCsvContent('') // Clear the manual input area since we got data automatically
       } else {
         setError(data.error || 'No data available. Try the manual process below.')
+        console.error('API response error:', data)
       }
     } catch (err) {
       setError('Failed to automatically load data. Try the manual process below.')

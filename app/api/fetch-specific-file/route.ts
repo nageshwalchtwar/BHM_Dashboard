@@ -10,74 +10,52 @@ export async function POST(request: NextRequest) {
   try {
     const { fileName } = await request.json();
     
-    if (!fileName) {
-      return NextResponse.json({
-        success: false,
-        error: 'No file name provided'
-      }, { status: 400 });
-    }
-
-    console.log(`🎯 Fetching specific file: ${fileName}`);
+    console.log(`🎯 User selected: ${fileName}, fetching latest CSV data...`);
     
-    // Try different readers to get the specific file content
+    // Simplified approach: Just get the latest CSV file regardless of which one was selected
     let csvContent = '';
     let fetchMethod = '';
+    let actualFileName = fileName;
     
-    // Method 1: Try RealGoogleDriveReader
+    // Try RealGoogleDriveReader first
     try {
-      console.log('🔄 Trying RealGoogleDriveReader...');
+      console.log('🔄 Getting latest CSV from RealGoogleDriveReader...');
       const realReader = new RealGoogleDriveReader(FOLDER_ID);
+      const result = await realReader.getLatestRealCSV();
       
-      // Get all files and find the one matching the filename
-      const allFiles = await realReader.listFiles();
-      console.log(`Found ${allFiles.length} files in folder`);
-      
-      // More flexible filename matching
-      const targetFile = allFiles.find(file => {
-        const fileBaseName = file.name.replace('.csv', '');
-        const searchBaseName = fileName.replace('.csv', '');
-        
-        return file.name === fileName || 
-               file.name === `${fileName}.csv` ||
-               fileBaseName === searchBaseName ||
-               file.name.includes(searchBaseName) ||
-               searchBaseName.includes(fileBaseName);
-      });
-      
-      if (targetFile) {
-        console.log(`✅ Found matching file: ${targetFile.name}`);
-        csvContent = await realReader.readFile(targetFile.id);
+      if (result && result.content && result.content.length > 100) {
+        csvContent = result.content;
         fetchMethod = 'RealGoogleDriveReader';
-      } else {
-        console.log(`❌ No matching file found for: ${fileName}`);
-        console.log('Available files:', allFiles.map(f => f.name));
+        actualFileName = result.filename;
+        console.log(`✅ Got CSV content: ${result.filename} (${csvContent.length} chars)`);
       }
     } catch (error) {
       console.log('⚠️ RealGoogleDriveReader failed:', error);
     }
     
-    // Method 2: If no specific file found, just get the latest file
+    // Fallback to SimpleGoogleDriveReader
     if (!csvContent) {
       try {
-        console.log('🔄 Fallback: Getting latest CSV file...');
-        const realReader = new RealGoogleDriveReader(FOLDER_ID);
-        const result = await realReader.getLatestRealCSV();
-        
-        if (result && result.content) {
-          csvContent = result.content;
-          fetchMethod = 'RealGoogleDriveReader (latest)';
-          console.log(`✅ Got latest file: ${result.filename}`);
+        console.log('🔄 Trying SimpleGoogleDriveReader...');
+        csvContent = await getLatestCSVSimple(FOLDER_ID);
+        if (csvContent && csvContent.length > 100) {
+          fetchMethod = 'SimpleGoogleDriveReader';
+          console.log(`✅ Got CSV content via SimpleReader (${csvContent.length} chars)`);
         }
       } catch (error) {
-        console.log('⚠️ Latest file fetch failed:', error);
+        console.log('⚠️ SimpleGoogleDriveReader failed:', error);
       }
     }
     
     if (!csvContent) {
       return NextResponse.json({
         success: false,
-        error: `Could not fetch content for file: ${fileName}`,
-        suggestion: 'Please try the manual process by copying and pasting the file content'
+        error: `Could not fetch any CSV content from Google Drive`,
+        debug: {
+          requestedFile: fileName,
+          folderId: FOLDER_ID,
+          folderUrl: `https://drive.google.com/drive/folders/${FOLDER_ID}`
+        }
       }, { status: 404 });
     }
     
@@ -120,13 +98,14 @@ export async function POST(request: NextRequest) {
       success: true,
       data: recentData,
       metadata: {
-        fileName,
+        requestedFile: fileName,
+        actualFile: actualFileName,
         fetchMethod,
         totalDataPoints: parsedData.length,
         recentDataPoints: recentData.length,
         latestTimestamp: new Date(latestTimestamp).toLocaleString(),
         timeRange: `${new Date(oneMinuteAgo).toLocaleTimeString()} - ${new Date(latestTimestamp).toLocaleTimeString()}`,
-        source: 'specific-file-fetch'
+        source: 'latest-available-file'
       }
     });
     
