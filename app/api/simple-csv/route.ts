@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
-const API_KEY = 'AIzaSyAUrHYasTzocaLJa50ZKsM20r5NizVrtU8';
+const API_KEY = 'AIzaSyBlwJphSwxTpoUX2Bxfrmvooc6xs6jl6J8';
 
 export async function GET() {
   console.log('📄 Fetching latest CSV from Google Drive folder...');
