@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const folderId = '1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE';
+  const folderId = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
   
   return NextResponse.json({
     success: true,

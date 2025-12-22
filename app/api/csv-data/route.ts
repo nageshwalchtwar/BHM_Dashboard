@@ -13,7 +13,7 @@ let cachedAutoData: any[] = []
 let lastAutoFetch: Date | null = null
 const AUTO_FETCH_INTERVAL = 2 * 60 * 1000 // 2 minutes
 
-const DRIVE_FOLDER_ID = '1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE'
+const DRIVE_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
 
 async function attemptAutoFetch(): Promise<{ data: any[], source: string, error?: string, filename?: string }> {
   const now = new Date()

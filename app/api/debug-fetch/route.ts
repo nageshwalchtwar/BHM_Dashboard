@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DriveDirectAccess } from '../../../lib/drive-scraper';
 
 export async function GET() {
-  const folderId = '1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE';
+  const folderId = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
   
   try {
     console.log('🔍 Debug: Testing automatic fetch...');

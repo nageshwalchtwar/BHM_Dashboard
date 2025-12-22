@@ -1,22 +1,57 @@
 import { NextResponse } from "next/server"
-import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from "@/lib/google-drive"
+import { RealGoogleDriveReader } from '@/lib/real-drive-reader'
+import { SimpleGoogleDriveReader, getLatestCSVSimple } from '@/lib/simple-drive-reader'
+
+const NEW_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
 
 export async function GET(request: Request) {
+  console.log('🧪 Testing new Google Drive folder access...')
+  
+  const results = {
+    folderId: NEW_FOLDER_ID,
+    folderUrl: `https://drive.google.com/drive/folders/${NEW_FOLDER_ID}`,
+    tests: [] as any[]
+  }
+
+  // Test 1: Real Google Drive Reader
   try {
-    const driveReader = new GoogleDriveCSVReader({
-      folderId: EXTRACTED_FOLDER_ID,
-      apiKey: process.env.GOOGLE_DRIVE_API_KEY,
-      accessToken: process.env.GOOGLE_DRIVE_ACCESS_TOKEN
+    console.log('🎯 Testing RealGoogleDriveReader...')
+    const realReader = new RealGoogleDriveReader(NEW_FOLDER_ID)
+    const realResult = await realReader.getLatestRealCSV()
+    
+    results.tests.push({
+      method: 'RealGoogleDriveReader',
+      success: !!realResult,
+      filename: realResult?.filename || null,
+      contentLength: realResult?.content?.length || 0,
+      hasExpectedFormat: realResult?.content?.includes('Device,Timestamp') || false
     })
+  } catch (error: any) {
+    results.tests.push({
+      method: 'RealGoogleDriveReader',
+      success: false,
+      error: error.message
+    })
+  }
 
-    // First, try to list files
-    console.log('Testing Google Drive access...')
-    console.log('Folder ID:', EXTRACTED_FOLDER_ID)
-    console.log('API Key available:', !!process.env.GOOGLE_DRIVE_API_KEY)
-    console.log('Access Token available:', !!process.env.GOOGLE_DRIVE_ACCESS_TOKEN)
-
-    const files = await driveReader.listCSVFiles()
-    console.log('Files found:', files.length)
+  // Test 2: Simple Google Drive Reader
+  try {
+    console.log('🔍 Testing SimpleGoogleDriveReader...')
+    const simpleContent = await getLatestCSVSimple(NEW_FOLDER_ID)
+    
+    results.tests.push({
+      method: 'SimpleGoogleDriveReader',
+      success: !!simpleContent,
+      contentLength: simpleContent?.length || 0,
+      hasExpectedFormat: simpleContent?.includes('Device,Timestamp') || false
+    })
+  } catch (error: any) {
+    results.tests.push({
+      method: 'SimpleGoogleDriveReader',
+      success: false,
+      error: error.message
+    })
+  }
 
     if (files.length === 0) {
       return NextResponse.json({

@@ -145,7 +145,7 @@ export function CSVFileSelector({ onDataUpdate }: CSVSelectorProps) {
   const openGoogleDriveFile = () => {
     if (selectedFile) {
       // Open the Google Drive folder
-      window.open('https://drive.google.com/drive/folders/1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE', '_blank')
+      window.open('https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai', '_blank')
     }
   }
 
