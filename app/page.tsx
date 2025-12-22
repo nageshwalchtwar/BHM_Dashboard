@@ -1,14 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
-import { LatestDataChart } from "@/components/latest-data-chart"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-export default function BridgeHealthDashboard() {
+export default function HomePage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Redirect to simple dashboard
+    router.replace('/simple')
+  }, [router])
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Bridge Health Monitor</h1>
+        <p className="text-muted-foreground">Loading simple dashboard...</p>
+      </div>
+    </div>
+  )
+}
   const router = useRouter()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date>(new Date())
