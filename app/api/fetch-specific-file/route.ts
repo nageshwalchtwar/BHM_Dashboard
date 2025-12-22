@@ -30,52 +30,46 @@ export async function POST(request: NextRequest) {
       
       // Get all files and find the one matching the filename
       const allFiles = await realReader.listFiles();
-      const targetFile = allFiles.find(file => 
-        file.name === fileName || 
-        file.name.includes(fileName) ||
-        fileName.includes(file.name.replace('.csv', ''))
-      );
+      console.log(`Found ${allFiles.length} files in folder`);
+      
+      // More flexible filename matching
+      const targetFile = allFiles.find(file => {
+        const fileBaseName = file.name.replace('.csv', '');
+        const searchBaseName = fileName.replace('.csv', '');
+        
+        return file.name === fileName || 
+               file.name === `${fileName}.csv` ||
+               fileBaseName === searchBaseName ||
+               file.name.includes(searchBaseName) ||
+               searchBaseName.includes(fileBaseName);
+      });
       
       if (targetFile) {
-        console.log(`✅ Found file: ${targetFile.name}`);
+        console.log(`✅ Found matching file: ${targetFile.name}`);
         csvContent = await realReader.readFile(targetFile.id);
         fetchMethod = 'RealGoogleDriveReader';
+      } else {
+        console.log(`❌ No matching file found for: ${fileName}`);
+        console.log('Available files:', allFiles.map(f => f.name));
       }
     } catch (error) {
       console.log('⚠️ RealGoogleDriveReader failed:', error);
     }
     
-    // Method 2: Try SimpleGoogleDriveReader if first method failed
+    // Method 2: If no specific file found, just get the latest file
     if (!csvContent) {
       try {
-        console.log('🔄 Trying SimpleGoogleDriveReader...');
-        csvContent = await getLatestCSVSimple(FOLDER_ID);
-        if (csvContent) {
-          fetchMethod = 'SimpleGoogleDriveReader';
-        }
-      } catch (error) {
-        console.log('⚠️ SimpleGoogleDriveReader failed:', error);
-      }
-    }
-    
-    // Method 3: Try DriveDirectAccess if other methods failed
-    if (!csvContent) {
-      try {
-        console.log('🔄 Trying DriveDirectAccess...');
-        const driveAccess = new DriveDirectAccess(FOLDER_ID);
-        const files = await driveAccess.listFiles();
-        const targetFile = files.find(file => 
-          file.name === fileName || 
-          file.name.includes(fileName) ||
-          fileName.includes(file.name.replace('.csv', ''))
-        );
+        console.log('🔄 Fallback: Getting latest CSV file...');
+        const realReader = new RealGoogleDriveReader(FOLDER_ID);
+        const result = await realReader.getLatestRealCSV();
         
-        if (targetFile) {
-          csvContent = await driveAccess.readFileContent(targetFile.id);
-          fetchMethod = 'DriveDirectAccess';
+        if (result && result.content) {
+          csvContent = result.content;
+          fetchMethod = 'RealGoogleDriveReader (latest)';
+          console.log(`✅ Got latest file: ${result.filename}`);
         }
       } catch (error) {
-        console.log('⚠️ DriveDirectAccess failed:', error);
+        console.log('⚠️ Latest file fetch failed:', error);
       }
     }
     
@@ -98,18 +92,29 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse the CSV content
+    console.log(`📊 Parsing CSV content (${csvContent.length} characters)...`);
     const parsedData = parseCSVToSensorData(csvContent);
     
     if (parsedData.length === 0) {
       return NextResponse.json({
         success: false,
         error: 'No valid sensor data found',
-        message: 'CSV was fetched but contains no parseable sensor data'
+        message: 'CSV was fetched but contains no parseable sensor data',
+        contentSample: csvContent.substring(0, 300)
       }, { status: 400 });
     }
     
-    // Get recent data (last 1 minute by default)
-    const recentData = getRecentData(parsedData, 1);
+    // Sort by timestamp (newest first)
+    parsedData.sort((a, b) => b.timestamp - a.timestamp);
+    console.log(`✅ Sorted ${parsedData.length} data points by timestamp`);
+    
+    // Get only the latest 1 minute of data (60 seconds)
+    const latestTimestamp = parsedData[0].timestamp;
+    const oneMinuteAgo = latestTimestamp - (60 * 1000); // 1 minute = 60,000 milliseconds
+    const recentData = parsedData.filter(point => point.timestamp >= oneMinuteAgo);
+    
+    console.log(`📈 Latest data: ${recentData.length} points from last minute`);
+    console.log(`⏰ Time range: ${new Date(oneMinuteAgo).toLocaleTimeString()} - ${new Date(latestTimestamp).toLocaleTimeString()}`);
     
     return NextResponse.json({
       success: true,
@@ -119,7 +124,8 @@ export async function POST(request: NextRequest) {
         fetchMethod,
         totalDataPoints: parsedData.length,
         recentDataPoints: recentData.length,
-        latestTimestamp: recentData[recentData.length - 1]?.timestamp,
+        latestTimestamp: new Date(latestTimestamp).toLocaleString(),
+        timeRange: `${new Date(oneMinuteAgo).toLocaleTimeString()} - ${new Date(latestTimestamp).toLocaleTimeString()}`,
         source: 'specific-file-fetch'
       }
     });
