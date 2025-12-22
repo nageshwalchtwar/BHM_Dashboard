@@ -1,116 +1,87 @@
 import { NextResponse } from 'next/server';
 
-// Simple CSV fetcher - no complex authentication, just direct access
+const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const API_KEY = 'AIzaSyAUrHYasTzocaLJa50ZKsM20r5NizVrtU8';
+
 export async function GET() {
-  const folderId = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
-  
-  console.log('📄 Fetching CSV data from Google Drive...');
+  console.log('📄 Fetching latest CSV from Google Drive folder...');
 
   try {
-    // Try simple direct access methods
-    const methods = [
-      // Method 1: Direct folder as spreadsheet
-      `https://docs.google.com/spreadsheets/d/${folderId}/export?format=csv&gid=0`,
-      // Method 2: Drive download
-      `https://drive.google.com/uc?id=${folderId}&export=download`,
-      // Method 3: Alternative export
-      `https://docs.google.com/spreadsheets/d/${folderId}/gviz/tq?tqx=out:csv`
-    ];
-
-    for (const url of methods) {
-      try {
-        console.log(`🔍 Trying: ${url}`);
-        
-        const response = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; Dashboard/1.0)'
-          }
-        });
-
-        if (response.ok) {
-          const csvContent = await response.text();
-          
-          // Check if it looks like CSV with our expected format
-          if (csvContent && csvContent.length > 50 && csvContent.includes(',')) {
-            console.log(`✅ Found CSV content: ${csvContent.length} characters`);
-            
-            // Parse CSV to JSON
-            const lines = csvContent.trim().split('\n');
-            const headers = lines[0].split(',');
-            const data = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-              const values = lines[i].split(',');
-              if (values.length >= headers.length) {
-                const row: any = {};
-                headers.forEach((header, index) => {
-                  row[header.trim()] = values[index]?.trim() || '';
-                });
-                
-                // Convert to the format expected by charts
-                if (row.Timestamp && (row.X || row.Y || row.Z)) {
-                  data.push({
-                    timestamp: new Date(row.Timestamp).getTime(),
-                    vibration: {
-                      x: parseFloat(row.X) || 0,
-                      y: parseFloat(row.Y) || 0,
-                      z: parseFloat(row.Z) || 0
-                    },
-                    acceleration: {
-                      x: parseFloat(row.X) || 0,
-                      y: parseFloat(row.Y) || 0,
-                      z: parseFloat(row.Z) || 0
-                    },
-                    strain: parseFloat(row.Stroke_mm) || 0,
-                    temperature: parseFloat(row.Temperature_C) || 0
-                  });
-                }
-              }
-            }
-
-            console.log(`📊 Parsed ${data.length} data points`);
-            
-            return NextResponse.json({
-              success: true,
-              data: data.slice(-100), // Last 100 points
-              metadata: {
-                totalPoints: data.length,
-                source: 'Google Drive CSV',
-                lastUpdate: new Date().toISOString(),
-                filename: 'latest.csv'
-              }
-            });
-          }
-        }
-      } catch (methodError) {
-        console.log(`❌ Method failed: ${methodError}`);
-        continue;
-      }
+    // Step 1: Get list of files in the folder, ordered by modified time (newest first)
+    const listUrl = `https://www.googleapis.com/drive/v3/files?q=parents in '${FOLDER_ID}' and mimeType='text/csv'&orderBy=modifiedTime desc&key=${API_KEY}&fields=files(id,name,modifiedTime)`;
+    
+    console.log('🔍 Listing files in folder...');
+    
+    const listResponse = await fetch(listUrl);
+    const listData = await listResponse.json();
+    
+    console.log('📋 List response:', listData);
+    
+    if (!listResponse.ok) {
+      return NextResponse.json({
+        success: false,
+        error: `Failed to list files: ${listData.error?.message || 'Unknown error'}`,
+        debug: { listData }
+      });
     }
-
-    // If no method worked, return empty data
-    console.log('❌ No CSV data found');
+    
+    if (!listData.files || listData.files.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No CSV files found in the specified folder',
+        debug: { listData }
+      });
+    }
+    
+    // Step 2: Get the latest file (first in the ordered list)
+    const latestFile = listData.files[0];
+    console.log('📊 Latest file:', latestFile.name, 'Modified:', latestFile.modifiedTime);
+    
+    // Step 3: Download the latest CSV file content
+    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${latestFile.id}?alt=media&key=${API_KEY}`;
+    
+    console.log('⬇️ Downloading CSV content...');
+    
+    const csvResponse = await fetch(downloadUrl);
+    
+    if (!csvResponse.ok) {
+      return NextResponse.json({
+        success: false,
+        error: `Failed to download CSV: ${csvResponse.status} ${csvResponse.statusText}`,
+        debug: { 
+          fileId: latestFile.id,
+          fileName: latestFile.name,
+          downloadUrl: downloadUrl.replace(API_KEY, '[API_KEY]')
+        }
+      });
+    }
+    
+    const csvContent = await csvResponse.text();
+    console.log('✅ Downloaded CSV content:', csvContent.length, 'characters');
+    
+    // Return raw CSV content for the frontend to parse
     return NextResponse.json({
-      success: false,
-      data: [],
-      error: 'No CSV data accessible',
-      metadata: {
-        totalPoints: 0,
-        source: 'None',
-        lastUpdate: new Date().toISOString()
+      success: true,
+      data: csvContent,
+      fileName: latestFile.name,
+      modifiedTime: latestFile.modifiedTime,
+      debug: {
+        fileId: latestFile.id,
+        fileName: latestFile.name,
+        modifiedTime: latestFile.modifiedTime,
+        dataLength: csvContent.length,
+        totalFiles: listData.files.length
       }
     });
-
+    
   } catch (error) {
-    console.error('❌ CSV fetch error:', error);
+    console.error('❌ Error fetching latest CSV:', error);
     return NextResponse.json({
       success: false,
-      data: [],
-      error: error instanceof Error ? error.message : 'Unknown error',
-      metadata: {
-        totalPoints: 0,
-        source: 'Error',
-        lastUpdate: new Date().toISOString()
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      debug: { 
+        folderId: FOLDER_ID,
+        error: error instanceof Error ? error.stack : String(error) 
       }
     });
   }
