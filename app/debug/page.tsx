@@ -10,6 +10,7 @@ export default function DebugPage() {
   const [testResults, setTestResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [csvData, setCsvData] = useState<any>(null)
+  const [folderTest, setFolderTest] = useState<any>(null)
 
   const runGoogleDriveTest = async () => {
     setIsLoading(true)
@@ -35,11 +36,29 @@ export default function DebugPage() {
     setCsvData(null)
     
     try {
-      const response = await fetch('/api/csv-data?minutes=5')  // Get 5 minutes of data for testing
+      const response = await fetch('/api/csv-data-real?minutes=5')  // Test the real data API
       const results = await response.json()
       setCsvData(results)
     } catch (error) {
       setCsvData({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const testFolderAccess = async () => {
+    setIsLoading(true)
+    setFolderTest(null)
+    
+    try {
+      const response = await fetch('/api/test-folder')
+      const results = await response.json()
+      setFolderTest(results)
+    } catch (error) {
+      setFolderTest({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       })
@@ -87,7 +106,30 @@ export default function DebugPage() {
       </Card>
 
       {/* Test Controls */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Quick Folder Test
+            </CardTitle>
+            <CardDescription>
+              Test if your Google Drive folder is publicly accessible
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={testFolderAccess} 
+              disabled={isLoading}
+              className="w-full"
+              variant="default"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Test Folder Access
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -95,7 +137,7 @@ export default function DebugPage() {
               Google Drive Connection Test
             </CardTitle>
             <CardDescription>
-              Test if we can access your CSV folder
+              Test all authentication methods
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -105,7 +147,7 @@ export default function DebugPage() {
               className="w-full"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Test Google Drive Access
+              Test All Methods
             </Button>
           </CardContent>
         </Card>
@@ -114,10 +156,10 @@ export default function DebugPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              CSV Data Processing Test
+              Real CSV Data Test
             </CardTitle>
             <CardDescription>
-              Test CSV parsing and data filtering
+              Test the actual API your dashboard uses
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -127,11 +169,83 @@ export default function DebugPage() {
               className="w-full"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Test CSV Data Fetch
+              Test Real Data API
             </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Folder Test Results */}
+      {folderTest && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {folderTest.summary?.diagnosis === 'FULL_ACCESS' ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : folderTest.summary?.diagnosis === 'PARTIAL_ACCESS' ? (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-500" />
+              )}
+              Folder Access Test Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Folder Status:</span>
+                <Badge variant={folderTest.summary?.diagnosis === 'FULL_ACCESS' ? 'default' : 'destructive'}>
+                  {folderTest.summary?.diagnosis?.replace('_', ' ') || 'UNKNOWN'}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Test Results:</h4>
+                {folderTest.tests?.map((test: any, index: number) => (
+                  <div key={index} className="flex items-center justify-between text-sm p-2 rounded border">
+                    <span>{test.test}</span>
+                    <div className="flex items-center gap-2">
+                      {test.success ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {test.success ? 'OK' : `Error: ${test.error || test.message}`}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {folderTest.summary?.nextSteps && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Next Steps:</h4>
+                  <ul className="text-xs space-y-1 text-muted-foreground">
+                    {folderTest.summary.nextSteps.map((step: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="mt-1 w-1 h-1 bg-current rounded-full flex-shrink-0" />
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground">
+                <a 
+                  href={folderTest.folderUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline inline-flex items-center gap-1"
+                >
+                  Open your Google Drive folder <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Google Drive Test Results */}
       {testResults && (
