@@ -50,8 +50,9 @@ export async function POST(request: NextRequest) {
     if (!csvContent) {
       try {
         console.log('🌐 Trying public folder access...');
-        csvContent = await getLatestCSVFromPublicFolder();
-        if (csvContent && csvContent.length > 100) {
+        const publicContent = await getLatestCSVFromPublicFolder();
+        if (publicContent && publicContent.length > 100) {
+          csvContent = publicContent;
           fetchMethod = 'PublicFolderAccess';
           console.log(`✅ Got content via public access (${csvContent.length} chars)`);
         }

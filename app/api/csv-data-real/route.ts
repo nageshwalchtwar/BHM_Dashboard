@@ -1,13 +1,70 @@
 import { NextResponse } from "next/server"
 import { parseCSVToSensorData, getRecentData } from "@/lib/csv-handler"
+import { GoogleDriveAuthenticatedClient, getLatestCSVWithAPIKey } from '@/lib/google-drive-auth'
+import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 
 // Your Google Drive folder ID
 const DRIVE_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
 
-// Try to get the latest CSV file from Google Drive
+// Get the latest CSV file using authenticated Google Drive access
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {
   try {
-    console.log('🔍 Getting latest CSV from your Google Drive folder...')
+    console.log('🔐 Getting latest CSV with multiple Google Drive access methods...')
+    
+    // Method 1: Try simple Google Drive API first (most reliable)
+    try {
+      console.log('🚀 Attempting Simple Google Drive API...')
+      const result = await getCSVFromGoogleDrive()
+      
+      if (result) {
+        console.log('✅ SUCCESS: Got real CSV data via Simple Google Drive API')
+        return result
+      }
+    } catch (simpleError) {
+      console.log('⚠️ Simple Google Drive API failed:', simpleError)
+    }
+
+    // Method 2: Try OAuth authenticated client
+    try {
+      console.log('🔑 Attempting OAuth authentication...')
+      const client = new GoogleDriveAuthenticatedClient()
+      const result = await client.getLatestCSVFile()
+      
+      if (result) {
+        console.log('✅ SUCCESS: Got real CSV data via OAuth authentication')
+        return result
+      }
+    } catch (authError) {
+      console.log('⚠️ OAuth authentication failed:', authError)
+    }
+
+    // Method 3: Try API key method (for public/shared access)
+    try {
+      console.log('🔑 Attempting API key access...')
+      const result = await getLatestCSVWithAPIKey()
+      
+      if (result) {
+        console.log('✅ SUCCESS: Got real CSV data via API key')
+        return result
+      }
+    } catch (apiError) {
+      console.log('⚠️ API key method failed:', apiError)
+    }
+
+    // Method 4: Fallback to direct patterns (previous method)
+    console.log('🔄 Falling back to direct file access patterns...')
+    return await getLatestRealCSVFallback()
+    
+  } catch (error) {
+    console.error('❌ All Google Drive access methods failed:', error)
+    return null
+  }
+}
+
+// Fallback method using direct file access patterns  
+async function getLatestRealCSVFallback(): Promise<{filename: string, content: string} | null> {
+  try {
+    console.log('🔍 Using fallback method - trying direct file patterns...')
     
     // Generate recent file patterns based on current time (matching your naming: 2025-12-23_01-40)
     const patterns = generateRecentFilePatterns()
@@ -59,7 +116,7 @@ async function getLatestRealCSV(): Promise<{filename: string, content: string} |
     return null
     
   } catch (error) {
-    console.error('❌ Error accessing Google Drive:', error)
+    console.error('❌ Error in fallback method:', error)
     return null
   }
 }
