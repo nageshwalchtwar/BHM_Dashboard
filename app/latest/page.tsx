@@ -1,57 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
-import { LatestDataChart } from "@/components/latest-data-chart"
-import { CSVFileSelector } from "@/components/csv-file-selector"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 export default function LatestDataPage() {
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date>(new Date())
-
-  const handleGlobalRefresh = async () => {
-    setIsRefreshing(true)
-    // Trigger refresh in all chart components
-    window.dispatchEvent(new CustomEvent('refreshLatestData'))
-    
-    // Simulate refresh delay
-    setTimeout(() => {
-      setIsRefreshing(false)
-      setLastGlobalUpdate(new Date())
-    }, 2000)
-  }
+  const router = useRouter()
+  
+  useEffect(() => {
+    // Redirect to main page since that's now where the charts are
+    router.replace('/')
+  }, [router])
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Latest Sensor Data</h1>
-          <p className="text-muted-foreground">
-            Real-time monitoring of the most recent 1 minute of sensor data
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Last 1 minute
-          </Badge>
-          <Button
-            onClick={handleGlobalRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh All
-          </Button>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Redirecting...</h1>
+        <p>Taking you to the main dashboard with CSV file selector and charts.</p>
       </div>
-
-      {/* CSV File Selector */}
-      <CSVFileSelector onDataUpdate={() => handleGlobalRefresh()} />
+    </div>
+  )
+}
 
       {/* Status Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

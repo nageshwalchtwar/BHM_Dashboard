@@ -1,16 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Activity, Thermometer, Zap, TrendingUp, AlertTriangle, CheckCircle, XCircle, FileText } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
+import { LatestDataChart } from "@/components/latest-data-chart"
 import { CSVFileSelector } from "@/components/csv-file-selector"
 import { useRouter } from "next/navigation";
 
 export default function BridgeHealthDashboard() {
   const router = useRouter();
-  
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastGlobalUpdate, setLastGlobalUpdate] = useState<Date>(new Date())
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const isLoggedIn = localStorage.getItem("isLoggedIn");
@@ -20,129 +23,166 @@ export default function BridgeHealthDashboard() {
     }
   }, [router]);
 
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const handleGlobalRefresh = async () => {
+    setIsRefreshing(true)
+    // Trigger refresh in all chart components
+    window.dispatchEvent(new CustomEvent('refreshLatestData'))
+    
+    // Simulate refresh delay
+    setTimeout(() => {
+      setIsRefreshing(false)
+      setLastGlobalUpdate(new Date())
+    }, 2000)
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     router.replace("/login");
   };
 
-  const handleDataUpdate = (data: any) => {
-    setLastUpdate(new Date())
-    // Optionally redirect to charts after successful upload
-    if (data && data.success) {
-      setTimeout(() => {
-        router.push('/latest')
-      }, 2000)
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="w-full flex items-center justify-between px-12 py-6 bg-white border-b">
-        <div className="flex items-center gap-4">
-          <FileText className="h-8 w-8 text-blue-600" />
-          <span className="text-2xl font-bold text-gray-800">Bridge Health Monitoring</span>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Latest Sensor Data</h1>
+          <p className="text-muted-foreground">
+            Real-time monitoring of the most recent 1 minute of sensor data
+          </p>
         </div>
         <div className="flex items-center gap-4">
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Last 1 minute
+          </Badge>
           <Button
-            onClick={() => router.push('/latest')}
-            variant="outline"
+            onClick={handleGlobalRefresh}
+            disabled={isRefreshing}
             className="flex items-center gap-2"
           >
-            <TrendingUp className="h-4 w-4" />
-            View Charts
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh All
           </Button>
-          <Button onClick={handleLogout} className="bg-blue-600 text-white hover:bg-blue-700">
+          <Button onClick={handleLogout} variant="outline">
             Logout
           </Button>
         </div>
-      </header>
-      
-      <main className="w-full max-w-[1200px] mx-auto px-8 py-10">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Select Your CSV Data File</h1>
-          <p className="text-lg text-gray-600">Choose from your latest CSV files to plot real-time sensor data</p>
-        </div>
+      </div>
 
-        {/* Main CSV File Selector */}
-        <div className="mb-8">
-          <CSVFileSelector onDataUpdate={handleDataUpdate} />
-        </div>
+      {/* CSV File Selector */}
+      <CSVFileSelector onDataUpdate={() => handleGlobalRefresh()} />
 
-        {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-0 shadow-lg bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
-                Data Source
-              </CardTitle>
-              <FileText className="h-5 w-5 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">CSV Files</div>
-              <p className="text-sm text-slate-500">From Google Drive BHM_D1 folder</p>
-            </CardContent>
-          </Card>
+      {/* Status Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Data Source</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">CSV Data</div>
+            <p className="text-xs text-muted-foreground">
+              Uploaded or Google Drive
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card className="border-0 shadow-lg bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
-                Time Range
-              </CardTitle>
-              <AlertTriangle className="h-5 w-5 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">Latest 1 Min</div>
-              <p className="text-sm text-slate-500">Most recent sensor data</p>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Time Window</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">1 Min</div>
+            <p className="text-xs text-muted-foreground">
+              Most recent data
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card className="border-0 shadow-lg bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
-                Last Update
-              </CardTitle>
-              <CheckCircle className="h-5 w-5 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900">{lastUpdate.toLocaleTimeString()}</div>
-              <p className="text-sm text-slate-500">{lastUpdate.toLocaleDateString()}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Auto Refresh</CardTitle>
+            <RefreshCw className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">30s</div>
+            <p className="text-xs text-muted-foreground">
+              Automatic updates
+            </p>
+          </CardContent>
+        </Card>
 
-        {/* Features */}
-        <div className="bg-blue-50 p-6 rounded-lg">
-          <h2 className="text-xl font-bold text-blue-900 mb-4">✅ What You Get:</h2>
-          <div className="grid md:grid-cols-2 gap-4 text-blue-800">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <strong>File Selection:</strong> Choose exactly which CSV to plot
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <strong>Latest 3-6 files:</strong> Automatically listed in dropdown
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <strong>Success messages:</strong> Shows data points processed
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div>
-                <strong>Real-time charts:</strong> X, Y, Z, Stroke, Temperature
-              </div>
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Last Update</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{lastGlobalUpdate.toLocaleTimeString()}</div>
+            <p className="text-xs text-muted-foreground">
+              System time
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sensor Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <LatestDataChart
+          title="X-Axis Acceleration"
+          dataKey="x"
+          color="#8884d8"
+          unit="g"
+        />
+        <LatestDataChart
+          title="Y-Axis Acceleration"
+          dataKey="y"
+          color="#82ca9d"
+          unit="g"
+        />
+        <LatestDataChart
+          title="Z-Axis Acceleration"
+          dataKey="z"
+          color="#ffc658"
+          unit="g"
+        />
+        <LatestDataChart
+          title="Stroke"
+          dataKey="stroke_mm"
+          color="#ff7300"
+          unit="mm"
+        />
+        <LatestDataChart
+          title="Temperature"
+          dataKey="temperature_c"
+          color="#8dd1e1"
+          unit="°C"
+        />
+      </div>
+
+      {/* Setup Instructions */}
+      <Card className="border-yellow-200 bg-yellow-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-yellow-800">
+            <AlertTriangle className="h-5 w-5" />
+            Setup Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-yellow-700">
+          <p className="mb-3">To connect to your Google Drive folder:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm">
+            <li>Select your CSV file from the dropdown above</li>
+            <li>Click "Open in Drive" to access your Google Drive folder</li>
+            <li>Copy the CSV content and paste it in the text area</li>
+            <li>Click "Plot Data" to see your real sensor data in the charts</li>
+          </ol>
+          <div className="mt-4 p-3 bg-white rounded border text-xs">
+            <strong>Current Implementation:</strong> Now displaying your direct CSV columns: X, Y, Z, Stroke_mm, Temperature_C. 
+            The system reads from your CSV structure: Device, Timestamp, X, Y, Z, Stroke_mm, Temperature_C.
           </div>
-        </div>
-      </main>
+        </CardContent>
+      </Card>
     </div>
   )
 }
