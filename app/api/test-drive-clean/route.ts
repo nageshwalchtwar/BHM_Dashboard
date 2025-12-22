@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { RealGoogleDriveReader, SimpleGoogleDriveReader, DriveDirectAccess } from '@/lib/google-drive-reader';
+import { RealGoogleDriveReader } from '@/lib/real-drive-reader';
+import { SimpleGoogleDriveReader } from '@/lib/simple-drive-reader';
+import { DriveDirectAccess } from '@/lib/drive-scraper';
 
 const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
 
