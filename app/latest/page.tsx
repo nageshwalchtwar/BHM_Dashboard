@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
-import { AutoFetchStatus } from "@/components/auto-fetch-status"
+import { CSVFileSelector } from "@/components/csv-file-selector"
 
 export default function LatestDataPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -50,8 +50,8 @@ export default function LatestDataPage() {
         </div>
       </div>
 
-      {/* Auto-fetch Status */}
-      <AutoFetchStatus onDataUpdate={() => handleGlobalRefresh()} />
+      {/* CSV File Selector */}
+      <CSVFileSelector onDataUpdate={() => handleGlobalRefresh()} />
 
       {/* Status Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

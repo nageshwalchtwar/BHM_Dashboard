@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Activity, Thermometer, Zap, TrendingUp, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
+import { Activity, Thermometer, Zap, TrendingUp, AlertTriangle, CheckCircle, XCircle, FileText } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { DatePickerWithRange } from "@/components/date-range-picker"
 import { VibrationChart } from "@/components/vibration-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
@@ -124,16 +125,17 @@ export default function BridgeHealthDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <a
+              href="/latest"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Select CSV File
+            </a>
+            <a
               href="/upload"
               className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
             >
               Upload CSV
-            </a>
-            <a
-              href="/latest"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Latest 1-Min Data
             </a>
             <DatePickerWithRange date={dateRange} setDate={setDateRange} />
           </div>
