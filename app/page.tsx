@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RefreshCw, Activity, AlertTriangle, TrendingUp, Clock } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
-import { CSVFileSelector } from "@/components/csv-file-selector"
 import { useRouter } from "next/navigation"
 
 export default function BridgeHealthDashboard() {
@@ -47,7 +46,7 @@ export default function BridgeHealthDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Latest Sensor Data</h1>
           <p className="text-muted-foreground">
-            Real-time monitoring of the most recent 1 minute of sensor data
+            Real-time monitoring from the latest CSV file in your Google Drive folder
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -69,9 +68,6 @@ export default function BridgeHealthDashboard() {
         </div>
       </div>
 
-      {/* CSV File Selector */}
-      <CSVFileSelector onDataUpdate={() => handleGlobalRefresh()} />
-
       {/* Status Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -79,6 +75,11 @@ export default function BridgeHealthDashboard() {
             <CardTitle className="text-sm font-medium">Data Source</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Google Drive</div>
+            <p className="text-xs text-muted-foreground">Latest CSV auto-loaded</p>
+          </CardContent>
+        </Card>
           <CardContent>
             <div className="text-2xl font-bold">CSV Data</div>
             <p className="text-xs text-muted-foreground">

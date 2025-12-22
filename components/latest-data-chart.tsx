@@ -30,17 +30,20 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
     setError(null)
     
     try {
-      const response = await fetch('/api/csv-data?minutes=1')
+      const response = await fetch('/api/csv-data-real?minutes=1')
       const result = await response.json()
       
       if (result.success) {
         setData(result.data)
         setLastUpdate(new Date())
+        console.log(`📈 Chart updated with ${result.data.length} real data points from ${result.metadata?.filename || 'unknown'}`)
       } else {
-        setError(result.error || 'Failed to fetch data')
+        setError(result.error || 'No real CSV data available from Google Drive')
+        console.log('❌ Real data fetch failed:', result.message)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error')
+      console.error('❌ Chart data fetch error:', err)
     } finally {
       setIsLoading(false)
     }
