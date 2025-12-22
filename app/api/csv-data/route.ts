@@ -15,7 +15,7 @@ const AUTO_FETCH_INTERVAL = 2 * 60 * 1000 // 2 minutes
 
 const DRIVE_FOLDER_ID = '1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE'
 
-async function attemptAutoFetch(): Promise<{ data: any[], source: string, error?: string }> {
+async function attemptAutoFetch(): Promise<{ data: any[], source: string, error?: string, filename?: string }> {
   const now = new Date()
   
   // Check if we need to fetch (first time or interval passed)

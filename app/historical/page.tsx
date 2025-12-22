@@ -142,10 +142,10 @@ export default function HistoricalDashboard() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-          <VibrationChart data={sensorData} />
-          <AccelerometerChart data={sensorData} />
-          <StrainChart data={sensorData} />
-          <TemperatureChart data={sensorData} />
+          <VibrationChart data={sensorData} isLoading={isLoading} />
+          <AccelerometerChart data={sensorData} isLoading={isLoading} />
+          <StrainChart data={sensorData} isLoading={isLoading} />
+          <TemperatureChart data={sensorData} isLoading={isLoading} />
         </div>
       </main>
     </div>

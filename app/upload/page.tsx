@@ -78,7 +78,6 @@ export default function UploadDataPage() {
         <div>
           <h1 className="text-3xl font-bold">Upload Your Real CSV Data 🎯</h1>
           <p className="text-muted-foreground">
-          <p className="text-muted-foreground">
             Get your actual sensor data from Google Drive working in 2 minutes
           </p>
         </div>
@@ -106,10 +105,6 @@ export default function UploadDataPage() {
           </div>
         </CardContent>
       </Card>
-            Upload your CSV file or paste your data directly - no Google Drive API needed!
-          </p>
-        </div>
-      </div>
 
       {/* Upload Methods */}
       <div className="grid gap-6 md:grid-cols-2">

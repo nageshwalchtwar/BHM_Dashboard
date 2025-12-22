@@ -88,7 +88,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
   }
 
   const latestValue = data.length > 0 ? data[data.length - 1][dataKey] : 0
-  const status = getStatus(latestValue)
+  const status = getStatus(latestValue ?? 0)
 
   if (error) {
     return (
@@ -187,13 +187,13 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
                       y={thresholds.warning} 
                       stroke="#f59e0b" 
                       strokeDasharray="5 5"
-                      label={{ value: "Warning", position: "topRight" }}
+                      label={{ value: "Warning", position: "insideTopRight" }}
                     />
                     <ReferenceLine 
                       y={thresholds.critical} 
                       stroke="#ef4444" 
                       strokeDasharray="5 5"
-                      label={{ value: "Critical", position: "topRight" }}
+                      label={{ value: "Critical", position: "insideTopRight" }}
                     />
                   </>
                 )}
