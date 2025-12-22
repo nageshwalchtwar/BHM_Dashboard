@@ -121,14 +121,24 @@ export async function GET(request: Request) {
           console.error('All data sources failed:', error)
           return NextResponse.json({
             success: false,
-            error: "No data available",
-            message: "🔍 Debugging info: All fetching methods failed. Check /api/debug-fetch for detailed diagnostics.",
+            error: "No CSV data available",
+            message: "🎯 To get your real data working immediately:",
+            instructions: [
+              "1. Open Google Drive → BHM_D1 folder", 
+              "2. Click your latest file: 2025-12-20_20-50 (or newer)",
+              "3. Select All (Ctrl+A) → Copy (Ctrl+C)",
+              "4. Go to /upload page on this dashboard",
+              "5. Paste content → Click 'Process CSV Data'",
+              "6. Refresh this page to see your real charts!"
+            ],
+            quickLink: "/upload",
             source: "none",
             debug: {
               uploadedData: uploadedCSVData.length,
               lastAutoFetch: lastAutoFetch?.toISOString(),
               autoFetchError: autoResult.error,
-              googleApiError: error instanceof Error ? error.message : 'Unknown error'
+              googleApiError: error instanceof Error ? error.message : 'Unknown error',
+              folderUrl: `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`
             }
           }, { status: 404 })
         }

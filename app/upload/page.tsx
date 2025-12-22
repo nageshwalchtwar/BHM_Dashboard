@@ -76,8 +76,36 @@ export default function UploadDataPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Upload CSV Data</h1>
+          <h1 className="text-3xl font-bold">Upload Your Real CSV Data 🎯</h1>
           <p className="text-muted-foreground">
+          <p className="text-muted-foreground">
+            Get your actual sensor data from Google Drive working in 2 minutes
+          </p>
+        </div>
+      </div>
+
+      {/* Step-by-step instructions */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-800 flex items-center gap-2">
+            📋 Quick Steps (2 minutes)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-blue-700">
+          <div className="grid md:grid-cols-2 gap-4">
+            <ol className="list-decimal list-inside space-y-2">
+              <li><strong>Open your folder:</strong> <a href="https://drive.google.com/drive/folders/1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE" target="_blank" rel="noopener" className="text-blue-600 underline">BHM_D1 Google Drive</a></li>
+              <li><strong>Latest file:</strong> Click "2025-12-20_20-50" (or newest)</li>
+              <li><strong>Copy all:</strong> Ctrl+A → Ctrl+C</li>
+            </ol>
+            <ol className="list-decimal list-inside space-y-2" start={4}>
+              <li><strong>Paste below:</strong> In the text area</li>
+              <li><strong>Process:</strong> Click the button</li>
+              <li><strong>View:</strong> Go to <a href="/latest" className="text-blue-600 underline">/latest</a> for charts!</li>
+            </ol>
+          </div>
+        </CardContent>
+      </Card>
             Upload your CSV file or paste your data directly - no Google Drive API needed!
           </p>
         </div>

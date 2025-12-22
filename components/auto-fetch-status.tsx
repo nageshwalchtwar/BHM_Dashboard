@@ -152,12 +152,12 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
           {(dataSource === 'none' || dataSource === 'cached') && (
             <>
               <Button
-                onClick={showRealDataInstructions}
+                onClick={() => window.open('https://drive.google.com/drive/folders/1zkX_IaONxj6vRGgD2niwfPCVyAmGZBbE', '_blank')}
                 size="sm"
                 variant="secondary"
               >
                 <HelpCircle className="h-4 w-4 mr-1" />
-                Get Real Data
+                Open Drive Folder
               </Button>
               
               <Button
@@ -186,8 +186,14 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
         
         {dataSource === 'none' && (
           <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded">
-            🔍 Searching for your real CSV files (2025-12-20_20-50, etc.). 
-            Click "Get Real Data" for instructions or upload manually.
+            � <strong>Quick Fix:</strong> Click "Open Drive Folder" → Open your latest CSV file → 
+            Copy all content → Click "Upload CSV" → Paste → Process. Your charts will work immediately!
+          </div>
+        )}
+        
+        {dataSource === 'cached' && (
+          <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
+            ⏳ Using cached data. Click "Open Drive Folder" to get your latest CSV file and upload it for fresh data.
           </div>
         )}
       </CardContent>
