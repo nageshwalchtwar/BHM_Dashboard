@@ -13,7 +13,7 @@ export default function DebugPage() {
   const [folderTest, setFolderTest] = useState<any>(null)
   const [diagnosis, setDiagnosis] = useState<any>(null)
   const [emergencyTest, setEmergencyTest] = useState<any>(null)
-  const [diagnosis, setDiagnosis] = useState<any>(null)
+  const [apiKeyTest, setApiKeyTest] = useState<any>(null)
 
   const runGoogleDriveTest = async () => {
     setIsLoading(true)
@@ -108,6 +108,25 @@ export default function DebugPage() {
     }
   }
 
+  const testApiKey = async () => {
+    setIsLoading(true)
+    setApiKeyTest(null)
+    
+    try {
+      const response = await fetch('/api/test-api-key')
+      const results = await response.json()
+      setApiKeyTest(results)
+    } catch (error) {
+      setApiKeyTest({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        tests: []
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -129,24 +148,35 @@ export default function DebugPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-blue-700 mb-3">
-            If you're seeing "No recent data available" or connection problems, run this comprehensive test to identify the exact issue.
+            ✅ <strong>API Key Added!</strong> Your Google Drive API key is now configured. Test it below:
           </p>
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-3">
+            <Button 
+              onClick={testApiKey}
+              disabled={isLoading}
+              className="w-full"
+              size="lg"
+              variant="default"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              🔑 Test API Key
+            </Button>
             <Button 
               onClick={runEmergencyTest}
               disabled={isLoading}
               className="w-full"
               size="lg"
-              variant="destructive"
+              variant="secondary"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              🚨 Emergency Test (Quick)
+              🚨 Emergency Test
             </Button>
             <Button 
               onClick={runComprehensiveDiagnosis}
               disabled={isLoading}
               className="w-full"
               size="lg"
+              variant="outline"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               🔧 Full Diagnosis
@@ -275,6 +305,100 @@ export default function DebugPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* API Key Test Results */}
+      {apiKeyTest && (
+        <Card className="border-2 border-green-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {apiKeyTest.summary?.diagnosis === 'FULLY_WORKING' ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : apiKeyTest.summary?.diagnosis === 'PARTIAL_SUCCESS' ? (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-500" />
+              )}
+              🔑 Google Drive API Key Test Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded border bg-green-50">
+                <span className="font-semibold">API Key Status:</span>
+                <Badge 
+                  variant={apiKeyTest.summary?.diagnosis === 'FULLY_WORKING' ? 'default' : 'destructive'}
+                >
+                  {apiKeyTest.summary?.diagnosis?.replace('_', ' ')}
+                </Badge>
+              </div>
+
+              <div className="text-sm bg-gray-50 p-3 rounded">
+                <strong>API Key:</strong> {apiKeyTest.apiKeyPrefix} (length: {apiKeyTest.apiKeyLength})
+              </div>
+
+              {/* Individual Test Results */}
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Test Results:</h4>
+                {apiKeyTest.tests?.map((test: any, index: number) => (
+                  <div key={index} className="p-3 rounded border bg-gray-50 mb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{test.test}</span>
+                      <Badge 
+                        variant={test.status === 'PASS' ? 'default' : test.status === 'SKIP' ? 'secondary' : 'destructive'}
+                      >
+                        {test.status}
+                      </Badge>
+                    </div>
+                    
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {test.details}
+                    </div>
+
+                    {test.files && test.files.length > 0 && (
+                      <div className="mt-2">
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-blue-600">
+                            View {test.files.length} files found
+                          </summary>
+                          <div className="mt-1 space-y-1">
+                            {test.files.slice(0, 5).map((file: any, idx: number) => (
+                              <div key={idx} className="ml-2 p-1 bg-white rounded">
+                                📄 {file.name} ({file.size} bytes, modified: {new Date(file.modified).toLocaleString()})
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    )}
+
+                    {test.preview && (
+                      <div className="mt-2 text-xs bg-white p-2 rounded">
+                        <strong>Content Preview:</strong>
+                        <pre className="text-gray-600 mt-1">{test.preview}</pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Next Steps */}
+              {apiKeyTest.summary?.nextSteps && (
+                <div className="p-3 rounded border bg-blue-50">
+                  <h4 className="font-semibold text-sm mb-2">🎯 Next Steps:</h4>
+                  <ul className="text-sm space-y-1">
+                    {apiKeyTest.summary.nextSteps.map((step: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="mt-1 w-1 h-1 bg-blue-600 rounded-full flex-shrink-0" />
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Emergency Test Results */}
       {emergencyTest && (
