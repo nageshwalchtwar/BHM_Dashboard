@@ -53,21 +53,29 @@ export function CSVFileSelector({ onDataUpdate }: CSVSelectorProps) {
   const handleFileSelection = async (fileName: string) => {
     setSelectedFile(fileName)
     setError('')
+    setResult(null)
     
     if (fileName) {
-      // Automatically fetch and process the data
-      await processAutoData()
+      console.log(`📁 Selected file: ${fileName}`)
+      // Automatically fetch and process the selected file
+      await processSelectedFile(fileName)
     }
   }
 
-  const processAutoData = async () => {
+  const processSelectedFile = async (fileName: string) => {
     try {
       setIsProcessing(true)
       setError('')
       
-      // Call the CSV data API which will automatically fetch from Google Drive
-      const response = await fetch('/api/csv-data', {
-        method: 'GET'
+      // Fetch the specific selected file
+      const response = await fetch('/api/fetch-specific-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: fileName
+        })
       })
       
       const data = await response.json()
@@ -76,8 +84,10 @@ export function CSVFileSelector({ onDataUpdate }: CSVSelectorProps) {
         setResult({
           success: true,
           dataPoints: data.data.length,
-          source: data.source || 'auto-fetch',
-          message: `Successfully loaded ${data.data.length} data points automatically!`
+          source: data.metadata?.fetchMethod || 'specific-file',
+          message: `Successfully loaded ${data.data.length} data points from ${fileName}!`,
+          fileName: fileName,
+          fetchMethod: data.metadata?.fetchMethod
         })
         onDataUpdate?.(data)
         setCsvContent('') // Clear the manual input area since we got data automatically
@@ -90,6 +100,15 @@ export function CSVFileSelector({ onDataUpdate }: CSVSelectorProps) {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const processAutoData = async () => {
+    if (!selectedFile) {
+      setError('No file selected')
+      return
+    }
+    
+    await processSelectedFile(selectedFile)
   }
         
   const processManualFile = async () => {

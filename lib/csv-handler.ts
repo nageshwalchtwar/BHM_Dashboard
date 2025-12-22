@@ -19,8 +19,10 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
   const lines = csvContent.trim().split('\n')
   if (lines.length < 2) return [] // Need at least header + 1 data row
   
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim())
-  console.log('CSV headers found:', headers)
+  // Keep original case for headers, but create lowercase lookup
+  const originalHeaders = lines[0].split(',').map(h => h.trim())
+  const headers = originalHeaders.map(h => h.toLowerCase())
+  console.log('CSV headers found:', originalHeaders)
   
   const data: CSVSensorData[] = []
   
@@ -31,59 +33,64 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       continue
     }
     
+    // Create both original case and lowercase lookup objects
     const row: any = {}
-    headers.forEach((header, index) => {
+    const lowerRow: any = {}
+    originalHeaders.forEach((header, index) => {
       row[header] = values[index]
+      lowerRow[header.toLowerCase()] = values[index]
     })
     
     // Convert to standard sensor data format
     try {
-      // Try to find timestamp column (various possible names)
+      // Try to find timestamp column (case-insensitive)
       let timestamp = Date.now()
-      const timeFields = ['created_at', 'timestamp', 'time', 'date', 'datetime']
-      for (const field of timeFields) {
-        if (row[field] && row[field] !== '') {
-          let parsedTime
-          
-          // Handle time-only format (like "19:59:09") - combine with today's date
-          if (row[field].match(/^\d{1,2}:\d{2}:\d{2}$/)) {
-            const today = new Date().toISOString().split('T')[0] // Get today's date
-            parsedTime = new Date(`${today}T${row[field]}`).getTime()
-          } else {
-            parsedTime = new Date(row[field]).getTime()
-          }
-          
-          if (!isNaN(parsedTime)) {
-            timestamp = parsedTime
-            break
-          }
+      
+      // Check for your specific Timestamp column first, then fallbacks
+      const timestampValue = row['Timestamp'] || lowerRow['timestamp'] || 
+                            lowerRow['time'] || lowerRow['created_at'] || lowerRow['date']
+      
+      if (timestampValue && timestampValue !== '') {
+        let parsedTime
+        
+        // Handle time-only format (like "01:29:07") - combine with today's date
+        if (timestampValue.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+          const today = new Date().toISOString().split('T')[0]
+          parsedTime = new Date(`${today}T${timestampValue}`).getTime()
+        } else {
+          parsedTime = new Date(timestampValue).getTime()
+        }
+        
+        if (!isNaN(parsedTime)) {
+          timestamp = parsedTime
         }
       }
       
-      // Parse your specific CSV columns directly
-      const parseValue = (field: string): number => {
-        if (row[field] && row[field] !== '') {
-          const val = parseFloat(row[field])
-          if (!isNaN(val)) return val
+      // Parse values with exact column name matching first, then fallback to lowercase
+      const parseValue = (exactName: string, fallbackName?: string): number => {
+        const val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
+        if (val && val !== '') {
+          const parsed = parseFloat(val)
+          if (!isNaN(parsed)) return parsed
         }
         return 0
       }
       
       const sensorData: CSVSensorData = {
         timestamp,
-        // Map directly to your CSV columns
-        x: parseValue('x'),
-        y: parseValue('y'), 
-        z: parseValue('z'),
-        stroke_mm: parseValue('stroke_mm'),
-        temperature_c: parseValue('temperature_c'),
+        // Map to your exact CSV column names first
+        x: parseValue('X', 'x'),
+        y: parseValue('Y', 'y'), 
+        z: parseValue('Z', 'z'),
+        stroke_mm: parseValue('Stroke_mm', 'stroke_mm'),
+        temperature_c: parseValue('Temperature_C', 'temperature_c'),
         // Keep legacy fields for backward compatibility
-        vibration: parseValue('x'), // Use X for vibration chart
-        acceleration: parseValue('y'), // Use Y for acceleration chart
-        strain: parseValue('stroke_mm'), // Use stroke for strain chart
-        temperature: parseValue('temperature_c'), // Use temp_c for temperature chart
-        id: row.device || row.entry_id || row.id || `${i}`,
-        created_at: row.created_at || new Date(timestamp).toISOString()
+        vibration: parseValue('X', 'x'), // Use X for vibration chart
+        acceleration: parseValue('Y', 'y'), // Use Y for acceleration chart  
+        strain: parseValue('Stroke_mm', 'stroke_mm'), // Use stroke for strain chart
+        temperature: parseValue('Temperature_C', 'temperature_c'), // Use temp_c for temperature chart
+        id: `${i}`, // Use row number as ID instead of device column
+        created_at: lowerRow['created_at'] || new Date(timestamp).toISOString()
       }
       
       // Only add if we have at least one valid sensor reading
