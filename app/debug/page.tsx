@@ -11,6 +11,9 @@ export default function DebugPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [csvData, setCsvData] = useState<any>(null)
   const [folderTest, setFolderTest] = useState<any>(null)
+  const [diagnosis, setDiagnosis] = useState<any>(null)
+  const [emergencyTest, setEmergencyTest] = useState<any>(null)
+  const [diagnosis, setDiagnosis] = useState<any>(null)
 
   const runGoogleDriveTest = async () => {
     setIsLoading(true)
@@ -67,6 +70,44 @@ export default function DebugPage() {
     }
   }
 
+  const runComprehensiveDiagnosis = async () => {
+    setIsLoading(true)
+    setDiagnosis(null)
+    
+    try {
+      const response = await fetch('/api/diagnose')
+      const results = await response.json()
+      setDiagnosis(results)
+    } catch (error) {
+      setDiagnosis({
+        diagnosis: 'ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        steps: []
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const runEmergencyTest = async () => {
+    setIsLoading(true)
+    setEmergencyTest(null)
+    
+    try {
+      const response = await fetch('/api/emergency-test')
+      const results = await response.json()
+      setEmergencyTest(results)
+    } catch (error) {
+      setEmergencyTest({
+        diagnosis: 'ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        results: []
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -77,6 +118,42 @@ export default function DebugPage() {
           </p>
         </div>
       </div>
+
+      {/* Primary Diagnosis */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <AlertTriangle className="h-5 w-5" />
+            🔧 Connection Issues? Run Full Diagnosis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-blue-700 mb-3">
+            If you're seeing "No recent data available" or connection problems, run this comprehensive test to identify the exact issue.
+          </p>
+          <div className="grid gap-2 md:grid-cols-2">
+            <Button 
+              onClick={runEmergencyTest}
+              disabled={isLoading}
+              className="w-full"
+              size="lg"
+              variant="destructive"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              🚨 Emergency Test (Quick)
+            </Button>
+            <Button 
+              onClick={runComprehensiveDiagnosis}
+              disabled={isLoading}
+              className="w-full"
+              size="lg"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              🔧 Full Diagnosis
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Setup Alert */}
       <Card className="border-orange-200 bg-orange-50">
@@ -102,6 +179,30 @@ export default function DebugPage() {
               <li>Redeploy your app</li>
             </ol>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Primary Diagnosis */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <AlertTriangle className="h-5 w-5" />
+            Connection Issues? Run Full Diagnosis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-blue-700 mb-3">
+            If you're seeing "No recent data available" or connection problems, run this comprehensive test to identify the exact issue.
+          </p>
+          <Button 
+            onClick={runComprehensiveDiagnosis}
+            disabled={isLoading}
+            className="w-full"
+            size="lg"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Run Full Diagnosis
+          </Button>
         </CardContent>
       </Card>
 
@@ -174,6 +275,186 @@ export default function DebugPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Emergency Test Results */}
+      {emergencyTest && (
+        <Card className="border-2 border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {emergencyTest.diagnosis === 'CSV_FOUND' ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              )}
+              🚨 Emergency Test Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded border bg-red-50">
+                <span className="font-semibold">Quick Diagnosis:</span>
+                <Badge 
+                  variant={emergencyTest.diagnosis === 'CSV_FOUND' ? 'default' : 'destructive'}
+                >
+                  {emergencyTest.diagnosis?.replace('_', ' ')}
+                </Badge>
+              </div>
+
+              {/* Test Results */}
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Connection Tests:</h4>
+                {emergencyTest.results?.map((result: any, index: number) => (
+                  <div key={index} className="p-3 rounded border bg-gray-50 mb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{result.method}</span>
+                      <Badge 
+                        variant={result.status === 'SUCCESS' ? 'default' : 'destructive'}
+                      >
+                        {result.status}
+                      </Badge>
+                    </div>
+                    
+                    {result.status === 'SUCCESS' && (
+                      <div className="mt-2 text-xs space-y-1">
+                        <div>📄 Content: {result.contentLength} chars</div>
+                        <div>📋 Lines: {result.lines}</div>
+                        <div>✅ Looks like CSV: {result.looksLikeCSV ? 'Yes' : 'No'}</div>
+                        {result.preview && (
+                          <div className="text-gray-600 bg-white p-2 rounded">
+                            Preview: {result.preview}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {result.error && (
+                      <div className="mt-1 text-xs text-red-600">
+                        Error: {result.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Recommendations */}
+              {emergencyTest.summary?.recommendations && (
+                <div className="p-3 rounded border bg-green-50">
+                  <h4 className="font-semibold text-sm mb-2">🎯 What to Do:</h4>
+                  <ul className="text-sm space-y-1">
+                    {emergencyTest.summary.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="mt-1 w-1 h-1 bg-green-600 rounded-full flex-shrink-0" />
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Comprehensive Diagnosis Results */}
+      {diagnosis && (
+        <Card className="border-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {diagnosis.diagnosis === 'WORKING' ? (
+                <CheckCircle className="h-5 w-5 text-green-500" />
+              ) : diagnosis.diagnosis === 'CONNECTION_ISSUES' ? (
+                <XCircle className="h-5 w-5 text-red-500" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              )}
+              🔧 Full Diagnosis Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Overall Status */}
+              <div className="flex items-center justify-between p-3 rounded border">
+                <span className="font-semibold">Overall Status:</span>
+                <Badge 
+                  variant={
+                    diagnosis.diagnosis === 'WORKING' ? 'default' : 
+                    diagnosis.diagnosis === 'CONNECTION_ISSUES' ? 'destructive' : 
+                    'secondary'
+                  }
+                >
+                  {diagnosis.diagnosis}
+                </Badge>
+              </div>
+
+              {/* Step-by-Step Results */}
+              <div>
+                <h4 className="font-semibold text-sm mb-2">Step-by-Step Test Results:</h4>
+                <div className="space-y-2">
+                  {diagnosis.steps?.map((step: any, index: number) => (
+                    <div key={index} className="p-3 rounded border bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">
+                          Step {step.step}: {step.name}
+                        </span>
+                        <Badge 
+                          variant={
+                            step.status === 'PASS' ? 'default' : 
+                            step.status === 'FAIL' ? 'destructive' : 
+                            'secondary'
+                          }
+                        >
+                          {step.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {step.details}
+                      </p>
+                      {step.results && step.results.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs cursor-pointer text-blue-600">
+                            View detailed results ({step.results.length} items)
+                          </summary>
+                          <div className="mt-1 text-xs space-y-1">
+                            {step.results.slice(0, 3).map((result: any, idx: number) => (
+                              <div key={idx} className="ml-2 p-1 bg-white rounded text-xs">
+                                {result.status}: {result.details || result.error || 'No details'}
+                                {result.preview && (
+                                  <div className="text-gray-500 truncate">
+                                    Preview: {result.preview}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recommendations */}
+              {diagnosis.summary?.recommendations && (
+                <div className="p-3 rounded border bg-blue-50">
+                  <h4 className="font-semibold text-sm mb-2">🎯 What to Do Next:</h4>
+                  <ul className="text-sm space-y-1">
+                    {diagnosis.summary.recommendations.map((rec: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="mt-1 w-1 h-1 bg-blue-600 rounded-full flex-shrink-0" />
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground">
+                Test completed at: {diagnosis.timestamp}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Folder Test Results */}
       {folderTest && (
