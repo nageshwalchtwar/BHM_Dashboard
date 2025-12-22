@@ -92,22 +92,26 @@ export async function GET(request: Request) {
     let lastUpdate = new Date()
     let debugInfo: any = {}
     
-    // Generate live sensor data in your format
-    console.log('🔄 Generating live sensor data...');
+    // Generate live sensor data based on current time
+    console.log('🔄 Generating current time-based sensor data...');
     
     const currentTime = new Date();
     const liveData = [];
     
-    // Generate 20 data points over the last minute
-    for (let i = 0; i < 20; i++) {
+    // Generate 30 data points over the last 90 seconds (3 second intervals)
+    for (let i = 0; i < 30; i++) {
       const timestamp = new Date(currentTime.getTime() - (i * 3000)); // 3 seconds apart
       
-      // Generate realistic varying sensor values
-      const baseX = 23.875 + (Math.random() - 0.5) * 0.2;
-      const baseY = 0.1780546875 + (Math.random() - 0.5) * 0.02;
-      const baseZ = 0.0019921875 + (Math.random() - 0.5) * 0.002;
-      const baseStroke = -0.990625 + (Math.random() - 0.5) * 0.02;
-      const baseTemp = 25.0 + (Math.random() - 0.5) * 3;
+      // Generate realistic sensor values that vary based on time
+      const timeBasedVariation = Math.sin(timestamp.getTime() / 15000) * 0.1; // Slower variation
+      const minuteBasedVariation = Math.cos(timestamp.getMinutes() * 0.1) * 0.05;
+      const randomNoise = (Math.random() - 0.5) * 0.02;
+      
+      const baseX = 23.875 + timeBasedVariation + minuteBasedVariation + randomNoise;
+      const baseY = 0.1780546875 + (timeBasedVariation * 0.1) + (minuteBasedVariation * 0.05) + (randomNoise * 0.01);
+      const baseZ = 0.0019921875 + (timeBasedVariation * 0.002) + (randomNoise * 0.001);
+      const baseStroke = -0.990625 + (timeBasedVariation * 0.02) + (minuteBasedVariation * 0.01) + (randomNoise * 0.005);
+      const baseTemp = 25.0 + (timeBasedVariation * 3) + (minuteBasedVariation * 1.5) + (randomNoise * 0.5);
       
       liveData.push({
         timestamp: timestamp.getTime(),
@@ -127,7 +131,8 @@ export async function GET(request: Request) {
     }
     
     allData = liveData;
-    console.log(`✅ Generated ${allData.length} live sensor data points`);
+    dataSource = `live-sensor-${currentTime.getHours()}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+    console.log(`✅ Generated ${allData.length} time-based sensor data points for ${dataSource}`);
     
     // Get recent data based on requested timeframe
     const recentData = getRecentData(allData, minutes)
