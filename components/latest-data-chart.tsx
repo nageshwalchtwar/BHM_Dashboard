@@ -61,8 +61,10 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
+    // For time-only data from CSV, show just HH:MM:SS format
     return date.toLocaleTimeString('en-US', { 
       hour12: false,
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     })
@@ -75,7 +77,14 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
       
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
-          <p className="text-sm text-slate-600 mb-1">{time.toLocaleString()}</p>
+          <p className="text-sm text-slate-600 mb-1">
+            {time.toLocaleTimeString('en-US', { 
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            })}
+          </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {title}: {typeof value === 'number' ? value.toFixed(2) : value} {unit}
           </p>

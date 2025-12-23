@@ -24,14 +24,27 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
 
   const formatXAxis = (tickItem: any) => {
     const date = new Date(tickItem)
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    // For time-only data from CSV, show just HH:MM:SS format
+    return date.toLocaleTimeString('en-US', { 
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
   }
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
-          <p className="text-sm text-slate-600 mb-1">{new Date(label).toLocaleString()}</p>
+          <p className="text-sm text-slate-600 mb-1">
+            {new Date(label).toLocaleTimeString('en-US', { 
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            })}
+          </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {title}: {payload[0].value.toFixed(3)} g
           </p>

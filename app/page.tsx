@@ -189,23 +189,6 @@ export default function BHMDashboard() {
               <AlertTriangle className={`h-4 w-4 mr-2`} />
               Debug
             </Button>
-
-            <Button 
-              onClick={async () => {
-                try {
-                  const response = await fetch('/api/env-check')
-                  const result = await response.json()
-                  console.log('🔍 Environment Check:', result)
-                  alert(`Environment Status: ${result.message}\n\nAPI Key: ${result.environment.GOOGLE_DRIVE_API_KEY !== 'NOT_SET' ? '✅ Found' : '❌ Missing'}\nFolder ID: ${result.environment.GOOGLE_DRIVE_FOLDER_ID !== 'NOT_SET' ? '✅ Found' : '❌ Missing'}`)
-                } catch (err) {
-                  alert('Failed to check environment variables')
-                }
-              }}
-              size="sm"
-              variant="outline"
-            >
-              🔍 Check Env
-            </Button>
           </div>
         </div>
 
@@ -339,23 +322,12 @@ export default function BHMDashboard() {
           </Card>
         </div>
 
-        {/* Live Values Cards */}
+        {/* Live Values Cards - Only CSV Columns (excluding Device) */}
         {latestValues && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-700">Vibration (g)</CardTitle>
-                <Activity className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-800">{latestValues.vibration}</div>
-                <p className="text-xs text-blue-600">Hz</p>
-              </CardContent>
-            </Card>
-
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
             <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">Temperature (°C)</CardTitle>
+                <CardTitle className="text-sm font-medium text-red-700">Temperature_C</CardTitle>
                 <Thermometer className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
@@ -366,35 +338,56 @@ export default function BHMDashboard() {
 
             <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-700">Stroke (mm)</CardTitle>
+                <CardTitle className="text-sm font-medium text-green-700">Stroke_mm</CardTitle>
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-800">{latestValues.strain}</div>
-                <p className="text-xs text-green-600">με</p>
+                <p className="text-xs text-green-600">mm</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-blue-700">X</CardTitle>
+                <Activity className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].x?.toFixed(3) : 'N/A'}</div>
+                <p className="text-xs text-blue-600">g</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-yellow-700">Y</CardTitle>
+                <Zap className="h-4 w-4 text-yellow-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].y?.toFixed(3) : 'N/A'}</div>
+                <p className="text-xs text-yellow-600">g</p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-700">Acceleration</CardTitle>
-                <Zap className="h-4 w-4 text-purple-600" />
+                <CardTitle className="text-sm font-medium text-purple-700">Z</CardTitle>
+                <Activity className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-800">{latestValues.acceleration}</div>
+                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].z?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-purple-600">g</p>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Charts Section */}
+        {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
-            <TabsTrigger value="vibration">Vibration</TabsTrigger>
-            <TabsTrigger value="strain">Stroke_mm</TabsTrigger>
+            <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
             <TabsTrigger value="accel-x">X</TabsTrigger>
             <TabsTrigger value="accel-y">Y</TabsTrigger>
             <TabsTrigger value="accel-z">Z</TabsTrigger>
@@ -434,29 +427,12 @@ export default function BHMDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="vibration" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Vibration Analysis</CardTitle>
-                <CardDescription>
-                  Computed vibration from X, Y, Z accelerometer data
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <VibrationChart data={sensorData.map(d => ({
-                  ...d,
-                  vibration: Math.sqrt(d.x**2 + d.y**2 + d.z**2)
-                }))} isLoading={loading} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="strain" className="space-y-4">
+          <TabsContent value="stroke" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Stroke_mm Column</CardTitle>
                 <CardDescription>
-                  Stroke displacement measurements in millimeters (Stroke_mm)
+                  Stroke displacement measurements in millimeters (Stroke_mm column from CSV)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
@@ -470,7 +446,7 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>X Column Data</CardTitle>
                 <CardDescription>
-                  X-axis acceleration measurements from CSV column
+                  X column measurements from CSV (acceleration data)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
@@ -478,7 +454,7 @@ export default function BHMDashboard() {
                   data={sensorData} 
                   isLoading={loading} 
                   axis="x" 
-                  title="X-Axis" 
+                  title="X Column" 
                   color="#ef4444" 
                 />
               </CardContent>
@@ -490,7 +466,7 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>Y Column Data</CardTitle>
                 <CardDescription>
-                  Y-axis acceleration measurements from CSV column
+                  Y column measurements from CSV (acceleration data)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
@@ -498,7 +474,7 @@ export default function BHMDashboard() {
                   data={sensorData} 
                   isLoading={loading} 
                   axis="y" 
-                  title="Y-Axis" 
+                  title="Y Column" 
                   color="#10b981" 
                 />
               </CardContent>
@@ -510,7 +486,7 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>Z Column Data</CardTitle>
                 <CardDescription>
-                  Z-axis acceleration measurements from CSV column
+                  Z column measurements from CSV (acceleration data)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
@@ -518,7 +494,7 @@ export default function BHMDashboard() {
                   data={sensorData} 
                   isLoading={loading} 
                   axis="z" 
-                  title="Z-Axis" 
+                  title="Z Column" 
                   color="#3b82f6" 
                 />
               </CardContent>
