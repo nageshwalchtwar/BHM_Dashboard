@@ -79,7 +79,7 @@ export default function BHMDashboard() {
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      const response = await fetch('/api/csv-data-real?minutes=60')
+      const response = await fetch('/api/csv-data-real?minutes=10')
       const result = await response.json()
       
       if (result.success && result.data) {
@@ -398,7 +398,7 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>Real-time Sensor Data Overview</CardTitle>
                 <CardDescription>
-                  Live data from bridge monitoring sensors - Last 60 minutes
+                  Live data from bridge monitoring sensors - Last 10 minutes
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">

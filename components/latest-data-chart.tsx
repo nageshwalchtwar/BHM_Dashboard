@@ -31,7 +31,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
     setError(null)
     
     try {
-      const response = await fetch('/api/csv-data-real?minutes=1')
+      const response = await fetch('/api/csv-data-real?minutes=10')
       const result = await response.json()
       
       if (result.success) {
@@ -157,7 +157,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
       </CardHeader>
       <CardContent>
         <div className="text-xs text-muted-foreground mb-2">
-          Last 1 minute • Updated: {mounted && lastUpdate ? lastUpdate.toLocaleTimeString() : 'Loading...'}
+          Last 10 minutes • Updated: {mounted && lastUpdate ? lastUpdate.toLocaleTimeString() : 'Loading...'}
         </div>
         {isLoading ? (
           <div className="h-[200px] flex items-center justify-center bg-slate-50 rounded-lg">

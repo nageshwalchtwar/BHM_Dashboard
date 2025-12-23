@@ -22,7 +22,8 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
   // Keep original case for headers, but create lowercase lookup
   const originalHeaders = lines[0].split(',').map(h => h.trim())
   const headers = originalHeaders.map(h => h.toLowerCase())
-  console.log('CSV headers found:', originalHeaders)
+  console.log('🔍 CSV headers found:', originalHeaders)
+  console.log('🔍 Looking for columns: Temperature_C, Stroke_mm, X, Y, Z, Timestamp')
   
   const data: CSVSensorData[] = []
   
@@ -69,7 +70,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       // Parse values with exact column name matching first, then fallback to lowercase
       const parseValue = (exactName: string, fallbackName?: string): number => {
         const val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
-        if (val && val !== '') {
+        if (val !== undefined && val !== null && val !== '') {
           const parsed = parseFloat(val)
           if (!isNaN(parsed)) return parsed
         }
@@ -93,10 +94,8 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         created_at: lowerRow['created_at'] || new Date(timestamp).toISOString()
       }
       
-      // Only add if we have at least one valid sensor reading
-      if (sensorData.x !== 0 || sensorData.y !== 0 || sensorData.z !== 0 || 
-          sensorData.stroke_mm !== 0 || sensorData.temperature_c !== 0) {
-        data.push(sensorData)
+      // Always add data points - even if some values are zero, they're still valid measurements
+      data.push(sensorData)
         
         // Log first few data points for debugging
         if (data.length <= 3) {
@@ -107,12 +106,10 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
             z: sensorData.z,
             stroke_mm: sensorData.stroke_mm,
             temperature_c: sensorData.temperature_c,
-            rawRow: row
+            rawRow: row,
+            originalHeaders: originalHeaders
           })
         }
-      } else {
-        console.warn(`Row ${i} skipped - no valid sensor data:`, row)
-      }
     } catch (error) {
       console.warn('Error parsing row:', i, error)
     }
@@ -137,10 +134,18 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   const oneDayAgo = now - (24 * 60 * 60 * 1000)
   const allFromToday = sortedData.every(item => item.timestamp > oneDayAgo)
   
-  if (allFromToday && minutes === 1) {
-    // For time-only data, return last 20 data points (roughly 1 minute worth)
-    console.log(`Returning last ${Math.min(20, sortedData.length)} data points from today's data`)
-    return sortedData.slice(0, Math.min(20, sortedData.length))
+  if (allFromToday) {
+    // For time-only data, return recent entries based on requested minutes
+    let pointsToReturn
+    if (minutes <= 1) {
+      pointsToReturn = Math.min(20, sortedData.length) // ~1 minute
+    } else if (minutes <= 10) {
+      pointsToReturn = Math.min(200, sortedData.length) // ~10 minutes
+    } else {
+      pointsToReturn = Math.min(600, sortedData.length) // ~1 hour
+    }
+    console.log(`Returning last ${pointsToReturn} data points from today's data (${minutes} minutes requested)`)
+    return sortedData.slice(0, pointsToReturn)
   }
   
   const cutoffTime = now - (minutes * 60 * 1000) // Convert minutes to milliseconds
