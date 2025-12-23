@@ -47,6 +47,9 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload // Get the full data point
+      const actualValue = dataPoint.stroke_mm || payload[0].value // Use the actual field value
+      
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -57,7 +60,10 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
               second: '2-digit'
             })}
           </p>
-          <p className="text-sm font-semibold text-purple-600">Stroke: {payload[0].value.toFixed(2)} mm</p>
+          <p className="text-sm font-semibold text-purple-600">Stroke: {actualValue?.toFixed(2) || 'N/A'} mm</p>
+          <p className="text-xs text-slate-500">
+            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
+          </p>
         </div>
       )
     }

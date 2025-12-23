@@ -57,10 +57,13 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       if (timestampValue && timestampValue !== '') {
         let parsedTime
         
-        // Handle time-only format (like "01:29:07") - combine with today's date
-        if (timestampValue.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+        // Handle time-only format (like "01:29:07" or "01:29:07.123") - combine with today's date
+        if (timestampValue.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
           const today = new Date().toISOString().split('T')[0]
-          parsedTime = new Date(`${today}T${timestampValue}`).getTime()
+          // Remove milliseconds for cleaner parsing if present
+          const cleanTime = timestampValue.split('.')[0]
+          parsedTime = new Date(`${today}T${cleanTime}`).getTime()
+          console.log(`🕰️ Parsed time-only timestamp: ${timestampValue} -> ${new Date(parsedTime).toLocaleString()}`)
         } else {
           parsedTime = new Date(timestampValue).getTime()
         }
@@ -136,17 +139,19 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
           console.log(`Sample data point ${data.length}:`, {
             timestamp: new Date(sensorData.timestamp).toLocaleString(),
             // Show both old and new field names for debugging
-            x: sensorData.x,
-            y: sensorData.y,
-            z: sensorData.z,
-            // Check if we're using new column names
-            accel_x: row['accel_x'],
-            accel_y: row['accel_y'], 
-            accel_z: row['accel_z'],
-            temperature_C: row['temperature_C'],
-            stroke_mm: sensorData.stroke_mm,
+            accel_x: sensorData.accel_x || sensorData.x,
+            accel_y: sensorData.accel_y || sensorData.y,
+            accel_z: sensorData.accel_z || sensorData.z,
+            // Check if we're using new column names from CSV
+            rawAccelX: row['accel_x'],
+            rawAccelY: row['accel_y'], 
+            rawAccelZ: row['accel_z'],
+            rawTempC: row['temperature_C'],
+            rawStroke: row['stroke_mm'],
             temperature_c: sensorData.temperature_c,
-            rawRow: row,
+            stroke_mm: sensorData.stroke_mm,
+            rawTimestamp: timestampValue,
+            parsedTimestamp: new Date(timestamp).toLocaleString(),
             originalHeaders: originalHeaders
           })
         }

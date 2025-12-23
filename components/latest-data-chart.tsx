@@ -71,7 +71,8 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const value = payload[0].value
+      const dataPoint = payload[0].payload // Get the full data point
+      const actualValue = dataPoint[dataKey] || payload[0].value // Use the actual field value
       const time = new Date(label)
       
       return (
@@ -85,7 +86,10 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
             })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
-            {title}: {typeof value === 'number' ? value.toFixed(2) : value} {unit}
+            {title}: {typeof actualValue === 'number' ? actualValue.toFixed(2) : (actualValue || 'N/A')} {unit}
+          </p>
+          <p className="text-xs text-slate-500">
+            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
           </p>
         </div>
       )
@@ -180,7 +184,6 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
                   stroke="#64748b" 
                   fontSize={10}
                   interval="preserveStartEnd"
-                  tick={{ angle: -45 }}
                   height={60}
                 />
                 <YAxis

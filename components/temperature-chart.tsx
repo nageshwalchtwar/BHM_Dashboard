@@ -31,6 +31,9 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload // Get the full data point
+      const actualValue = dataPoint.temperature_c || payload[0].value // Use the actual field value
+      
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -41,7 +44,10 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
               second: '2-digit'
             })}
           </p>
-          <p className="text-sm font-semibold text-orange-600">Temperature: {payload[0].value.toFixed(2)}°C</p>
+          <p className="text-sm font-semibold text-orange-600">Temperature: {actualValue?.toFixed(2) || 'N/A'}°C</p>
+          <p className="text-xs text-slate-500">
+            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
+          </p>
         </div>
       )
     }
@@ -59,7 +65,6 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
             stroke="#64748b" 
             fontSize={10}
             interval="preserveStartEnd"
-            tick={{ angle: -45 }}
             height={60}
           />
           <YAxis

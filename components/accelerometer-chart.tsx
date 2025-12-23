@@ -34,6 +34,9 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload // Get the full data point
+      const actualValue = dataPoint[axis] || payload[0].value // Use the actual field value
+      
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -45,7 +48,10 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
-            {title}: {payload[0].value.toFixed(3)} g
+            {title}: {actualValue?.toFixed(3) || 'N/A'} g
+          </p>
+          <p className="text-xs text-slate-500">
+            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
           </p>
         </div>
       )
@@ -64,7 +70,6 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             stroke="#64748b" 
             fontSize={10}
             interval="preserveStartEnd"
-            tick={{ angle: -45 }}
             height={60}
           />
           <YAxis

@@ -31,6 +31,9 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload // Get the full data point
+      const actualValue = dataPoint.vibration || payload[0].value // Use the actual field value
+      
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -41,7 +44,10 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
               second: '2-digit'
             })}
           </p>
-          <p className="text-sm font-semibold text-blue-600">Vibration: {payload[0].value.toFixed(3)} g</p>
+          <p className="text-sm font-semibold text-blue-600">Vibration: {actualValue?.toFixed(3) || 'N/A'} g</p>
+          <p className="text-xs text-slate-500">
+            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
+          </p>
         </div>
       )
     }

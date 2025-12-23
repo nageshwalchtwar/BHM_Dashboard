@@ -108,7 +108,7 @@ export default function BHMDashboard() {
         setSensorData(result.data)
         setStats({
           totalDataPoints: result.metadata.totalPoints,
-          latestTimestamp: result.metadata.latestDataTime || 'No data',
+          latestTimestamp: result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data',
           dataSource: result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
