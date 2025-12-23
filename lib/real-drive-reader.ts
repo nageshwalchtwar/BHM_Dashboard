@@ -49,35 +49,37 @@ export class RealGoogleDriveReader {
   
   private async getRealFileList(): Promise<Array<{filename: string, fileId: string}>> {
     try {
-      // Access the folder HTML to extract real file information
-      const folderUrl = `https://drive.google.com/drive/folders/${this.folderId}`;
+      // Use Google Drive API directly instead of drive-proxy to avoid URL parsing issues
+      const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
       
-      // Use proper URL encoding to avoid parsing errors
-      const encodedUrl = encodeURIComponent(folderUrl);
-      const proxyUrl = `/api/drive-proxy?url=${encodedUrl}`;
-      
-      console.log('🔗 Accessing folder via proxy:', proxyUrl);
-      const response = await fetch(proxyUrl);
-      
-      if (!response.ok) {
-        throw new Error(`Folder access failed: ${response.status} - ${response.statusText}`);
+      if (!apiKey) {
+        throw new Error('Google Drive API key not configured');
       }
       
-      const html = await response.text();
+      console.log('🔑 Using direct Google Drive API for file listing...');
+      
+      // List files in the folder using Google Drive API
+      const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${this.folderId}'+in+parents&orderBy=modifiedTime desc&key=${apiKey}&fields=files(id,name,modifiedTime)`;
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Google Drive API failed: ${response.status} - ${response.statusText}`);
+      }
+      
+      const data = await response.json();
       const files: Array<{filename: string, fileId: string}> = [];
       
-      // Look for the specific file pattern in the HTML
-      // Google Drive stores file info in data attributes
-      const fileRegex = /data-id="([^"]+)"[^>]*>[^<]*?(2025-12-20_\d{2}-\d{2})[^<]*/g;
-      let match;
-      
-      while ((match = fileRegex.exec(html)) !== null) {
-        const fileId = match[1];
-        const filename = match[2];
-        
-        if (filename && fileId) {
-          files.push({ filename, fileId });
-          console.log(`✅ Found real file: ${filename} (ID: ${fileId})`);
+      // Filter for CSV files that match the expected pattern
+      if (data.files) {
+        for (const file of data.files) {
+          if (file.name && file.name.includes('2025-12') && (file.name.endsWith('.csv') || file.name.includes('csv'))) {
+            files.push({
+              filename: file.name,
+              fileId: file.id
+            });
+            console.log(`✅ Found CSV file: ${file.name} (ID: ${file.id})`);
+          }
         }
       }
       
@@ -91,13 +93,35 @@ export class RealGoogleDriveReader {
   
   private async downloadRealFile(fileId: string): Promise<string | null> {
     try {
-      // Direct download URL for Google Drive files
-      const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-      const response = await fetch(`/api/drive-proxy?url=${encodeURIComponent(downloadUrl)}`);
+      const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+      if (!apiKey) {
+        console.error('Google Drive API key not configured');
+        return null;
+      }
+      
+      // Try Google Sheets export first
+      try {
+        const sheetsUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv&gid=0`;
+        const response = await fetch(sheetsUrl);
+        
+        if (response.ok) {
+          const content = await response.text();
+          if (content.length > 100 && content.includes('Device')) {
+            console.log(`✅ Successfully downloaded via Sheets export (${content.length} chars)`);
+            return content;
+          }
+        }
+      } catch (sheetsError) {
+        console.log('⚠️ Sheets export failed, trying direct download...');
+      }
+      
+      // Fallback to direct file download
+      const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
+      const response = await fetch(downloadUrl);
       
       if (response.ok) {
         const content = await response.text();
-        if (content.length > 100 && content.includes('Device,Timestamp')) {
+        if (content.length > 100 && content.includes('Device')) {
           console.log(`✅ Successfully downloaded file (${content.length} chars)`);
           return content;
         }
