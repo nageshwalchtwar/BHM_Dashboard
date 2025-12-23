@@ -204,7 +204,8 @@ function generateRecentFilePatterns(): string[] {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const minutes = parseInt(searchParams.get("minutes") || "1")
+  const minutes = parseInt(searchParams.get("minutes") || "10")
+  const fullCsv = searchParams.get("full") === "true"
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from your Google Drive...')
@@ -272,22 +273,31 @@ export async function GET(request: Request) {
     // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
     
-    // Get recent data based on requested timeframe
-    const recentData = getRecentData(allData, minutes)
+    // Get data based on requested timeframe
+    let filteredData
+    let timeframeDescription
     
-    console.log(`📈 Returning ${recentData.length} REAL data points from last ${minutes} minute(s)`)
+    if (fullCsv) {
+      filteredData = allData
+      timeframeDescription = "Full CSV"
+    } else {
+      filteredData = getRecentData(allData, minutes)
+      timeframeDescription = `${minutes} minute(s)`
+    }
+    
+    console.log(`📈 Returning ${filteredData.length} REAL data points from ${timeframeDescription}`)
     
     return NextResponse.json({
       success: true,
-      data: recentData,
+      data: filteredData,
       metadata: {
         source: dataSource,
         filename: filename,
         totalPoints: allData.length,
-        recentPoints: recentData.length,
-        timeframe: `${minutes} minute(s)`,
+        recentPoints: filteredData.length,
+        timeframe: timeframeDescription,
         lastUpdate: new Date().toISOString(),
-        latestDataTime: recentData[0] ? new Date(recentData[0].timestamp).toLocaleString() : null,
+        latestDataTime: filteredData[0] ? new Date(filteredData[0].timestamp).toLocaleString() : null,
         isRealData: true
       }
     })

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
@@ -66,6 +67,7 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [timeRange, setTimeRange] = useState<string>('10') // Default to 10 minutes
 
   // Set mounted state and check authentication
   useEffect(() => {
@@ -84,7 +86,7 @@ export default function BHMDashboard() {
     setCurrentUser(user)
   }, [router])
 
-  // Auto-refresh data every 30 seconds
+  // Auto-refresh data every 30 seconds and when time range changes
   useEffect(() => {
     fetchData()
     
@@ -92,12 +94,21 @@ export default function BHMDashboard() {
       const interval = setInterval(fetchData, 30000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh])
+  }, [autoRefresh, timeRange]) // Add timeRange dependency
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      const response = await fetch('/api/csv-data-real?minutes=10')
+      let apiUrl = '/api/csv-data-real'
+      
+      // Add time range parameter based on selection
+      if (timeRange === 'full') {
+        apiUrl += '?full=true'
+      } else {
+        apiUrl += `?minutes=${timeRange}`
+      }
+      
+      const response = await fetch(apiUrl)
       const result = await response.json()
       
       if (result.success && result.data) {
@@ -313,9 +324,9 @@ export default function BHMDashboard() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{sensorData.length.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                From {stats.dataSource}
+                {timeRange === 'full' ? 'Full CSV data' : `Last ${timeRange} minutes`}
               </p>
             </CardContent>
           </Card>
