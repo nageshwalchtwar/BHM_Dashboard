@@ -70,6 +70,20 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       // Parse values with exact column name matching first, then fallback to lowercase
       const parseValue = (exactName: string, fallbackName?: string): number => {
         const val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
+        
+        // Debug Temperature_C specifically
+        if (exactName === 'Temperature_C' || fallbackName === 'temperature_c') {
+          console.log(`🌡️ Temperature_C parsing:`, {
+            exactName,
+            fallbackName,
+            exactValue: row[exactName],
+            fallbackValue: fallbackName ? lowerRow[fallbackName] : undefined,
+            finalValue: val,
+            row: row,
+            lowerRow: lowerRow
+          })
+        }
+        
         if (val !== undefined && val !== null && val !== '') {
           const parsed = parseFloat(val)
           if (!isNaN(parsed)) return parsed

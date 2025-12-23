@@ -219,6 +219,19 @@ export async function GET(request: Request) {
     
     if (result && result.content) {
       console.log(`📊 Parsing real CSV: ${result.filename}`)
+      console.log(`🔍 Raw CSV content (first 500 chars):`)
+      console.log(result.content.substring(0, 500))
+      
+      const lines = result.content.trim().split('\n')
+      if (lines.length > 0) {
+        console.log(`🔍 Headers: "${lines[0]}"`)
+      }
+      if (lines.length > 1) {
+        console.log(`🔍 Sample data row 1: "${lines[1]}"`)
+      }
+      if (lines.length > 2) {
+        console.log(`🔍 Sample data row 2: "${lines[2]}"`)
+      }
       
       // Parse the real CSV content
       const parsedData = parseCSVToSensorData(result.content)
@@ -229,6 +242,14 @@ export async function GET(request: Request) {
         filename = result.filename
         
         console.log(`✅ Successfully parsed ${parsedData.length} real data points from ${filename}`)
+        console.log(`🔍 First parsed data point:`, {
+          timestamp: new Date(parsedData[0].timestamp).toLocaleString(),
+          temperature_c: parsedData[0].temperature_c,
+          stroke_mm: parsedData[0].stroke_mm,
+          x: parsedData[0].x,
+          y: parsedData[0].y,
+          z: parsedData[0].z
+        })
       }
     }
     
