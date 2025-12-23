@@ -165,33 +165,27 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
 export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
   if (data.length === 0) return []
   
+  console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
+  
   // Sort by timestamp descending (most recent first)
   const sortedData = data.sort((a, b) => b.timestamp - a.timestamp)
   
-  // If we have time-only timestamps (same day), just return the most recent entries
-  // Check if all timestamps are from today
-  const now = Date.now()
-  const oneDayAgo = now - (24 * 60 * 60 * 1000)
-  const allFromToday = sortedData.every(item => item.timestamp > oneDayAgo)
+  if (sortedData.length === 0) return []
   
-  if (allFromToday) {
-    // For time-only data, return recent entries based on requested minutes
-    let pointsToReturn
-    if (minutes <= 1) {
-      pointsToReturn = Math.min(20, sortedData.length) // ~1 minute
-    } else if (minutes <= 10) {
-      pointsToReturn = Math.min(200, sortedData.length) // ~10 minutes
-    } else {
-      pointsToReturn = Math.min(600, sortedData.length) // ~1 hour
-    }
-    console.log(`Returning last ${pointsToReturn} data points from today's data (${minutes} minutes requested)`)
-    return sortedData.slice(0, pointsToReturn)
-  }
+  // Get the most recent timestamp
+  const latestTimestamp = sortedData[0].timestamp
+  console.log(`🕐 Latest data timestamp: ${new Date(latestTimestamp).toLocaleString()}`)
   
-  const cutoffTime = now - (minutes * 60 * 1000) // Convert minutes to milliseconds
+  // Calculate cutoff time (minutes ago from the latest data point)
+  const cutoffTime = latestTimestamp - (minutes * 60 * 1000) // Convert minutes to milliseconds
+  console.log(`🕐 Cutoff time: ${new Date(cutoffTime).toLocaleString()}`)
+  
+  // Filter data within the time window
   const filteredData = sortedData.filter(item => item.timestamp >= cutoffTime)
   
-  console.log(`Filtered ${sortedData.length} total points to ${filteredData.length} recent points (last ${minutes} minutes)`)
+  console.log(`✅ Filtered ${data.length} total points to ${filteredData.length} points for last ${minutes} minute(s)`)
+  console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
+  
   return filteredData
 }
 

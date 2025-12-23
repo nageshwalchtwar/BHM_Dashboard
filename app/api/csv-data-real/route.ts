@@ -204,7 +204,9 @@ function generateRecentFilePatterns(): string[] {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const minutes = Math.min(parseInt(searchParams.get("minutes") || "5"), 10) // Limit to max 10 minutes
+  const minutes = parseInt(searchParams.get("minutes") || "5") // Remove the Math.min limit
+  
+  console.log(`📊 API Request: Getting data for last ${minutes} minute(s)`)
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from your Google Drive...')
@@ -277,6 +279,7 @@ export async function GET(request: Request) {
     const timeframeDescription = `${minutes} minute(s)`
     
     console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
+    console.log(`📊 Data time range: ${filteredData.length > 0 ? new Date(filteredData[filteredData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(filteredData[0].timestamp).toLocaleString() : 'No data'}`)
     
     return NextResponse.json({
       success: true,

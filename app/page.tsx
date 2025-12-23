@@ -335,7 +335,7 @@ export default function BHMDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                Showing {sensorData.length.toLocaleString()} from last {timeRange} min
+                Filtered: {sensorData.length.toLocaleString()} from {timeRange} min
               </p>
             </CardContent>
           </Card>
