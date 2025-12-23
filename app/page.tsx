@@ -24,7 +24,6 @@ import {
   User
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
-import { InteractiveChart } from "@/components/interactive-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
@@ -480,14 +479,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <InteractiveChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  field="temperature_c"
-                  title="Temperature"
-                  color="#ef4444"
-                  unit="°C"
-                />
+                <TemperatureChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -501,14 +493,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <InteractiveChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  field="stroke_mm"
-                  title="Stroke"
-                  color="#10b981"
-                  unit="mm"
-                />
+                <StrainChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -522,13 +507,12 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <InteractiveChart 
+                <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  field="accel_x"
-                  title="X Acceleration"
-                  color="#3b82f6"
-                  unit="g"
+                  axis="accel_x" 
+                  title="X Acceleration" 
+                  color="#3b82f6" 
                 />
               </CardContent>
             </Card>
@@ -543,13 +527,12 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <InteractiveChart 
+                <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  field="accel_y"
-                  title="Y Acceleration"
-                  color="#f59e0b"
-                  unit="g"
+                  axis="accel_y" 
+                  title="Y Acceleration" 
+                  color="#f59e0b" 
                 />
               </CardContent>
             </Card>
@@ -564,13 +547,12 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <InteractiveChart 
+                <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  field="accel_z"
-                  title="Z Acceleration"
-                  color="#8b5cf6"
-                  unit="g"
+                  axis="accel_z" 
+                  title="Z Acceleration" 
+                  color="#8b5cf6" 
                 />
               </CardContent>
             </Card>
