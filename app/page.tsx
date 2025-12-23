@@ -234,8 +234,26 @@ export default function BHMDashboard() {
                  connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
               </span>
             </div>
-            
-            <Button 
+                        {/* Time Range Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Time Range:</span>
+              <Select value={timeRange} onValueChange={setTimeRange}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Last 1 minute</SelectItem>
+                  <SelectItem value="5">Last 5 minutes</SelectItem>
+                  <SelectItem value="10">Last 10 minutes</SelectItem>
+                  <SelectItem value="30">Last 30 minutes</SelectItem>
+                  <SelectItem value="60">Last 1 hour</SelectItem>
+                  <SelectItem value="full">Full CSV</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">            <Button 
               onClick={fetchData} 
               disabled={loading}
               size="sm"
