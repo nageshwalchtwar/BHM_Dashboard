@@ -3,8 +3,8 @@ import { parseCSVToSensorData, getRecentData } from "@/lib/csv-handler"
 import { GoogleDriveAuthenticatedClient, getLatestCSVWithAPIKey } from '@/lib/google-drive-auth'
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 
-// Your Google Drive folder ID
-const DRIVE_FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
+// Your Google Drive folder ID - use environment variable with fallback
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
 
 // Get the latest CSV file using authenticated Google Drive access
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {

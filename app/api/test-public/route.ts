@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
   try {
     // Since the folder is public, let's try to access it without API keys
-    const folderId = "17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai"
+    const folderId = "10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM"
     
     console.log('Testing direct public access to folder:', folderId)
     

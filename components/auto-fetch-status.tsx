@@ -152,7 +152,7 @@ export function AutoFetchStatus({ onDataUpdate }: AutoFetchStatusProps) {
           {(dataSource === 'none' || dataSource === 'cached') && (
             <>
               <Button
-                onClick={() => window.open('https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai', '_blank')}
+                onClick={() => window.open('https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM', '_blank')}
                 size="sm"
                 variant="secondary"
               >
