@@ -373,12 +373,14 @@ export default function BHMDashboard() {
 
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="temperature">Temperature</TabsTrigger>
+            <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
             <TabsTrigger value="vibration">Vibration</TabsTrigger>
-            <TabsTrigger value="strain">Stroke</TabsTrigger>
-            <TabsTrigger value="acceleration">Acceleration</TabsTrigger>
+            <TabsTrigger value="strain">Stroke_mm</TabsTrigger>
+            <TabsTrigger value="accel-x">X</TabsTrigger>
+            <TabsTrigger value="accel-y">Y</TabsTrigger>
+            <TabsTrigger value="accel-z">Z</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -404,7 +406,7 @@ export default function BHMDashboard() {
           <TabsContent value="temperature" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Temperature Monitoring</CardTitle>
+                <CardTitle>Temperature_C Column</CardTitle>
                 <CardDescription>
                   Structural temperature measurements in Celsius (Temperature_C)
                 </CardDescription>
@@ -435,7 +437,7 @@ export default function BHMDashboard() {
           <TabsContent value="strain" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Stroke Displacement</CardTitle>
+                <CardTitle>Stroke_mm Column</CardTitle>
                 <CardDescription>
                   Stroke displacement measurements in millimeters (Stroke_mm)
                 </CardDescription>
@@ -446,16 +448,62 @@ export default function BHMDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="acceleration" className="space-y-4">
+          <TabsContent value="accel-x" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>3-Axis Accelerometer Data</CardTitle>
+                <CardTitle>X Column Data</CardTitle>
                 <CardDescription>
-                  X, Y, Z acceleration measurements
+                  X-axis acceleration measurements from CSV column
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} />
+                <AccelerometerChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  axis="x" 
+                  title="X-Axis" 
+                  color="#ef4444" 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="accel-y" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Y Column Data</CardTitle>
+                <CardDescription>
+                  Y-axis acceleration measurements from CSV column
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  axis="y" 
+                  title="Y-Axis" 
+                  color="#10b981" 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="accel-z" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Z Column Data</CardTitle>
+                <CardDescription>
+                  Z-axis acceleration measurements from CSV column
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  axis="z" 
+                  title="Z-Axis" 
+                  color="#3b82f6" 
+                />
               </CardContent>
             </Card>
           </TabsContent>

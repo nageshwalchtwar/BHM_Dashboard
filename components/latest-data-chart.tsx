@@ -20,9 +20,10 @@ interface LatestDataChartProps {
 }
 
 export function LatestDataChart({ title, dataKey, unit, color, thresholds }: LatestDataChartProps) {
+  const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<CSVSensorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const fetchLatestData = async () => {
@@ -50,6 +51,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
   }
 
   useEffect(() => {
+    setMounted(true)
     fetchLatestData()
     
     // Auto-refresh every 30 seconds
@@ -146,7 +148,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
       </CardHeader>
       <CardContent>
         <div className="text-xs text-muted-foreground mb-2">
-          Last 1 minute • Updated: {lastUpdate.toLocaleTimeString()}
+          Last 1 minute • Updated: {mounted && lastUpdate ? lastUpdate.toLocaleTimeString() : 'Loading...'}
         </div>
         {isLoading ? (
           <div className="h-[200px] flex items-center justify-center bg-slate-50 rounded-lg">
