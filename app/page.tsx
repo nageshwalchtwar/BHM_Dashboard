@@ -24,6 +24,7 @@ import {
   User
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
+import { InteractiveChart } from "@/components/interactive-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
@@ -67,7 +68,7 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [timeRange, setTimeRange] = useState<string>('10') // Default to 10 minutes
+  const [timeRange, setTimeRange] = useState<string>('5') // Default to 5 minutes
 
   // Set mounted state and check authentication
   useEffect(() => {
@@ -99,14 +100,7 @@ export default function BHMDashboard() {
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = '/api/csv-data-real'
-      
-      // Add time range parameter based on selection
-      if (timeRange === 'full') {
-        apiUrl += '?full=true'
-      } else {
-        apiUrl += `?minutes=${timeRange}`
-      }
+      let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
       
       const response = await fetch(apiUrl)
       const result = await response.json()
@@ -243,11 +237,9 @@ export default function BHMDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Last 1 minute</SelectItem>
+                  <SelectItem value="2">Last 2 minutes</SelectItem>
                   <SelectItem value="5">Last 5 minutes</SelectItem>
                   <SelectItem value="10">Last 10 minutes</SelectItem>
-                  <SelectItem value="30">Last 30 minutes</SelectItem>
-                  <SelectItem value="60">Last 1 hour</SelectItem>
-                  <SelectItem value="full">Full CSV</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -344,7 +336,7 @@ export default function BHMDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                Total CSV data points
+                Showing {sensorData.length.toLocaleString()} from last {timeRange} min
               </p>
             </CardContent>
           </Card>
@@ -488,7 +480,14 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <TemperatureChart data={sensorData} isLoading={loading} />
+                <InteractiveChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  field="temperature_c"
+                  title="Temperature"
+                  color="#ef4444"
+                  unit="°C"
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -502,7 +501,14 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <StrainChart data={sensorData} isLoading={loading} />
+                <InteractiveChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  field="stroke_mm"
+                  title="Stroke"
+                  color="#10b981"
+                  unit="mm"
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -516,12 +522,13 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
+                <InteractiveChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="accel_x" 
-                  title="X Acceleration" 
-                  color="#ef4444" 
+                  field="accel_x"
+                  title="X Acceleration"
+                  color="#3b82f6"
+                  unit="g"
                 />
               </CardContent>
             </Card>
@@ -536,12 +543,13 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
+                <InteractiveChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="accel_y" 
-                  title="Y Acceleration" 
-                  color="#10b981" 
+                  field="accel_y"
+                  title="Y Acceleration"
+                  color="#f59e0b"
+                  unit="g"
                 />
               </CardContent>
             </Card>
@@ -556,12 +564,13 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
+                <InteractiveChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="accel_z" 
-                  title="Z Acceleration" 
-                  color="#3b82f6" 
+                  field="accel_z"
+                  title="Z Acceleration"
+                  color="#8b5cf6"
+                  unit="g"
                 />
               </CardContent>
             </Card>

@@ -204,8 +204,7 @@ function generateRecentFilePatterns(): string[] {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const minutes = parseInt(searchParams.get("minutes") || "10")
-  const fullCsv = searchParams.get("full") === "true"
+  const minutes = Math.min(parseInt(searchParams.get("minutes") || "5"), 10) // Limit to max 10 minutes
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from your Google Drive...')
@@ -273,19 +272,11 @@ export async function GET(request: Request) {
     // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
     
-    // Get data based on requested timeframe
-    let filteredData
-    let timeframeDescription
+    // Get recent data based on requested timeframe (max 10 minutes)
+    const filteredData = getRecentData(allData, minutes)
+    const timeframeDescription = `${minutes} minute(s)`
     
-    if (fullCsv) {
-      filteredData = allData
-      timeframeDescription = "Full CSV"
-    } else {
-      filteredData = getRecentData(allData, minutes)
-      timeframeDescription = `${minutes} minute(s)`
-    }
-    
-    console.log(`📈 Returning ${filteredData.length} REAL data points from ${timeframeDescription}`)
+    console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
     
     return NextResponse.json({
       success: true,
