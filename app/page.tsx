@@ -331,7 +331,9 @@ export default function BHMDashboard() {
                 <Thermometer className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-800">{latestValues.temperature}</div>
+                <div className="text-2xl font-bold text-red-800">
+                  {sensorData.length > 0 ? (sensorData[0].temperature_c?.toFixed(2) || '0.00') : 'N/A'}
+                </div>
                 <p className="text-xs text-red-600">°C</p>
               </CardContent>
             </Card>
@@ -342,7 +344,9 @@ export default function BHMDashboard() {
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-800">{latestValues.strain}</div>
+                <div className="text-2xl font-bold text-green-800">
+                  {sensorData.length > 0 ? (sensorData[0].stroke_mm?.toFixed(2) || '0.00') : 'N/A'}
+                </div>
                 <p className="text-xs text-green-600">mm</p>
               </CardContent>
             </Card>
@@ -383,35 +387,14 @@ export default function BHMDashboard() {
         )}
 
         {/* Charts Section - Only CSV Columns */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+        <Tabs defaultValue="temperature" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
             <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
             <TabsTrigger value="accel-x">X</TabsTrigger>
             <TabsTrigger value="accel-y">Y</TabsTrigger>
             <TabsTrigger value="accel-z">Z</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Real-time Sensor Data Overview</CardTitle>
-                <CardDescription>
-                  Live data from bridge monitoring sensors - Last 10 minutes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <LatestDataChart 
-                  title="Temperature Overview"
-                  dataKey="temperature_c"
-                  unit="°C"
-                  color="#ef4444"
-                  thresholds={{ warning: 30, critical: 35 }}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="temperature" className="space-y-4">
             <Card>

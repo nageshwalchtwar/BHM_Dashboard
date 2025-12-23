@@ -69,7 +69,13 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       
       // Parse values with exact column name matching first, then fallback to lowercase
       const parseValue = (exactName: string, fallbackName?: string): number => {
-        const val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
+        let val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
+        
+        // Special handling for temperature - try multiple variations
+        if ((exactName === 'Temperature_C' || fallbackName === 'temperature_c') && !val) {
+          val = row['temperature_c'] || row['Temperature_c'] || row['TEMPERATURE_C'] || 
+                lowerRow['temperature'] || lowerRow['temp'] || lowerRow['temperature_c']
+        }
         
         // Debug Temperature_C specifically
         if (exactName === 'Temperature_C' || fallbackName === 'temperature_c') {
@@ -78,9 +84,16 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
             fallbackName,
             exactValue: row[exactName],
             fallbackValue: fallbackName ? lowerRow[fallbackName] : undefined,
+            alternateValues: {
+              'temperature_c': row['temperature_c'],
+              'Temperature_c': row['Temperature_c'], 
+              'TEMPERATURE_C': row['TEMPERATURE_C'],
+              'temperature': lowerRow['temperature'],
+              'temp': lowerRow['temp']
+            },
             finalValue: val,
-            row: row,
-            lowerRow: lowerRow
+            allRowKeys: Object.keys(row),
+            allValues: row
           })
         }
         
