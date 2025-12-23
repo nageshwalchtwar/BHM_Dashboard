@@ -189,6 +189,23 @@ export default function BHMDashboard() {
               <AlertTriangle className={`h-4 w-4 mr-2`} />
               Debug
             </Button>
+
+            <Button 
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/env-check')
+                  const result = await response.json()
+                  console.log('🔍 Environment Check:', result)
+                  alert(`Environment Status: ${result.message}\n\nAPI Key: ${result.environment.GOOGLE_DRIVE_API_KEY !== 'NOT_SET' ? '✅ Found' : '❌ Missing'}\nFolder ID: ${result.environment.GOOGLE_DRIVE_FOLDER_ID !== 'NOT_SET' ? '✅ Found' : '❌ Missing'}`)
+                } catch (err) {
+                  alert('Failed to check environment variables')
+                }
+              }}
+              size="sm"
+              variant="outline"
+            >
+              🔍 Check Env
+            </Button>
           </div>
         </div>
 
