@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { parseCSVToSensorData, getRecentData } from "@/lib/csv-handler"
-import { GoogleDriveAuthenticatedClient, getLatestCSVWithAPIKey } from '@/lib/google-drive-auth'
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 
 // Your Google Drive folder ID - use environment variable with fallback
