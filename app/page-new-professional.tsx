@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import { 
   Activity, 
   Thermometer, 
@@ -281,7 +282,6 @@ export default function BHMDashboard() {
               </CardContent>
             </Card>
           </div>
-        )}
         )}
 
         {/* Charts Section */}
