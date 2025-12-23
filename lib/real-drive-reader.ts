@@ -51,10 +51,16 @@ export class RealGoogleDriveReader {
     try {
       // Access the folder HTML to extract real file information
       const folderUrl = `https://drive.google.com/drive/folders/${this.folderId}`;
-      const response = await fetch(`/api/drive-proxy?url=${encodeURIComponent(folderUrl)}`);
+      
+      // Use proper URL encoding to avoid parsing errors
+      const encodedUrl = encodeURIComponent(folderUrl);
+      const proxyUrl = `/api/drive-proxy?url=${encodedUrl}`;
+      
+      console.log('🔗 Accessing folder via proxy:', proxyUrl);
+      const response = await fetch(proxyUrl);
       
       if (!response.ok) {
-        throw new Error(`Folder access failed: ${response.status}`);
+        throw new Error(`Folder access failed: ${response.status} - ${response.statusText}`);
       }
       
       const html = await response.text();
