@@ -52,17 +52,34 @@ export class SimpleGoogleDriveAPI {
     }
 
     try {
-      // First try Google Sheets export (most common case)
+      console.log(`🔄 Downloading file: ${fileId}`);
+      
+      // First try Google Sheets export (most common case) - No API key needed for export
       const exportResponse = await fetch(
-        `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv&key=${this.apiKey}`
+        `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; BHM-Dashboard/1.0)',
+            'Accept': 'text/csv,application/csv,text/plain,*/*'
+          }
+        }
       );
       
       if (exportResponse.ok) {
         const content = await exportResponse.text();
-        if (content && content.includes('Device,Timestamp')) {
+        console.log(`📄 Export response: ${content.length} chars`);
+        
+        if (content && content.length > 100 && content.includes('Device')) {
           console.log('✅ Successfully exported Google Sheets as CSV');
           return content;
         }
+        
+        // Log first few lines for debugging
+        if (content) {
+          console.log(`📄 Content preview: ${content.substring(0, 200)}...`);
+        }
+      } else {
+        console.log(`❌ Export failed: ${exportResponse.status} ${exportResponse.statusText}`);
       }
       
       // Fallback to regular file download for actual CSV files
@@ -71,7 +88,13 @@ export class SimpleGoogleDriveAPI {
       );
       
       if (response.ok) {
-        return await response.text();
+        const content = await response.text();
+        if (content && content.includes('Device')) {
+          console.log('✅ Successfully downloaded file via Drive API');
+          return content;
+        }
+      } else {
+        console.log(`❌ Drive API download failed: ${response.status} ${response.statusText}`);
       }
       
       return null;

@@ -58,6 +58,7 @@ export default function BHMDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Auto-refresh data every 30 seconds
   useEffect(() => {
@@ -68,6 +69,57 @@ export default function BHMDashboard() {
       return () => clearInterval(interval)
     }
   }, [autoRefresh])
+
+  const fetchData = async () => {
+    setConnectionStatus('connecting')
+    try {
+      const response = await fetch('/api/csv-data-real?minutes=60')
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        setSensorData(result.data)
+        setStats({
+          totalDataPoints: result.metadata.totalPoints,
+          latestTimestamp: result.metadata.latestDataTime || 'No data',
+          dataSource: result.metadata.filename || 'Google Drive',
+          healthStatus: 'healthy',
+          lastUpdate: new Date().toLocaleString()
+        })
+        setError(null)
+        setConnectionStatus('connected')
+      } else {
+        throw new Error(result.error || result.message || 'Failed to fetch data')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setConnectionStatus('disconnected')
+      setStats(prev => ({...prev, healthStatus: 'error'}))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runDebugTest = async () => {
+    try {
+      setLoading(true)
+      console.log('🔧 Running comprehensive Google Drive debug...')
+      
+      const response = await fetch('/api/debug-drive')
+      const result = await response.json()
+      
+      setDebugInfo(result)
+      console.log('Debug results:', result)
+      
+    } catch (err) {
+      console.error('Debug test failed:', err)
+      setDebugInfo({
+        error: 'Debug test failed',
+        message: err instanceof Error ? err.message : 'Unknown error'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
@@ -149,6 +201,16 @@ export default function BHMDashboard() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
+            
+            <Button 
+              onClick={runDebugTest} 
+              disabled={loading}
+              size="sm"
+              variant="secondary"
+            >
+              <AlertTriangle className={`h-4 w-4 mr-2`} />
+              Debug
+            </Button>
           </div>
         </div>
 
@@ -159,6 +221,54 @@ export default function BHMDashboard() {
             <AlertTitle>Connection Error</AlertTitle>
             <AlertDescription>
               {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Debug Results */}
+        {debugInfo && (
+          <Alert variant={debugInfo.summary?.overallStatus === 'PARTIAL_SUCCESS' ? 'default' : 'destructive'}>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Google Drive Debug Results</AlertTitle>
+            <AlertDescription>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <strong>Status:</strong> {debugInfo.summary?.overallStatus || 'Unknown'}
+                </div>
+                <div>
+                  <strong>Tests:</strong> {debugInfo.summary?.passedTests || 0}/{debugInfo.summary?.totalTests || 0} passed
+                </div>
+                
+                {debugInfo.tests && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm font-medium">View Test Details</summary>
+                    <div className="mt-2 space-y-1 text-xs">
+                      {debugInfo.tests.map((test: any, index: number) => (
+                        <div key={index} className="p-2 border rounded">
+                          <div className="flex justify-between">
+                            <span className="font-medium">{test.name}</span>
+                            <Badge variant={test.status === 'PASS' ? 'default' : 'destructive'}>
+                              {test.status}
+                            </Badge>
+                          </div>
+                          <div className="text-xs mt-1">{test.details}</div>
+                          {test.contentPreview && (
+                            <div className="text-xs mt-1 bg-gray-100 p-1 rounded">
+                              Preview: {test.contentPreview}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                
+                {debugInfo.summary?.recommendation && (
+                  <div className="mt-2">
+                    <strong>Recommendation:</strong> {debugInfo.summary.recommendation}
+                  </div>
+                )}
+              </div>
             </AlertDescription>
           </Alert>
         )}

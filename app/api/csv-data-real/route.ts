@@ -10,21 +10,39 @@ const DRIVE_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {
   try {
     console.log('🔐 Getting latest CSV with multiple Google Drive access methods...')
+    console.log('📂 Using folder ID:', DRIVE_FOLDER_ID)
+    console.log('🔑 API Key available:', !!process.env.GOOGLE_DRIVE_API_KEY)
     
     // Method 1: Try simple Google Drive API first (most reliable)
     try {
       console.log('🚀 Attempting Simple Google Drive API...')
       const result = await getCSVFromGoogleDrive()
       
-      if (result) {
-        console.log('✅ SUCCESS: Got real CSV data via Simple Google Drive API')
+      if (result && result.content && result.content.length > 100) {
+        console.log(`✅ SUCCESS: Got real CSV data via Simple Google Drive API (${result.content.length} chars)`)
+        console.log(`📄 First 200 chars: ${result.content.substring(0, 200)}...`)
         return result
+      } else if (result) {
+        console.log('⚠️ Simple API returned empty/invalid content:', result.content?.substring(0, 100))
       }
     } catch (simpleError) {
       console.log('⚠️ Simple Google Drive API failed:', simpleError)
     }
 
-    // Method 2: Try OAuth authenticated client
+    // Method 2: Direct file access using known patterns
+    try {
+      console.log('🔍 Attempting direct file pattern access...')
+      const result = await getLatestRealCSVFallback()
+      
+      if (result && result.content && result.content.length > 100) {
+        console.log('✅ SUCCESS: Got real CSV data via direct pattern access')
+        return result
+      }
+    } catch (patternError) {
+      console.log('⚠️ Pattern access failed:', patternError)
+    }
+
+    // Method 3: Try OAuth authenticated client
     try {
       console.log('🔑 Attempting OAuth authentication...')
       const client = new GoogleDriveAuthenticatedClient()
@@ -38,7 +56,7 @@ async function getLatestRealCSV(): Promise<{filename: string, content: string} |
       console.log('⚠️ OAuth authentication failed:', authError)
     }
 
-    // Method 3: Try API key method (for public/shared access)
+    // Method 4: Try API key method (for public/shared access)
     try {
       console.log('🔑 Attempting API key access...')
       const result = await getLatestCSVWithAPIKey()
@@ -51,9 +69,8 @@ async function getLatestRealCSV(): Promise<{filename: string, content: string} |
       console.log('⚠️ API key method failed:', apiError)
     }
 
-    // Method 4: Fallback to direct patterns (previous method)
-    console.log('🔄 Falling back to direct file access patterns...')
-    return await getLatestRealCSVFallback()
+    console.log('❌ All methods failed to retrieve CSV data')
+    return null
     
   } catch (error) {
     console.error('❌ All Google Drive access methods failed:', error)
@@ -66,6 +83,28 @@ async function getLatestRealCSVFallback(): Promise<{filename: string, content: s
   try {
     console.log('🔍 Using fallback method - trying direct file patterns...')
     
+    // First, try to access known working files directly
+    const knownWorkingIds = [
+      '1HB9Bb8j9fVFjsP-TdGvJlRsPCc8-9KGj', // Example ID, you can add more if you know them
+      // Add more known file IDs here if available
+    ]
+    
+    for (const fileId of knownWorkingIds) {
+      try {
+        console.log(`🎯 Trying known file ID: ${fileId}`)
+        
+        const content = await tryDirectFileAccess(fileId)
+        if (content) {
+          return {
+            filename: `${fileId}.csv`,
+            content: content
+          }
+        }
+      } catch (err) {
+        console.log(`❌ Known file ${fileId} failed:`, err)
+      }
+    }
+    
     // Generate recent file patterns based on current time (matching your naming: 2025-12-23_01-40)
     const patterns = generateRecentFilePatterns()
     
@@ -73,39 +112,11 @@ async function getLatestRealCSVFallback(): Promise<{filename: string, content: s
       try {
         console.log(`🔍 Trying file pattern: ${pattern}`)
         
-        // Try different Google Drive access methods (prioritize Google Sheets export)
-        const urls = [
-          `https://docs.google.com/spreadsheets/d/${pattern}/export?format=csv`,
-          `https://drive.google.com/uc?id=${pattern}&export=download`,
-        ]
-        
-        for (const url of urls) {
-          try {
-            const response = await fetch(url, {
-              method: 'GET',
-              headers: {
-                'User-Agent': 'BHM-Dashboard/1.0',
-                'Accept': 'text/csv,application/csv,text/plain,*/*'
-              }
-            })
-            
-            if (response.ok) {
-              const content = await response.text()
-              
-              // Check if it's your real CSV format
-              if (content && content.length > 100 && 
-                  content.includes('Device,Timestamp') && 
-                  content.includes('88A29E218213')) {
-                
-                console.log(`✅ SUCCESS: Got real CSV data (${content.length} chars)`)
-                return {
-                  filename: `${pattern}.csv`,
-                  content: content
-                }
-              }
-            }
-          } catch (err) {
-            // Continue to next URL
+        const content = await tryDirectFileAccess(pattern)
+        if (content) {
+          return {
+            filename: `${pattern}.csv`,
+            content: content
           }
         }
       } catch (err) {
@@ -117,6 +128,55 @@ async function getLatestRealCSVFallback(): Promise<{filename: string, content: s
     
   } catch (error) {
     console.error('❌ Error in fallback method:', error)
+    return null
+  }
+}
+
+// Helper function to try accessing a file directly
+async function tryDirectFileAccess(fileId: string): Promise<string | null> {
+  try {
+    // Try different Google Drive access methods (prioritize Google Sheets export)
+    const urls = [
+      `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
+      `https://drive.google.com/uc?id=${fileId}&export=download`,
+    ]
+    
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'BHM-Dashboard/1.0',
+            'Accept': 'text/csv,application/csv,text/plain,*/*'
+          }
+        })
+        
+        if (response.ok) {
+          const content = await response.text()
+          
+          // Check if it's your real CSV format
+          if (content && content.length > 100 && 
+              (content.includes('Device,Timestamp') || content.includes('Device')) && 
+              content.includes('88A29E218213')) {
+            
+            console.log(`✅ SUCCESS: Got real CSV data (${content.length} chars) from ${url}`)
+            return content
+          } else if (content && content.length > 50) {
+            console.log(`📄 Got content but not CSV format: ${content.substring(0, 100)}...`)
+          }
+        } else {
+          console.log(`❌ ${url} failed: ${response.status} ${response.statusText}`)
+        }
+      } catch (err) {
+        console.log(`❌ URL ${url} error:`, err)
+        // Continue to next URL
+      }
+    }
+    
+    return null
+    
+  } catch (error) {
+    console.log(`❌ Direct access error for ${fileId}:`, error)
     return null
   }
 }
