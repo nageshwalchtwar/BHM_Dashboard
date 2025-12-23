@@ -26,15 +26,15 @@ import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
 
 interface SensorData {
-  timestamp: number
-  device: string
-  vibration: number
-  acceleration: number
-  strain: number
-  temperature: number
+  timestamp: string  // Changed from number to string to match CSV format
   x: number
   y: number
   z: number
+  stroke_mm: number  // Renamed from strain to match CSV
+  temperature_c: number  // Renamed from temperature to match CSV
+  // Computed fields
+  acceleration?: number  // Will be calculated from x,y,z
+  vibration?: number     // Will be calculated from acceleration
 }
 
 interface DashboardStats {
@@ -46,6 +46,7 @@ interface DashboardStats {
 }
 
 export default function BHMDashboard() {
+  const [mounted, setMounted] = useState(false)
   const [sensorData, setSensorData] = useState<SensorData[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     totalDataPoints: 0,
@@ -59,6 +60,11 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
+
+  // Set mounted state to prevent hydration issues
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Auto-refresh data every 30 seconds
   useEffect(() => {
@@ -83,7 +89,7 @@ export default function BHMDashboard() {
           latestTimestamp: result.metadata.latestDataTime || 'No data',
           dataSource: result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
-          lastUpdate: new Date().toLocaleString()
+          lastUpdate: mounted ? new Date().toLocaleString() : ''
         })
         setError(null)
         setConnectionStatus('connected')
@@ -124,11 +130,12 @@ export default function BHMDashboard() {
   const getLatestValues = () => {
     if (sensorData.length === 0) return null
     const latest = sensorData[0]
+    const acceleration = Math.sqrt(latest.x**2 + latest.y**2 + latest.z**2)
     return {
-      vibration: latest.vibration?.toFixed(2) || 'N/A',
-      temperature: latest.temperature?.toFixed(1) || 'N/A',
-      strain: latest.strain?.toFixed(0) || 'N/A',
-      acceleration: Math.sqrt(latest.x**2 + latest.y**2 + latest.z**2)?.toFixed(3) || 'N/A'
+      vibration: acceleration?.toFixed(2) || 'N/A',  // Use acceleration as vibration
+      temperature: latest.temperature_c?.toFixed(1) || 'N/A',
+      strain: latest.stroke_mm?.toFixed(2) || 'N/A',  // Use stroke_mm as strain
+      acceleration: acceleration?.toFixed(3) || 'N/A'
     }
   }
 
@@ -273,7 +280,7 @@ export default function BHMDashboard() {
             <CardContent>
               <div className="text-2xl font-bold capitalize">{stats.healthStatus}</div>
               <p className="text-xs text-muted-foreground">
-                Last update: {stats.lastUpdate}
+                Last update: {mounted ? (stats.lastUpdate || new Date().toLocaleString()) : 'Loading...'}
               </p>
             </CardContent>
           </Card>
@@ -285,11 +292,11 @@ export default function BHMDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleTimeString() : 'N/A'}
+                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleTimeString() : (mounted ? 'N/A' : 'Loading...')}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleDateString() : 'No data available'}
-              </p>
+              <div className="text-sm text-muted-foreground">
+                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
+              </div>
             </CardContent>
           </Card>
 
@@ -320,7 +327,7 @@ export default function BHMDashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-700">Vibration</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-700">Vibration (g)</CardTitle>
                 <Activity className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
@@ -331,7 +338,7 @@ export default function BHMDashboard() {
 
             <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">Temperature</CardTitle>
+                <CardTitle className="text-sm font-medium text-red-700">Temperature (°C)</CardTitle>
                 <Thermometer className="h-4 w-4 text-red-600" />
               </CardHeader>
               <CardContent>
@@ -342,7 +349,7 @@ export default function BHMDashboard() {
 
             <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-700">Strain</CardTitle>
+                <CardTitle className="text-sm font-medium text-green-700">Stroke (mm)</CardTitle>
                 <TrendingUp className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
@@ -363,7 +370,6 @@ export default function BHMDashboard() {
             </Card>
           </div>
         )}
-        )}
 
         {/* Charts Section */}
         <Tabs defaultValue="overview" className="space-y-4">
@@ -371,7 +377,7 @@ export default function BHMDashboard() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="temperature">Temperature</TabsTrigger>
             <TabsTrigger value="vibration">Vibration</TabsTrigger>
-            <TabsTrigger value="strain">Strain</TabsTrigger>
+            <TabsTrigger value="strain">Stroke</TabsTrigger>
             <TabsTrigger value="acceleration">Acceleration</TabsTrigger>
           </TabsList>
 
@@ -385,9 +391,11 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <LatestDataChart 
-                  data={sensorData} 
-                  loading={loading}
-                  showLegend={true}
+                  title="Temperature Overview"
+                  dataKey="temperature_c"
+                  unit="°C"
+                  color="#ef4444"
+                  thresholds={{ warning: 30, critical: 35 }}
                 />
               </CardContent>
             </Card>
@@ -398,11 +406,11 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>Temperature Monitoring</CardTitle>
                 <CardDescription>
-                  Structural temperature measurements over time
+                  Structural temperature measurements in Celsius (Temperature_C)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <TemperatureChart data={sensorData} loading={loading} />
+                <TemperatureChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -412,11 +420,14 @@ export default function BHMDashboard() {
               <CardHeader>
                 <CardTitle>Vibration Analysis</CardTitle>
                 <CardDescription>
-                  Bridge vibration frequency analysis
+                  Computed vibration from X, Y, Z accelerometer data
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <VibrationChart data={sensorData} loading={loading} />
+                <VibrationChart data={sensorData.map(d => ({
+                  ...d,
+                  vibration: Math.sqrt(d.x**2 + d.y**2 + d.z**2)
+                }))} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -424,13 +435,13 @@ export default function BHMDashboard() {
           <TabsContent value="strain" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Structural Strain</CardTitle>
+                <CardTitle>Stroke Displacement</CardTitle>
                 <CardDescription>
-                  Strain measurements indicating structural stress
+                  Stroke displacement measurements in millimeters (Stroke_mm)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <StrainChart data={sensorData} loading={loading} />
+                <StrainChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -444,7 +455,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} loading={loading} />
+                <AccelerometerChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>

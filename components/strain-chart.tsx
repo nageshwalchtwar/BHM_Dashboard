@@ -53,7 +53,7 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
           <ReferenceLine y={150} stroke="#f59e0b" strokeDasharray="5 5" label="Warning Threshold" />
           <Line
             type="monotone"
-            dataKey="strain"
+            dataKey="stroke_mm"
             stroke="#7c3aed"
             strokeWidth={2}
             dot={false}

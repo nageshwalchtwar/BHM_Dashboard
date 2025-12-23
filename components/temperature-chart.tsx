@@ -53,7 +53,7 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
           <ReferenceLine y={30} stroke="#f59e0b" strokeDasharray="5 5" label="Warning Threshold" />
           <Line
             type="monotone"
-            dataKey="temperature"
+            dataKey="temperature_c"
             stroke="#ea580c"
             strokeWidth={2}
             dot={false}
