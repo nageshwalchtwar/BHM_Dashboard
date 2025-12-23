@@ -324,9 +324,9 @@ export default function BHMDashboard() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{sensorData.length.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                {timeRange === 'full' ? 'Full CSV data' : `Last ${timeRange} minutes`}
+                Total CSV data points
               </p>
             </CardContent>
           </Card>
