@@ -73,7 +73,7 @@ async function getLatestRealCSVFallback(): Promise<{filename: string, content: s
       try {
         console.log(`🔍 Trying file pattern: ${pattern}`)
         
-        // Try different Google Drive access methods
+        // Try different Google Drive access methods (prioritize Google Sheets export)
         const urls = [
           `https://docs.google.com/spreadsheets/d/${pattern}/export?format=csv`,
           `https://drive.google.com/uc?id=${pattern}&export=download`,

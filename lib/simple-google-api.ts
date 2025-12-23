@@ -16,18 +16,26 @@ export class SimpleGoogleDriveAPI {
 
     try {
       console.log('🔑 Trying Google Drive API with API key...');
+      console.log(`📂 Folder ID: ${this.folderId}`);
       
-      const url = `https://www.googleapis.com/drive/v3/files?q='${this.folderId}'+in+parents&orderBy=modifiedTime desc&key=${this.apiKey}&fields=files(id,name,modifiedTime,size)`;
+      const url = `https://www.googleapis.com/drive/v3/files?q='${this.folderId}'+in+parents&orderBy=modifiedTime desc&key=${this.apiKey}&fields=files(id,name,modifiedTime,size,mimeType)`;
       
       const response = await fetch(url);
       
       if (!response.ok) {
-        console.log(`❌ API key request failed: ${response.status}`);
+        console.log(`❌ API key request failed: ${response.status} - ${response.statusText}`);
+        const errorText = await response.text();
+        console.log(`📄 Error response: ${errorText}`);
         return null;
       }
       
       const data = await response.json();
       console.log(`✅ Found ${data.files?.length || 0} files via API key`);
+      
+      // Log file types for debugging
+      if (data.files && data.files.length > 0) {
+        console.log(`📊 Latest file: ${data.files[0].name} (Type: ${data.files[0].mimeType || 'unknown'})`);
+      }
       
       return data.files || [];
       
@@ -37,13 +45,27 @@ export class SimpleGoogleDriveAPI {
     }
   }
 
-  // Method 2: Download file content with API Key
+  // Method 2: Download file content with API Key (Google Sheets as CSV export)
   async downloadFileWithAPIKey(fileId: string): Promise<string | null> {
     if (!this.apiKey) {
       return null;
     }
 
     try {
+      // First try Google Sheets export (most common case)
+      const exportResponse = await fetch(
+        `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv&key=${this.apiKey}`
+      );
+      
+      if (exportResponse.ok) {
+        const content = await exportResponse.text();
+        if (content && content.includes('Device,Timestamp')) {
+          console.log('✅ Successfully exported Google Sheets as CSV');
+          return content;
+        }
+      }
+      
+      // Fallback to regular file download for actual CSV files
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`
       );
@@ -65,11 +87,11 @@ export class SimpleGoogleDriveAPI {
     try {
       console.log('🌐 Trying public folder access patterns...');
       
-      // Different URL patterns to try for public access
+      // Different URL patterns to try for public access (prioritize Google Sheets export)
       const urls = [
-        `https://drive.google.com/drive/folders/${this.folderId}`,
         `https://docs.google.com/spreadsheets/d/${this.folderId}/export?format=csv`,
         `https://drive.google.com/uc?id=${this.folderId}&export=download`,
+        `https://drive.google.com/drive/folders/${this.folderId}`,
         `https://drive.google.com/file/d/${this.folderId}/view`,
       ];
 
