@@ -61,10 +61,9 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
-    // For time-only data from CSV, show just HH:MM:SS format
+    // Show only MM:SS for better readability
     return date.toLocaleTimeString('en-US', { 
       hour12: false,
-      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     })
@@ -180,6 +179,9 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
                   tickFormatter={formatTime}
                   stroke="#64748b" 
                   fontSize={10}
+                  interval="preserveStartEnd"
+                  tick={{ angle: -45 }}
+                  height={60}
                 />
                 <YAxis
                   stroke="#64748b"

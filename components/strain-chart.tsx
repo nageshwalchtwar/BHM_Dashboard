@@ -8,12 +8,28 @@ interface StrainChartProps {
 }
 
 export function StrainChart({ data, isLoading }: StrainChartProps) {
+  // Debug stroke data
+  if (data && data.length > 0) {
+    console.log('🔧 Stroke chart data:', {
+      totalPoints: data.length,
+      firstPoint: {
+        stroke_mm: data[0]?.stroke_mm,
+        timestamp: new Date(data[0]?.timestamp).toLocaleString()
+      },
+      lastPoint: {
+        stroke_mm: data[data.length - 1]?.stroke_mm,
+        timestamp: new Date(data[data.length - 1]?.timestamp).toLocaleString()
+      },
+      strokeValues: data.slice(0, 5).map(d => d.stroke_mm)
+    })
+  }
+
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-purple-600 rounded-full animate-pulse"></div>
-          <span className="text-slate-600">Loading strain data...</span>
+          <span className="text-slate-600">Loading stroke data...</span>
         </div>
       </div>
     )
@@ -21,10 +37,9 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
 
   const formatXAxis = (tickItem: any) => {
     const date = new Date(tickItem)
-    // For time-only data from CSV, show just HH:MM:SS format
+    // Show only MM:SS for better readability
     return date.toLocaleTimeString('en-US', { 
       hour12: false,
-      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     })
@@ -54,16 +69,22 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="timestamp" tickFormatter={formatXAxis} stroke="#64748b" fontSize={12} />
+          <XAxis 
+            dataKey="timestamp" 
+            tickFormatter={formatXAxis} 
+            stroke="#64748b" 
+            fontSize={10}
+            interval="preserveStartEnd"
+            tick={{ angle: -45 }}
+            height={60}
+          />
           <YAxis
-            domain={[0, 300]}
+            domain={['dataMin - 0.1', 'dataMax + 0.1']}
             stroke="#64748b"
             fontSize={12}
-            label={{ value: "Strain (μɛ)", angle: -90, position: "insideLeft" }}
+            label={{ value: "Stroke (mm)", angle: -90, position: "insideLeft" }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <ReferenceLine y={200} stroke="#ef4444" strokeDasharray="5 5" label="Critical Threshold" />
-          <ReferenceLine y={150} stroke="#f59e0b" strokeDasharray="5 5" label="Warning Threshold" />
           <Line
             type="monotone"
             dataKey="stroke_mm"

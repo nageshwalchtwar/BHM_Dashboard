@@ -24,10 +24,9 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
 
   const formatXAxis = (tickItem: any) => {
     const date = new Date(tickItem)
-    // For time-only data from CSV, show just HH:MM:SS format
+    // Show only MM:SS for better readability
     return date.toLocaleTimeString('en-US', { 
       hour12: false,
-      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
     })
@@ -59,7 +58,15 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="timestamp" tickFormatter={formatXAxis} stroke="#64748b" fontSize={12} />
+          <XAxis 
+            dataKey="timestamp" 
+            tickFormatter={formatXAxis} 
+            stroke="#64748b" 
+            fontSize={10}
+            interval="preserveStartEnd"
+            tick={{ angle: -45 }}
+            height={60}
+          />
           <YAxis
             domain={['dataMin - 0.1', 'dataMax + 0.1']}
             stroke="#64748b"
