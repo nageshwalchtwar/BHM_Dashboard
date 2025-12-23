@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,9 @@ import {
   XCircle,
   Database,
   Wifi,
-  WifiOff
+  WifiOff,
+  LogOut,
+  User
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
@@ -46,7 +49,10 @@ interface DashboardStats {
 }
 
 export default function BHMDashboard() {
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentUser, setCurrentUser] = useState<string | null>(null)
   const [sensorData, setSensorData] = useState<SensorData[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     totalDataPoints: 0,
@@ -61,10 +67,22 @@ export default function BHMDashboard() {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
 
-  // Set mounted state to prevent hydration issues
+  // Set mounted state and check authentication
   useEffect(() => {
     setMounted(true)
-  }, [])
+    
+    // Check authentication
+    const isLoggedIn = localStorage.getItem('bhm_authenticated') === 'true'
+    const user = localStorage.getItem('bhm_user')
+    
+    if (!isLoggedIn) {
+      router.push('/login')
+      return
+    }
+    
+    setIsAuthenticated(true)
+    setCurrentUser(user)
+  }, [router])
 
   // Auto-refresh data every 30 seconds
   useEffect(() => {
@@ -139,6 +157,22 @@ export default function BHMDashboard() {
     }
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('bhm_authenticated')
+    localStorage.removeItem('bhm_user')
+    localStorage.removeItem('bhm_login_time')
+    router.push('/login')
+  }
+
+  // Don't render anything until authentication is checked
+  if (!mounted || !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
   const latestValues = getLatestValues()
 
   return (
@@ -150,11 +184,31 @@ export default function BHMDashboard() {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
               Bridge Health Monitoring
             </h1>
-            <p className="text-muted-foreground mt-2">
-              Real-time structural health monitoring dashboard
+            <p className="text-muted-foreground mt-1">
+              Real-time structural health monitoring system
             </p>
           </div>
           
+          {/* User Info and Logout */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 text-sm">
+              <User className="h-4 w-4" />
+              <span>Welcome, {currentUser}</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleLogout}
+              className="flex items-center space-x-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Connection Status and Controls */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               {connectionStatus === 'connected' ? (
