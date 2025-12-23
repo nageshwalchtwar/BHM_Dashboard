@@ -73,23 +73,14 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
     if (active && payload && payload.length) {
       const dataPoint = payload[0].payload // Get the full data point
       const actualValue = dataPoint[dataKey] || payload[0].value // Use the actual field value
-      const time = new Date(label)
       
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
-            {time.toLocaleTimeString('en-US', { 
-              hour12: false,
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            })}
+            CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {title}: {typeof actualValue === 'number' ? actualValue.toFixed(2) : (actualValue || 'N/A')} {unit}
-          </p>
-          <p className="text-xs text-slate-500">
-            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
           </p>
         </div>
       )

@@ -54,23 +54,48 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       const timestampValue = row['Timestamp'] || lowerRow['timestamp'] || 
                             lowerRow['time'] || lowerRow['created_at'] || lowerRow['date']
       
+      // Use timestamp from CSV directly - handle different formats
+      const timestampValue = row['Timestamp'] || row['timestamp'] || row['Time'] || row['time']
+      
       if (timestampValue && timestampValue !== '') {
-        let parsedTime
+        // Store the raw timestamp string for display
+        const rawTimestamp = timestampValue.toString().trim()
         
-        // Handle time-only format (like "01:29:07" or "01:29:07.123") - combine with today's date
-        if (timestampValue.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
-          const today = new Date().toISOString().split('T')[0]
-          // Remove milliseconds for cleaner parsing if present
-          const cleanTime = timestampValue.split('.')[0]
-          parsedTime = new Date(`${today}T${cleanTime}`).getTime()
-          console.log(`🕰️ Parsed time-only timestamp: ${timestampValue} -> ${new Date(parsedTime).toLocaleString()}`)
+        // For sorting and filtering, create a simple numeric timestamp
+        // If it's time-only format like "01:29:07", combine with today's date
+        let timestamp: number
+        if (rawTimestamp.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
+          // Time-only format - create timestamp with today's date
+          const today = new Date()
+          const [hours, minutes, secondsPart] = rawTimestamp.split(':')
+          const seconds = parseFloat(secondsPart || '0')
+          
+          const timeDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
+                                   parseInt(hours), parseInt(minutes), Math.floor(seconds), 
+                                   Math.round((seconds % 1) * 1000))
+          timestamp = timeDate.getTime()
+          
+          console.log(`⏰ Time-only timestamp: ${rawTimestamp} -> ${timeDate.toLocaleString()}`)
         } else {
-          parsedTime = new Date(timestampValue).getTime()
+          // Try to parse as regular date/time
+          const parsed = new Date(rawTimestamp)
+          if (!isNaN(parsed.getTime())) {
+            timestamp = parsed.getTime()
+          } else {
+            // Fallback: use current time with incrementing milliseconds
+            timestamp = Date.now() + (data.length * 1000)
+            console.warn(`⚠️ Could not parse timestamp: ${rawTimestamp}, using fallback`)
+          }
         }
         
-        if (!isNaN(parsedTime)) {
-          timestamp = parsedTime
-        }
+        // Store both the raw timestamp string and parsed timestamp
+        sensorData.rawTimestamp = rawTimestamp
+        sensorData.timestamp = timestamp
+      } else {
+        // No timestamp found - use incremental time
+        sensorData.timestamp = Date.now() + (data.length * 1000)
+        sensorData.rawTimestamp = new Date(sensorData.timestamp).toLocaleTimeString()
+        console.warn('⚠️ No timestamp found in row, using generated timestamp')
       }
       
       // Parse values with exact column name matching first, then fallback to lowercase
@@ -137,7 +162,8 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         // Log first few data points for debugging
         if (data.length <= 3) {
           console.log(`Sample data point ${data.length}:`, {
-            timestamp: new Date(sensorData.timestamp).toLocaleString(),
+            rawTimestamp: sensorData.rawTimestamp,
+            parsedTimestamp: new Date(sensorData.timestamp).toLocaleString(),
             // Show both old and new field names for debugging
             accel_x: sensorData.accel_x || sensorData.x,
             accel_y: sensorData.accel_y || sensorData.y,
@@ -150,8 +176,6 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
             rawStroke: row['stroke_mm'],
             temperature_c: sensorData.temperature_c,
             stroke_mm: sensorData.stroke_mm,
-            rawTimestamp: timestampValue,
-            parsedTimestamp: new Date(timestamp).toLocaleString(),
             originalHeaders: originalHeaders
           })
         }

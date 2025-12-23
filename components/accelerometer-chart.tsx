@@ -40,18 +40,10 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
-            {new Date(label).toLocaleTimeString('en-US', { 
-              hour12: false,
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            })}
+            CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {title}: {actualValue?.toFixed(3) || 'N/A'} g
-          </p>
-          <p className="text-xs text-slate-500">
-            Raw timestamp: {new Date(dataPoint.timestamp).toLocaleTimeString()}
           </p>
         </div>
       )
