@@ -50,10 +50,6 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       // Try to find timestamp column (case-insensitive)
       let timestamp = Date.now()
       
-      // Check for your specific Timestamp column first, then fallbacks
-      const timestampValue = row['Timestamp'] || lowerRow['timestamp'] || 
-                            lowerRow['time'] || lowerRow['created_at'] || lowerRow['date']
-      
       // Use timestamp from CSV directly - handle different formats
       const timestampValue = row['Timestamp'] || row['timestamp'] || row['Time'] || row['time']
       
