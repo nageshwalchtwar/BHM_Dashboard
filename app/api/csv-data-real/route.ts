@@ -5,7 +5,7 @@ import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 // Your Google Drive folder ID - use environment variable with fallback
 const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
 
-// Get the latest CSV file using authenticated Google Drive access
+// Get the latest CSV file using Google Drive API
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {
   try {
     console.log('🔐 Getting latest CSV with Google Drive API...')
@@ -30,159 +30,11 @@ async function getLatestRealCSV(): Promise<{filename: string, content: string} |
 
     console.log('❌ No CSV data could be retrieved')
     return null
-      
-      if (result) {
-        console.log('✅ SUCCESS: Got real CSV data via OAuth authentication')
-        return result
-      }
-    } catch (authError) {
-      console.log('⚠️ OAuth authentication failed:', authError)
-    }
-
-    // Method 4: Try API key method (for public/shared access)
-    try {
-      console.log('🔑 Attempting API key access...')
-      const result = await getLatestCSVWithAPIKey()
-      
-      if (result) {
-        console.log('✅ SUCCESS: Got real CSV data via API key')
-        return result
-      }
-    } catch (apiError) {
-      console.log('⚠️ API key method failed:', apiError)
-    }
-
-    console.log('❌ All methods failed to retrieve CSV data')
-    return null
     
   } catch (error) {
-    console.error('❌ All Google Drive access methods failed:', error)
+    console.error('❌ Error getting latest CSV:', error)
     return null
   }
-}
-
-// Fallback method using direct file access patterns  
-async function getLatestRealCSVFallback(): Promise<{filename: string, content: string} | null> {
-  try {
-    console.log('🔍 Using fallback method - trying direct file patterns...')
-    
-    // First, try to access known working files directly
-    const knownWorkingIds = [
-      '1HB9Bb8j9fVFjsP-TdGvJlRsPCc8-9KGj', // Example ID, you can add more if you know them
-      // Add more known file IDs here if available
-    ]
-    
-    for (const fileId of knownWorkingIds) {
-      try {
-        console.log(`🎯 Trying known file ID: ${fileId}`)
-        
-        const content = await tryDirectFileAccess(fileId)
-        if (content) {
-          return {
-            filename: `${fileId}.csv`,
-            content: content
-          }
-        }
-      } catch (err) {
-        console.log(`❌ Known file ${fileId} failed:`, err)
-      }
-    }
-    
-    // Generate recent file patterns based on current time (matching your naming: 2025-12-23_01-40)
-    const patterns = generateRecentFilePatterns()
-    
-    for (const pattern of patterns.slice(0, 15)) { // Try first 15 patterns
-      try {
-        console.log(`🔍 Trying file pattern: ${pattern}`)
-        
-        const content = await tryDirectFileAccess(pattern)
-        if (content) {
-          return {
-            filename: `${pattern}.csv`,
-            content: content
-          }
-        }
-      } catch (err) {
-        // Continue to next pattern
-      }
-    }
-    
-    return null
-    
-  } catch (error) {
-    console.error('❌ Error in fallback method:', error)
-    return null
-  }
-}
-
-// Helper function to try accessing a file directly
-async function tryDirectFileAccess(fileId: string): Promise<string | null> {
-  try {
-    // Try different Google Drive access methods (prioritize Google Sheets export)
-    const urls = [
-      `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
-      `https://drive.google.com/uc?id=${fileId}&export=download`,
-    ]
-    
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'BHM-Dashboard/1.0',
-            'Accept': 'text/csv,application/csv,text/plain,*/*'
-          }
-        })
-        
-        if (response.ok) {
-          const content = await response.text()
-          
-          // Check if it's your real CSV format
-          if (content && content.length > 100 && 
-              (content.includes('Device,Timestamp') || content.includes('Device')) && 
-              content.includes('88A29E218213')) {
-            
-            console.log(`✅ SUCCESS: Got real CSV data (${content.length} chars) from ${url}`)
-            return content
-          } else if (content && content.length > 50) {
-            console.log(`📄 Got content but not CSV format: ${content.substring(0, 100)}...`)
-          }
-        } else {
-          console.log(`❌ ${url} failed: ${response.status} ${response.statusText}`)
-        }
-      } catch (err) {
-        console.log(`❌ URL ${url} error:`, err)
-        // Continue to next URL
-      }
-    }
-    
-    return null
-    
-  } catch (error) {
-    console.log(`❌ Direct access error for ${fileId}:`, error)
-    return null
-  }
-}
-
-// Generate file patterns based on current date/time (matching your format)
-function generateRecentFilePatterns(): string[] {
-  const now = new Date()
-  const patterns: string[] = []
-  
-  // Generate patterns for the last 2 hours with 10-minute intervals
-  for (let minutesBack = 0; minutesBack < 120; minutesBack += 10) {
-    const targetTime = new Date(now.getTime() - (minutesBack * 60 * 1000))
-    
-    const year = targetTime.getFullYear()
-    const month = String(targetTime.getMonth() + 1).padStart(2, '0')
-    const day = String(targetTime.getDate()).padStart(2, '0')
-    const hour = String(targetTime.getHours()).padStart(2, '0')
-    const minute = String(Math.floor(targetTime.getMinutes() / 10) * 10).padStart(2, '0')
-    
-    patterns.push(`${year}-${month}-${day}_${hour}-${minute}`)
-  }
-  
-  return patterns
 }
 
 export async function GET(request: Request) {
@@ -201,54 +53,27 @@ export async function GET(request: Request) {
     let allData: any[] = []
     let dataSource = ''
     let filename = ''
-    
+
     if (result && result.content) {
-      console.log(`📊 Parsing real CSV: ${result.filename}`)
-      console.log(`🔍 Raw CSV content (first 500 chars):`)
-      console.log(result.content.substring(0, 500))
+      console.log('🎉 Got real CSV data!')
+      filename = result.filename
+      dataSource = 'Google Drive (Real Data)'
       
-      const lines = result.content.trim().split('\n')
-      if (lines.length > 0) {
-        console.log(`🔍 Headers: "${lines[0]}"`)
-      }
-      if (lines.length > 1) {
-        console.log(`🔍 Sample data row 1: "${lines[1]}"`)
-      }
-      if (lines.length > 2) {
-        console.log(`🔍 Sample data row 2: "${lines[2]}"`)
-      }
+      // Parse the CSV content to sensor data format
+      allData = parseCSVToSensorData(result.content)
+      console.log(`📈 Parsed ${allData.length} data points from real CSV`)
       
-      // Parse the real CSV content
-      const parsedData = parseCSVToSensorData(result.content)
-      
-      if (parsedData.length > 0) {
-        allData = parsedData
-        dataSource = 'google-drive-real'
-        filename = result.filename
-        
-        console.log(`✅ Successfully parsed ${parsedData.length} real data points from ${filename}`)
-        console.log(`🔍 First parsed data point:`, {
-          timestamp: new Date(parsedData[0].timestamp).toLocaleString(),
-          temperature_c: parsedData[0].temperature_c,
-          stroke_mm: parsedData[0].stroke_mm,
-          x: parsedData[0].x,
-          y: parsedData[0].y,
-          z: parsedData[0].z
-        })
+      if (allData.length === 0) {
+        console.log('⚠️ Warning: No data points parsed from CSV')
       }
-    }
-    
-    // If no real data available, return error (NO FAKE DATA)
-    if (allData.length === 0) {
+    } else {
       console.log('❌ No real CSV data available - refusing to return fake data')
       return NextResponse.json({
         success: false,
         error: "No real CSV data available from Google Drive",
         message: "Could not access the latest CSV file from your Google Drive folder",
         folderUrl: `https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`,
-        expectedFilePattern: generateRecentFilePatterns()[0] + '.csv',
         debug: {
-          tried: generateRecentFilePatterns().slice(0, 5),
           currentTime: new Date().toISOString()
         }
       }, { status: 404 })
@@ -258,7 +83,7 @@ export async function GET(request: Request) {
     allData.sort((a, b) => b.timestamp - a.timestamp)
     
     // Get recent data based on requested timeframe (max 10 minutes)
-    const filteredData = getRecentData(allData, minutes)
+    const filteredData = getRecentData(allData, Math.min(minutes, 10))
     const timeframeDescription = `${minutes} minute(s)`
     
     console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
@@ -301,25 +126,26 @@ export async function POST(request: Request) {
         error: "No CSV content provided"
       }, { status: 400 })
     }
-    
-    // Parse the uploaded CSV content (real data only)
-    const parsedData = parseCSVToSensorData(csvContent)
-    console.log(`📤 Processed uploaded CSV: ${parsedData.length} data points`)
+
+    console.log('📊 Processing provided CSV content...')
+    const data = parseCSVToSensorData(csvContent)
     
     return NextResponse.json({
       success: true,
-      message: `Real CSV data processed successfully - ${parsedData.length} data points`,
-      count: parsedData.length,
-      lastUpdate: new Date().toISOString(),
-      isRealData: true
+      data: data,
+      metadata: {
+        source: 'User Provided',
+        filename: 'user-upload.csv',
+        totalPoints: data.length,
+        lastUpdate: new Date().toISOString()
+      }
     })
     
   } catch (error) {
-    console.error('Error processing uploaded CSV:', error)
     return NextResponse.json({
       success: false,
-      error: "Failed to process CSV data",
-      message: error instanceof Error ? error.message : "Unknown error"
+      error: "Failed to process CSV content",
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }

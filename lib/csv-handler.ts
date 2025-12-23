@@ -4,6 +4,7 @@ import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from './google-drive'
 export interface CSVSensorData extends SensorData {
   id?: string
   created_at?: string
+  rawTimestamp?: string  // Store the original timestamp string from CSV
   // Your specific CSV columns - support both old and new names
   x?: number
   y?: number
@@ -49,13 +50,14 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
     try {
       // Try to find timestamp column (case-insensitive)
       let timestamp = Date.now()
+      let rawTimestamp = '' // Declare at the proper scope level
       
       // Use timestamp from CSV directly - handle different formats
       const timestampValue = row['Timestamp'] || row['timestamp'] || row['Time'] || row['time']
       
       if (timestampValue && timestampValue !== '') {
         // Store the raw timestamp string for display
-        const rawTimestamp = timestampValue.toString().trim()
+        rawTimestamp = timestampValue.toString().trim()
         
         // For sorting and filtering, create a simple numeric timestamp
         // If it's time-only format like "01:29:07", combine with today's date
@@ -83,14 +85,10 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
             console.warn(`⚠️ Could not parse timestamp: ${rawTimestamp}, using fallback`)
           }
         }
-        
-        // Store both the raw timestamp string and parsed timestamp
-        sensorData.rawTimestamp = rawTimestamp
-        sensorData.timestamp = timestamp
       } else {
-        // No timestamp found - use incremental time
-        sensorData.timestamp = Date.now() + (data.length * 1000)
-        sensorData.rawTimestamp = new Date(sensorData.timestamp).toLocaleTimeString()
+        // No timestamp found - use incremental time and generate raw timestamp
+        timestamp = Date.now() + (data.length * 1000)
+        rawTimestamp = new Date(timestamp).toLocaleTimeString()
         console.warn('⚠️ No timestamp found in row, using generated timestamp')
       }
       
@@ -133,6 +131,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       
       const sensorData: CSVSensorData = {
         timestamp,
+        rawTimestamp, // Add the rawTimestamp field here
         // Map to new CSV column names first, then fallback to old names
         accel_x: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'),
         accel_y: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'), 
