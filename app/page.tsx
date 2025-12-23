@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
@@ -67,7 +66,6 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
 
   // Set mounted state and check authentication
   useEffect(() => {
@@ -86,7 +84,7 @@ export default function BHMDashboard() {
     setCurrentUser(user)
   }, [router])
 
-  // Auto-refresh data every 30 seconds and when time range changes
+  // Auto-refresh data every 30 seconds
   useEffect(() => {
     fetchData()
     
@@ -94,12 +92,12 @@ export default function BHMDashboard() {
       const interval = setInterval(fetchData, 30000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh, timeRange]) // Add timeRange dependency
+  }, [autoRefresh]) // Remove timeRange dependency
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
+      let apiUrl = `/api/csv-data-real?minutes=1`
       
       const response = await fetch(apiUrl)
       const result = await response.json()
@@ -229,19 +227,6 @@ export default function BHMDashboard() {
                  connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
               </span>
             </div>
-                        {/* Time Range Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Time Range:</span>
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Last 1 minute</SelectItem>
-                  <SelectItem value="5">Last 5 minutes</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           
           <div className="flex items-center gap-2">            <Button 
@@ -335,7 +320,7 @@ export default function BHMDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                Filtered: {sensorData.length.toLocaleString()} from {timeRange} min
+                Filtered: {sensorData.length.toLocaleString()} from 1 min
               </p>
             </CardContent>
           </Card>
