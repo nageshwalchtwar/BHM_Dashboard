@@ -332,7 +332,7 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-800">
-                  {sensorData.length > 0 ? (sensorData[0].temperature_c?.toFixed(2) || '0.00') : 'N/A'}
+                  {sensorData.length > 0 ? (sensorData[0].x?.toFixed(2) || '0.00') : 'N/A'}
                 </div>
                 <p className="text-xs text-red-600">°C</p>
               </CardContent>
@@ -345,7 +345,7 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-800">
-                  {sensorData.length > 0 ? (sensorData[0].stroke_mm?.toFixed(2) || '0.00') : 'N/A'}
+                  {sensorData.length > 0 ? (sensorData[0].temperature_c?.toFixed(2) || '0.00') : 'N/A'}
                 </div>
                 <p className="text-xs text-green-600">mm</p>
               </CardContent>
@@ -357,7 +357,7 @@ export default function BHMDashboard() {
                 <Activity className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].x?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].y?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-blue-600">g</p>
               </CardContent>
             </Card>
@@ -368,7 +368,7 @@ export default function BHMDashboard() {
                 <Zap className="h-4 w-4 text-yellow-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].y?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].z?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-yellow-600">g</p>
               </CardContent>
             </Card>
@@ -379,7 +379,7 @@ export default function BHMDashboard() {
                 <Activity className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].z?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].stroke_mm?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-purple-600">g</p>
               </CardContent>
             </Card>
@@ -399,9 +399,29 @@ export default function BHMDashboard() {
           <TabsContent value="temperature" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Temperature_C Column</CardTitle>
+                <CardTitle>Temperature_C Tab (X Column Data)</CardTitle>
                 <CardDescription>
-                  Structural temperature measurements in Celsius (Temperature_C)
+                  Displays X column data (mapped to Temperature_C tab)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart 
+                  data={sensorData} 
+                  isLoading={loading} 
+                  axis="x" 
+                  title="Temperature_C (X Column)" 
+                  color="#ef4444" 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="stroke" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Stroke_mm Tab (Temperature_C Column Data)</CardTitle>
+                <CardDescription>
+                  Displays Temperature_C column data (mapped to Stroke_mm tab)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
@@ -410,34 +430,20 @@ export default function BHMDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="stroke" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Stroke_mm Column</CardTitle>
-                <CardDescription>
-                  Stroke displacement measurements in millimeters (Stroke_mm column from CSV)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <StrainChart data={sensorData} isLoading={loading} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="accel-x" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>X Column Data</CardTitle>
+                <CardTitle>X Tab (Y Column Data)</CardTitle>
                 <CardDescription>
-                  X column measurements from CSV (acceleration data)
+                  Displays Y column data (mapped to X tab)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
                 <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="x" 
-                  title="X Column" 
+                  axis="y" 
+                  title="X (Y Column)" 
                   color="#ef4444" 
                 />
               </CardContent>
@@ -447,17 +453,17 @@ export default function BHMDashboard() {
           <TabsContent value="accel-y" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Y Column Data</CardTitle>
+                <CardTitle>Y Tab (Z Column Data)</CardTitle>
                 <CardDescription>
-                  Y column measurements from CSV (acceleration data)
+                  Displays Z column data (mapped to Y tab)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
                 <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="y" 
-                  title="Y Column" 
+                  axis="z" 
+                  title="Y (Z Column)" 
                   color="#10b981" 
                 />
               </CardContent>
@@ -467,19 +473,13 @@ export default function BHMDashboard() {
           <TabsContent value="accel-z" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Z Column Data</CardTitle>
+                <CardTitle>Z Tab (Stroke_mm Column Data)</CardTitle>
                 <CardDescription>
-                  Z column measurements from CSV (acceleration data)
+                  Displays Stroke_mm column data (mapped to Z tab)
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  axis="z" 
-                  title="Z Column" 
-                  color="#3b82f6" 
-                />
+                <StrainChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
