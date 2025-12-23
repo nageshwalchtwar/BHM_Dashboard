@@ -4,10 +4,13 @@ import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from './google-drive'
 export interface CSVSensorData extends SensorData {
   id?: string
   created_at?: string
-  // Your specific CSV columns
+  // Your specific CSV columns - support both old and new names
   x?: number
   y?: number
   z?: number
+  accel_x?: number
+  accel_y?: number
+  accel_z?: number
   stroke_mm?: number
   temperature_c?: number
 }
@@ -23,7 +26,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
   const originalHeaders = lines[0].split(',').map(h => h.trim())
   const headers = originalHeaders.map(h => h.toLowerCase())
   console.log('🔍 CSV headers found:', originalHeaders)
-  console.log('🔍 Looking for columns: Temperature_C, Stroke_mm, X, Y, Z, Timestamp')
+  console.log('🔍 Looking for columns: temperature_C, accel_x, accel_y, accel_z, stroke_mm, Timestamp (new format) or Temperature_C, X, Y, Z, Stroke_mm, Timestamp (old format)')
   
   const data: CSVSensorData[] = []
   
@@ -106,17 +109,21 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       
       const sensorData: CSVSensorData = {
         timestamp,
-        // Map to your exact CSV column names first
-        x: parseValue('X', 'x'),
-        y: parseValue('Y', 'y'), 
-        z: parseValue('Z', 'z'),
-        stroke_mm: parseValue('Stroke_mm', 'stroke_mm'),
-        temperature_c: parseValue('Temperature_C', 'temperature_c'),
+        // Map to new CSV column names first, then fallback to old names
+        accel_x: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'),
+        accel_y: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'), 
+        accel_z: parseValue('accel_z', 'accel_z') || parseValue('Z', 'z'),
+        stroke_mm: parseValue('stroke_mm', 'stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'),
+        temperature_c: parseValue('temperature_C', 'temperature_c') || parseValue('Temperature_C', 'temperature_c'),
+        // Keep old field names for backward compatibility
+        x: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'),
+        y: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'),
+        z: parseValue('accel_z', 'accel_z') || parseValue('Z', 'z'),
         // Keep legacy fields for backward compatibility
-        vibration: parseValue('X', 'x'), // Use X for vibration chart
-        acceleration: parseValue('Y', 'y'), // Use Y for acceleration chart  
-        strain: parseValue('Stroke_mm', 'stroke_mm'), // Use stroke for strain chart
-        temperature: parseValue('Temperature_C', 'temperature_c'), // Use temp_c for temperature chart
+        vibration: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'), // Use accel_x for vibration chart
+        acceleration: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'), // Use accel_y for acceleration chart  
+        strain: parseValue('stroke_mm', 'stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'), // Use stroke for strain chart
+        temperature: parseValue('temperature_C', 'temperature_c') || parseValue('Temperature_C', 'temperature_c'), // Use temp_c for temperature chart
         id: `${i}`, // Use row number as ID instead of device column
         created_at: lowerRow['created_at'] || new Date(timestamp).toISOString()
       }
@@ -128,9 +135,15 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         if (data.length <= 3) {
           console.log(`Sample data point ${data.length}:`, {
             timestamp: new Date(sensorData.timestamp).toLocaleString(),
+            // Show both old and new field names for debugging
             x: sensorData.x,
             y: sensorData.y,
             z: sensorData.z,
+            // Check if we're using new column names
+            accel_x: row['accel_x'],
+            accel_y: row['accel_y'], 
+            accel_z: row['accel_z'],
+            temperature_C: row['temperature_C'],
             stroke_mm: sensorData.stroke_mm,
             temperature_c: sensorData.temperature_c,
             rawRow: row,

@@ -30,13 +30,13 @@ import { AccelerometerChart } from "@/components/accelerometer-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
-  x: number
-  y: number
-  z: number
+  accel_x: number
+  accel_y: number
+  accel_z: number
   stroke_mm: number  // Renamed from strain to match CSV
   temperature_c: number  // Renamed from temperature to match CSV
   // Computed fields
-  acceleration?: number  // Will be calculated from x,y,z
+  acceleration?: number  // Will be calculated from accel_x,accel_y,accel_z
   vibration?: number     // Will be calculated from acceleration
 }
 
@@ -148,7 +148,7 @@ export default function BHMDashboard() {
   const getLatestValues = () => {
     if (sensorData.length === 0) return null
     const latest = sensorData[0]
-    const acceleration = Math.sqrt(latest.x**2 + latest.y**2 + latest.z**2)
+    const acceleration = Math.sqrt(latest.accel_x**2 + latest.accel_y**2 + latest.accel_z**2)
     return {
       vibration: acceleration?.toFixed(2) || 'N/A',  // Use acceleration as vibration
       temperature: latest.temperature_c?.toFixed(1) || 'N/A',
@@ -411,7 +411,7 @@ export default function BHMDashboard() {
                 <Activity className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].x?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].accel_x?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-blue-600">g</p>
               </CardContent>
             </Card>
@@ -422,7 +422,7 @@ export default function BHMDashboard() {
                 <Zap className="h-4 w-4 text-yellow-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].y?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].accel_y?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-yellow-600">g</p>
               </CardContent>
             </Card>
@@ -433,7 +433,7 @@ export default function BHMDashboard() {
                 <Activity className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].z?.toFixed(3) : 'N/A'}</div>
+                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].accel_z?.toFixed(3) : 'N/A'}</div>
                 <p className="text-xs text-purple-600">g</p>
               </CardContent>
             </Card>
@@ -490,8 +490,8 @@ export default function BHMDashboard() {
                 <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="x" 
-                  title="X Column" 
+                  axis="accel_x" 
+                  title="X Acceleration" 
                   color="#ef4444" 
                 />
               </CardContent>
@@ -510,8 +510,8 @@ export default function BHMDashboard() {
                 <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="y" 
-                  title="Y Column" 
+                  axis="accel_y" 
+                  title="Y Acceleration" 
                   color="#10b981" 
                 />
               </CardContent>
@@ -530,8 +530,8 @@ export default function BHMDashboard() {
                 <AccelerometerChart 
                   data={sensorData} 
                   isLoading={loading} 
-                  axis="z" 
-                  title="Z Column" 
+                  axis="accel_z" 
+                  title="Z Acceleration" 
                   color="#3b82f6" 
                 />
               </CardContent>
