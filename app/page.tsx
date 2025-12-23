@@ -121,35 +121,6 @@ export default function BHMDashboard() {
     }
   }
 
-  const fetchData = async () => {
-    setConnectionStatus('connecting')
-    try {
-      const response = await fetch('/api/csv-data-real?minutes=60')
-      const result = await response.json()
-      
-      if (result.success && result.data) {
-        setSensorData(result.data)
-        setStats({
-          totalDataPoints: result.metadata.totalPoints,
-          latestTimestamp: result.metadata.latestDataTime || 'No data',
-          dataSource: result.metadata.filename || 'Google Drive',
-          healthStatus: 'healthy',
-          lastUpdate: new Date().toLocaleString()
-        })
-        setError(null)
-        setConnectionStatus('connected')
-      } else {
-        throw new Error(result.error || result.message || 'Failed to fetch data')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      setConnectionStatus('disconnected')
-      setStats(prev => ({...prev, healthStatus: 'error'}))
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const getLatestValues = () => {
     if (sensorData.length === 0) return null
     const latest = sensorData[0]
