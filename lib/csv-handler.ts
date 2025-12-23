@@ -273,7 +273,7 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
     if (error instanceof Error && error.message.includes('API key')) {
       console.log('🔑 Google Drive API key is required to access your CSV files')
       console.log('📁 Your folder ID:', EXTRACTED_FOLDER_ID)
-      console.log('🌐 Folder URL: https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai')
+      console.log('🌐 Folder URL: https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM')
       console.log('⚙️  Setup: Get API key from Google Cloud Console → Add to Vercel environment variables')
     }
     

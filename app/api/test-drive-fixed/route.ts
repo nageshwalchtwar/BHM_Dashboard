@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { RealGoogleDriveReader } from '@/lib/real-drive-reader';
 import { SimpleGoogleDriveReader, getLatestCSVSimple } from '@/lib/simple-drive-reader';
 
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 
 export async function GET() {
   console.log('🧪 Testing Google Drive folder access...');

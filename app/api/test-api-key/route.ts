@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 // Test the Google Drive API key you provided
 export async function GET() {
   const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
   
   console.log('🔑 Testing your Google Drive API key...');
   

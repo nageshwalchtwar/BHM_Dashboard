@@ -9,7 +9,7 @@ class GoogleDriveAuthenticatedClient {
     private clientId: string = process.env.GOOGLE_CLIENT_ID || '',
     private clientSecret: string = process.env.GOOGLE_CLIENT_SECRET || '',
     private refreshToken: string = process.env.GOOGLE_REFRESH_TOKEN || '',
-    private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
+    private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
   ) {}
 
   // Get access token using refresh token
@@ -181,7 +181,7 @@ export { GoogleDriveAuthenticatedClient };
 export async function getLatestCSVWithAPIKey(): Promise<{filename: string, content: string} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     
     if (!apiKey) {
       console.log('❌ No API key configured');

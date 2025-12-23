@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { parseCSVToSensorData, getRecentData } from "@/lib/csv-handler"
 
 // Your Google Drive folder ID
-const DRIVE_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
+const DRIVE_FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
 
 // Try to get the latest CSV file from Google Drive using the file patterns we can see
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {

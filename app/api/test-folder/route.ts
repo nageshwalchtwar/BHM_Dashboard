@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 // Direct test of your Google Drive folder accessibility
 export async function GET() {
-  const folderId = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+  const folderId = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
   
   console.log('🧪 Direct Google Drive folder test...');
   
@@ -129,7 +129,7 @@ export async function GET() {
         : 'FULL_ACCESS',
       nextSteps: successfulTests.length === 0 
         ? [
-          '1. Open your Google Drive folder: https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai',
+          '1. Open your Google Drive folder: https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM',
           '2. Right-click → Share → Change to "Anyone with the link can view"',
           '3. Make sure CSV files exist in the folder',
           '4. Or get a Google Drive API key for private access'

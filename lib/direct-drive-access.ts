@@ -1,7 +1,7 @@
 // Direct access to your shared Google Drive folder
 // Since you've provided access to sagarkatakwar.22@stvincentngp.edu.in
 
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 
 // Try to access the actual Google Drive files using the public API
 export async function accessSharedGoogleDriveFolder(): Promise<{filename: string, content: string} | null> {

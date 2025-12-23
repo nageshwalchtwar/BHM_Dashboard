@@ -3,7 +3,7 @@
 
 export class SimpleGoogleDriveAPI {
   constructor(
-    private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai',
+    private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM',
     private apiKey?: string
   ) {}
 
@@ -201,7 +201,7 @@ export async function getCSVFromGoogleDrive(): Promise<{filename: string, conten
   try {
     // Try different API configurations
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     
     const api = new SimpleGoogleDriveAPI(folderId, apiKey);
     return await api.getLatestCSV();

@@ -3,7 +3,7 @@ import { parseCSVToSensorData } from '@/lib/csv-handler';
 import { SecureGoogleDriveReader, getLatestCSVFromPublicFolder } from '@/lib/secure-drive-reader';
 import { accessSharedGoogleDriveFolder } from '@/lib/direct-drive-access';
 
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 
 export async function POST(request: NextRequest) {
   try {

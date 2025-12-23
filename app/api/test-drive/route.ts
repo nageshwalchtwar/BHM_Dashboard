@@ -4,7 +4,7 @@ import { SimpleGoogleDriveReader, getLatestCSVSimple } from '@/lib/simple-drive-
 import { GoogleDriveAuthenticatedClient, getLatestCSVWithAPIKey } from '@/lib/google-drive-auth';
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api';
 
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 
 export async function GET() {
   console.log('🧪 Testing ALL Google Drive folder access methods...');

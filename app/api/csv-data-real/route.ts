@@ -4,7 +4,7 @@ import { GoogleDriveAuthenticatedClient, getLatestCSVWithAPIKey } from '@/lib/go
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 
 // Your Google Drive folder ID
-const DRIVE_FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai'
+const DRIVE_FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
 
 // Get the latest CSV file using authenticated Google Drive access
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {

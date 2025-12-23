@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 const API_KEY = 'AIzaSyBlwJphSwxTpoUX2Bxfrmvooc6xs6jl6J8';
 
 export async function GET() {

@@ -162,5 +162,5 @@ export function extractFolderIdFromUrl(url: string): string {
 }
 
 // Example usage:
-const FOLDER_URL = "https://drive.google.com/drive/folders/17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai?usp=sharing"
-export const EXTRACTED_FOLDER_ID = extractFolderIdFromUrl(FOLDER_URL) // "17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai"
+const FOLDER_URL = "https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM?usp=sharing"
+export const EXTRACTED_FOLDER_ID = extractFolderIdFromUrl(FOLDER_URL) // "10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM"

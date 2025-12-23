@@ -1,6 +1,6 @@
 // Secure Google Drive API implementation for accessing shared folder
 const GOOGLE_DRIVE_API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
-const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+const FOLDER_ID = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
 
 export class SecureGoogleDriveReader {
   private folderId: string;

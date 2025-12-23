@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 // Emergency simple CSV fetch - bypasses all authentication complexity
 export async function GET() {
-  const folderId = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
+  const folderId = '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
   
   console.log('🚨 Emergency CSV fetch - testing simplest possible access...');
   
