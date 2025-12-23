@@ -67,7 +67,7 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [timeRange, setTimeRange] = useState<string>('5') // Default to 5 minutes
+  const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
 
   // Set mounted state and check authentication
   useEffect(() => {
@@ -236,9 +236,7 @@ export default function BHMDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Last 1 minute</SelectItem>
-                  <SelectItem value="2">Last 2 minutes</SelectItem>
                   <SelectItem value="5">Last 5 minutes</SelectItem>
-                  <SelectItem value="10">Last 10 minutes</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -204,7 +204,7 @@ function generateRecentFilePatterns(): string[] {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const minutes = parseInt(searchParams.get("minutes") || "5") // Remove the Math.min limit
+  const minutes = parseInt(searchParams.get("minutes") || "1") // Default to 1 minute
   
   console.log(`📊 API Request: Getting data for last ${minutes} minute(s)`)
 
