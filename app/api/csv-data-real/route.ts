@@ -9,11 +9,11 @@ const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAl
 // Get the latest CSV file using authenticated Google Drive access
 async function getLatestRealCSV(): Promise<{filename: string, content: string} | null> {
   try {
-    console.log('🔐 Getting latest CSV with multiple Google Drive access methods...')
+    console.log('🔐 Getting latest CSV with Google Drive API...')
     console.log('📂 Using folder ID:', DRIVE_FOLDER_ID)
     console.log('🔑 API Key available:', !!process.env.GOOGLE_DRIVE_API_KEY)
     
-    // Method 1: Try simple Google Drive API first (most reliable)
+    // Use only the Simple Google Drive API (most reliable)
     try {
       console.log('🚀 Attempting Simple Google Drive API...')
       const result = await getCSVFromGoogleDrive()
@@ -29,24 +29,8 @@ async function getLatestRealCSV(): Promise<{filename: string, content: string} |
       console.log('⚠️ Simple Google Drive API failed:', simpleError)
     }
 
-    // Method 2: Direct file access using known patterns
-    try {
-      console.log('🔍 Attempting direct file pattern access...')
-      const result = await getLatestRealCSVFallback()
-      
-      if (result && result.content && result.content.length > 100) {
-        console.log('✅ SUCCESS: Got real CSV data via direct pattern access')
-        return result
-      }
-    } catch (patternError) {
-      console.log('⚠️ Pattern access failed:', patternError)
-    }
-
-    // Method 3: Try OAuth authenticated client
-    try {
-      console.log('🔑 Attempting OAuth authentication...')
-      const client = new GoogleDriveAuthenticatedClient()
-      const result = await client.getLatestCSVFile()
+    console.log('❌ No CSV data could be retrieved')
+    return null
       
       if (result) {
         console.log('✅ SUCCESS: Got real CSV data via OAuth authentication')

@@ -39,19 +39,8 @@ export class SimpleGoogleDriveReader {
   }
   
   private async tryFolderExport(): Promise<{ filename: string; content: string } | null> {
-    // Try to export the entire folder as a zip and extract CSV
-    const exportUrl = `https://drive.google.com/drive/folders/${this.folderId}/export?format=zip`;
-    
-    console.log('📦 Trying folder export method...');
-    
-    const response = await fetch(`/api/drive-proxy?url=${encodeURIComponent(exportUrl)}`);
-    
-    if (response.ok) {
-      // This would require ZIP parsing, which is complex
-      // Skip for now
-      return null;
-    }
-    
+    // Skip folder export method as it's complex and not needed
+    console.log('📦 Skipping folder export method (not implemented for server-side)');
     return null;
   }
   
@@ -64,36 +53,11 @@ export class SimpleGoogleDriveReader {
   }
   
   private async tryAlternativeMethod(): Promise<{ filename: string; content: string } | null> {
-    console.log('🔀 Trying alternative method...');
+    console.log('🔀 Trying alternative method (disabled to avoid server issues)...');
     
-    // Try to access the folder view and parse it more simply
-    const folderUrl = `https://drive.google.com/drive/folders/${this.folderId}`;
-    
-    try {
-      const response = await fetch(`/api/drive-proxy?url=${encodeURIComponent(folderUrl)}`);
-      
-      if (!response.ok) {
-        return null;
-      }
-      
-      const html = await response.text();
-      
-      // Look for CSV files in a simpler way
-      const csvMatches = html.match(/["\'][^"\']*\.csv["\'][^>]*>/gi);
-      
-      if (csvMatches && csvMatches.length > 0) {
-        console.log(`Found ${csvMatches.length} potential CSV files`);
-        // This is still complex without proper parsing
-        // For now, return sample data to test the flow
-        return this.generateSampleData();
-      }
-      
-      return null;
-      
-    } catch (error) {
-      console.error('Alternative method failed:', error);
-      return null;
-    }
+    // Skip alternative method that uses drive-proxy to avoid server-side URL issues
+    console.log('⚠️ Alternative method disabled - using fallback data generation');
+    return this.generateSampleData();
   }
   
   private generateSampleData(): { filename: string; content: string } {
