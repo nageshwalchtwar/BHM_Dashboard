@@ -110,7 +110,9 @@ export default function BHMDashboard() {
           totalDataPoints: result.metadata.totalPoints,
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ? 
             result.data[0].rawTimestamp : 
-            (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data'),
+            (result.data.length > 0 && typeof result.data[0].timestamp === 'number' ? 
+              new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 
+              'No data'),
           dataSource: result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
@@ -367,10 +369,12 @@ export default function BHMDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleTimeString() : (mounted ? 'N/A' : 'Loading...')}
+                {mounted && stats.latestTimestamp && stats.latestTimestamp !== 'N/A' && stats.latestTimestamp !== 'No data' ? 
+                  stats.latestTimestamp : 
+                  (mounted ? 'N/A' : 'Loading...')}
               </div>
               <div className="text-sm text-muted-foreground">
-                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
+                {mounted && sensorData.length > 0 ? new Date(sensorData[0].timestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
               </div>
             </CardContent>
           </Card>
