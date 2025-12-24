@@ -1,6 +1,7 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { useState } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface VibrationChartProps {
   data: any[]
@@ -8,6 +9,7 @@ interface VibrationChartProps {
 }
 
 export function VibrationChart({ data, isLoading }: VibrationChartProps) {
+  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
@@ -76,6 +78,14 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: "#2563eb" }}
+          />
+          <Brush 
+            dataKey="timestamp" 
+            height={30} 
+            stroke="#2563eb"
+            fill="#bfdbfe"
+            travellerWidth={8}
+            onChange={(state: any) => setZoomData({ startIndex: state.startIndex, endIndex: state.endIndex })}
           />
         </LineChart>
       </ResponsiveContainer>

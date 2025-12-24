@@ -1,6 +1,7 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { useState } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface TemperatureChartProps {
   data: any[]
@@ -8,6 +9,7 @@ interface TemperatureChartProps {
 }
 
 export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
+  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
@@ -75,6 +77,14 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: "#ea580c" }}
+          />
+          <Brush 
+            dataKey="timestamp" 
+            height={30} 
+            stroke="#ea580c"
+            fill="#fed7aa"
+            travellerWidth={8}
+            onChange={(state: any) => setZoomData({ startIndex: state.startIndex, endIndex: state.endIndex })}
           />
         </LineChart>
       </ResponsiveContainer>

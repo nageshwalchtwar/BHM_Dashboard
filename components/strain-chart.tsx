@@ -1,6 +1,7 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { useState } from "react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface StrainChartProps {
   data: any[]
@@ -8,6 +9,8 @@ interface StrainChartProps {
 }
 
 export function StrainChart({ data, isLoading }: StrainChartProps) {
+  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
+  
   // Debug stroke data
   if (data && data.length > 0) {
     console.log('🔧 Stroke chart data:', {
@@ -90,6 +93,14 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: "#7c3aed" }}
+          />
+          <Brush 
+            dataKey="timestamp" 
+            height={30} 
+            stroke="#7c3aed"
+            fill="#ede9fe"
+            travellerWidth={8}
+            onChange={(state: any) => setZoomData({ startIndex: state.startIndex, endIndex: state.endIndex })}
           />
         </LineChart>
       </ResponsiveContainer>
