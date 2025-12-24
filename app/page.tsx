@@ -28,6 +28,7 @@ import { TemperatureChart } from "@/components/temperature-chart"
 import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
+import { FFTChart } from "@/components/fft-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -450,12 +451,13 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="temperature" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
             <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
             <TabsTrigger value="accel-x">X</TabsTrigger>
             <TabsTrigger value="accel-y">Y</TabsTrigger>
             <TabsTrigger value="accel-z">Z</TabsTrigger>
+            <TabsTrigger value="fft">FFT</TabsTrigger>
           </TabsList>
 
           <TabsContent value="temperature" className="space-y-4">
@@ -541,6 +543,23 @@ export default function BHMDashboard() {
                   axis="accel_z" 
                   title="Z Acceleration" 
                   color="#8b5cf6" 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fft" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>FFT Analysis - Z Acceleration</CardTitle>
+                <CardDescription>
+                  Fast Fourier Transform of Z-axis acceleration (latest 1 minute)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <FFTChart 
+                  data={sensorData} 
+                  isLoading={loading}
                 />
               </CardContent>
             </Card>
