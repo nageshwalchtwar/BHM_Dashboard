@@ -362,23 +362,6 @@ export default function BHMDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Latest Reading</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {mounted && stats.latestTimestamp && stats.latestTimestamp !== 'N/A' && stats.latestTimestamp !== 'No data' ? 
-                  stats.latestTimestamp : 
-                  (mounted ? 'N/A' : 'Loading...')}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {mounted && sensorData.length > 0 ? new Date(sensorData[0].timestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Auto Refresh</CardTitle>
