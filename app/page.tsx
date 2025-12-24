@@ -29,6 +29,7 @@ import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
 import { FFTChart } from "@/components/fft-chart"
+import { ThreeAxisAccelerationChart } from "@/components/three-axis-acceleration-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -451,12 +452,13 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="temperature" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
             <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
             <TabsTrigger value="accel-x">X</TabsTrigger>
             <TabsTrigger value="accel-y">Y</TabsTrigger>
             <TabsTrigger value="accel-z">Z</TabsTrigger>
+            <TabsTrigger value="3-axis">3-Axis</TabsTrigger>
             <TabsTrigger value="fft">FFT</TabsTrigger>
           </TabsList>
 
@@ -543,6 +545,23 @@ export default function BHMDashboard() {
                   axis="accel_z" 
                   title="Z Acceleration" 
                   color="#8b5cf6" 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="3-axis" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>3-Axis Acceleration with Zero Baseline</CardTitle>
+                <CardDescription>
+                  Compare all three acceleration axes (X, Y, Z) on one plot with zero baseline reference
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <ThreeAxisAccelerationChart 
+                  data={sensorData} 
+                  isLoading={loading}
                 />
               </CardContent>
             </Card>
