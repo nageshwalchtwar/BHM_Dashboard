@@ -43,7 +43,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
-            {title}: {actualValue?.toFixed(3) || 'N/A'} g
+            {title}: {typeof actualValue === 'number' ? actualValue.toFixed(4) : 'N/A'} g
           </p>
         </div>
       )
@@ -69,6 +69,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             stroke="#64748b"
             fontSize={12}
             label={{ value: `${title} (g)`, angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine y={0.5} stroke="#ef4444" strokeDasharray="5 5" label="High Threshold" />

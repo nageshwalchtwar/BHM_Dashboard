@@ -51,7 +51,7 @@ export function ThreeAxisAccelerationChart({ data, isLoading }: ThreeAxisAcceler
           <div className="space-y-1">
             {payload.map((entry: any, index: number) => (
               <p key={index} className="text-sm font-semibold" style={{ color: entry.color }}>
-                {entry.name}: {entry.value?.toFixed(3) || 'N/A'} g
+                {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(4) : 'N/A'} g
               </p>
             ))}
           </div>
@@ -78,6 +78,7 @@ export function ThreeAxisAccelerationChart({ data, isLoading }: ThreeAxisAcceler
             stroke="#64748b"
             fontSize={12}
             label={{ value: "Acceleration (g)", angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend 

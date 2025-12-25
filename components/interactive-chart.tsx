@@ -34,7 +34,7 @@ export function InteractiveChart({ data, isLoading, field, title, color, unit = 
       },
       hovertemplate: `<b>${title}</b><br>` +
                     `Time: %{x}<br>` +
-                    `Value: %{y:.3f} ${unit}<br>` +
+                    `Value: %{y:.4f} ${unit}<br>` +
                     '<extra></extra>'
     }]
   }, [data, field, title, color, unit])
@@ -54,7 +54,10 @@ export function InteractiveChart({ data, isLoading, field, title, color, unit = 
     yaxis: {
       title: `${title} (${unit})`,
       showgrid: true,
-      gridcolor: '#e2e8f0'
+      gridcolor: '#e2e8f0',
+      tickformat: '.4f',
+      hoverformat: '.4f',
+      automargin: true,
     },
     plot_bgcolor: 'white',
     paper_bgcolor: 'white',
@@ -80,7 +83,18 @@ export function InteractiveChart({ data, isLoading, field, title, color, unit = 
       'toImage'
     ],
     displaylogo: false,
-    scrollZoom: true
+    scrollZoom: true,
+    doubleClick: 'reset+autosize',
+    displayModeBar: true,
+    displaylogo: false,
+    responsive: true,
+    toImageButtonOptions: {
+      format: 'png',
+      filename: 'chart',
+      height: 400,
+      width: 700,
+      scale: 2
+    }
   }
 
   if (isLoading) {

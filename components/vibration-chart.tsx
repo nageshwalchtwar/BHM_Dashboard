@@ -39,7 +39,7 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
           <p className="text-sm text-slate-600 mb-1">
             CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
-          <p className="text-sm font-semibold text-blue-600">Vibration: {actualValue?.toFixed(3) || 'N/A'} g</p>
+          <p className="text-sm font-semibold text-blue-600">Vibration: {typeof actualValue === 'number' ? actualValue.toFixed(4) : 'N/A'} g</p>
         </div>
       )
     }
@@ -65,6 +65,7 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
             stroke="#64748b"
             fontSize={12}
             label={{ value: "Frequency (Hz)", angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine y={2.0} stroke="#ef4444" strokeDasharray="5 5" label="Critical Threshold" />

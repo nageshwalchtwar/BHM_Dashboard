@@ -94,7 +94,7 @@ export function FFTChart({ data, isLoading }: FFTChartProps) {
             Frequency Component: {data.frequency}
           </p>
           <p className="text-sm font-semibold text-pink-600">
-            Magnitude: {data.magnitude?.toFixed(4) || 'N/A'} g
+            Magnitude: {typeof data.magnitude === 'number' ? data.magnitude.toFixed(4) : 'N/A'} g
           </p>
         </div>
       )
@@ -136,6 +136,7 @@ export function FFTChart({ data, isLoading }: FFTChartProps) {
             stroke="#64748b"
             fontSize={12}
             label={{ value: "Magnitude (g)", angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <Line

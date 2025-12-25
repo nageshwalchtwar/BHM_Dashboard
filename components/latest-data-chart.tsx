@@ -80,7 +80,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
             CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
-            {title}: {typeof actualValue === 'number' ? actualValue.toFixed(2) : (actualValue || 'N/A')} {unit}
+            {title}: {typeof actualValue === 'number' ? actualValue.toFixed(4) : (actualValue || 'N/A')} {unit}
           </p>
         </div>
       )
@@ -181,6 +181,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
                   stroke="#64748b"
                   fontSize={10}
                   domain={['dataMin - 5%', 'dataMax + 5%']}
+                  tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Line

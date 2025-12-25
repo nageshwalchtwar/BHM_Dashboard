@@ -55,7 +55,7 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
           <p className="text-sm text-slate-600 mb-1">
             CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
-          <p className="text-sm font-semibold text-purple-600">Stroke: {actualValue?.toFixed(2) || 'N/A'} mm</p>
+          <p className="text-sm font-semibold text-purple-600">Stroke: {typeof actualValue === 'number' ? actualValue.toFixed(4) : 'N/A'} mm</p>
         </div>
       )
     }
@@ -81,6 +81,7 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
             stroke="#64748b"
             fontSize={12}
             label={{ value: "Stroke (mm)", angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <Line

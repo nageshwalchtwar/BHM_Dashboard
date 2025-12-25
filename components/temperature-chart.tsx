@@ -39,7 +39,7 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
           <p className="text-sm text-slate-600 mb-1">
             CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
           </p>
-          <p className="text-sm font-semibold text-orange-600">Temperature: {actualValue?.toFixed(2) || 'N/A'}°C</p>
+          <p className="text-sm font-semibold text-orange-600">Temperature: {typeof actualValue === 'number' ? actualValue.toFixed(4) : 'N/A'}°C</p>
         </div>
       )
     }
@@ -64,6 +64,7 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
             stroke="#64748b"
             fontSize={12}
             label={{ value: "Temperature (°C)", angle: -90, position: "insideLeft" }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
           />
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine y={35} stroke="#ef4444" strokeDasharray="5 5" label="Critical Threshold" />
