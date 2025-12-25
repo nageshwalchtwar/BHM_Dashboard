@@ -156,23 +156,23 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         
         // Log first few data points for debugging
         if (data.length <= 3) {
-          // console.log(`Sample data point ${data.length}:`, {
-            rawTimestamp: sensorData.rawTimestamp,
-            parsedTimestamp: new Date(sensorData.timestamp).toLocaleString(),
-            // Show both old and new field names for debugging
-            accel_x: sensorData.accel_x || sensorData.x,
-            accel_y: sensorData.accel_y || sensorData.y,
-            accel_z: sensorData.accel_z || sensorData.z,
-            // Check if we're using new column names from CSV
-            rawAccelX: row['accel_x'],
-            rawAccelY: row['accel_y'], 
-            rawAccelZ: row['accel_z'],
-            rawTempC: row['temperature_C'],
-            rawStroke: row['stroke_mm'],
-            temperature_c: sensorData.temperature_c,
-            stroke_mm: sensorData.stroke_mm,
-            originalHeaders: originalHeaders
-          })
+           // console.log(`Sample data point ${data.length}:`, {
+           //   rawTimestamp: sensorData.rawTimestamp,
+           //   parsedTimestamp: new Date(sensorData.timestamp).toLocaleString(),
+           //   // Show both old and new field names for debugging
+           //   accel_x: sensorData.accel_x || sensorData.x,
+           //   accel_y: sensorData.accel_y || sensorData.y,
+           //   accel_z: sensorData.accel_z || sensorData.z,
+           //   // Check if we're using new column names from CSV
+           //   rawAccelX: row['accel_x'],
+           //   rawAccelY: row['accel_y'], 
+           //   rawAccelZ: row['accel_z'],
+           //   rawTempC: row['temperature_C'],
+           //   rawStroke: row['stroke_mm'],
+           //   temperature_c: sensorData.temperature_c,
+           //   stroke_mm: sensorData.stroke_mm,
+           //   originalHeaders: originalHeaders
+           // })
         }
     } catch (error) {
       // console.warn('Error parsing row:', i, error)
