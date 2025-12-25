@@ -26,15 +26,15 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
   // Keep original case for headers, but create lowercase lookup
   const originalHeaders = lines[0].split(',').map(h => h.trim())
   const headers = originalHeaders.map(h => h.toLowerCase())
-  console.log('🔍 CSV headers found:', originalHeaders)
-  console.log('🔍 Looking for columns: temperature_C, accel_x, accel_y, accel_z, stroke_mm, Timestamp (new format) or Temperature_C, X, Y, Z, Stroke_mm, Timestamp (old format)')
+  // console.log('🔍 CSV headers found:', originalHeaders)
+  // console.log('🔍 Looking for columns: temperature_C, accel_x, accel_y, accel_z, stroke_mm, Timestamp (new format) or Temperature_C, X, Y, Z, Stroke_mm, Timestamp (old format)')
   
   const data: CSVSensorData[] = []
   
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(',').map(v => v.trim())
     if (values.length !== headers.length) {
-      console.warn(`Row ${i} has ${values.length} columns but expected ${headers.length}`)
+      // console.warn(`Row ${i} has ${values.length} columns but expected ${headers.length}`)
       continue
     }
     
@@ -73,7 +73,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
                                    Math.round((seconds % 1) * 1000))
           timestamp = timeDate.getTime()
           
-          console.log(`⏰ Time-only timestamp: ${rawTimestamp} -> ${timeDate.toLocaleString()}`)
+          // console.log(`⏰ Time-only timestamp: ${rawTimestamp} -> ${timeDate.toLocaleString()}`)
         } else {
           // Try to parse as regular date/time
           const parsed = new Date(rawTimestamp)
@@ -82,14 +82,14 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
           } else {
             // Fallback: use current time with incrementing milliseconds
             timestamp = Date.now() + (data.length * 1000)
-            console.warn(`⚠️ Could not parse timestamp: ${rawTimestamp}, using fallback`)
+            // console.warn(`⚠️ Could not parse timestamp: ${rawTimestamp}, using fallback`)
           }
         }
       } else {
         // No timestamp found - use incremental time and generate raw timestamp
         timestamp = Date.now() + (data.length * 1000)
         rawTimestamp = new Date(timestamp).toLocaleTimeString()
-        console.warn('⚠️ No timestamp found in row, using generated timestamp')
+        // console.warn('⚠️ No timestamp found in row, using generated timestamp')
       }
       
       // Parse values with exact column name matching first, then fallback to lowercase
@@ -104,7 +104,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         
         // Debug Temperature_C specifically
         if (exactName === 'Temperature_C' || fallbackName === 'temperature_c') {
-          console.log(`🌡️ Temperature_C parsing:`, {
+          // console.log(`🌡️ Temperature_C parsing:`, {
             exactName,
             fallbackName,
             exactValue: row[exactName],
@@ -156,7 +156,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         
         // Log first few data points for debugging
         if (data.length <= 3) {
-          console.log(`Sample data point ${data.length}:`, {
+          // console.log(`Sample data point ${data.length}:`, {
             rawTimestamp: sensorData.rawTimestamp,
             parsedTimestamp: new Date(sensorData.timestamp).toLocaleString(),
             // Show both old and new field names for debugging
@@ -175,11 +175,11 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
           })
         }
     } catch (error) {
-      console.warn('Error parsing row:', i, error)
+      // console.warn('Error parsing row:', i, error)
     }
   }
   
-  console.log(`Successfully parsed ${data.length} valid data points from ${lines.length - 1} rows`)
+  // console.log(`Successfully parsed ${data.length} valid data points from ${lines.length - 1} rows`)
   return data
 }
 
@@ -189,7 +189,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
 export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
   if (data.length === 0) return []
   
-  console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
+  // console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
   
   // Sort by timestamp descending (most recent first)
   const sortedData = data.sort((a, b) => b.timestamp - a.timestamp)
@@ -198,17 +198,17 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   
   // Get the most recent timestamp
   const latestTimestamp = sortedData[0].timestamp
-  console.log(`🕐 Latest data timestamp: ${new Date(latestTimestamp).toLocaleString()}`)
+  // console.log(`🕐 Latest data timestamp: ${new Date(latestTimestamp).toLocaleString()}`)
   
   // Calculate cutoff time (minutes ago from the latest data point)
   const cutoffTime = latestTimestamp - (minutes * 60 * 1000) // Convert minutes to milliseconds
-  console.log(`🕐 Cutoff time: ${new Date(cutoffTime).toLocaleString()}`)
+  // console.log(`🕐 Cutoff time: ${new Date(cutoffTime).toLocaleString()}`)
   
   // Filter data within the time window
   const filteredData = sortedData.filter(item => item.timestamp >= cutoffTime)
   
-  console.log(`✅ Filtered ${data.length} total points to ${filteredData.length} points for last ${minutes} minute(s)`)
-  console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
+  // console.log(`✅ Filtered ${data.length} total points to ${filteredData.length} points for last ${minutes} minute(s)`)
+  // console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
   
   return filteredData
 }
@@ -243,11 +243,11 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
       accessToken: process.env.GOOGLE_DRIVE_ACCESS_TOKEN
     })
     
-    console.log('Attempting to fetch from Google Drive folder:', EXTRACTED_FOLDER_ID)
+    // console.log('Attempting to fetch from Google Drive folder:', EXTRACTED_FOLDER_ID)
     
     // If no API key or access token, try direct public access first
     if (!process.env.GOOGLE_DRIVE_API_KEY && !process.env.GOOGLE_DRIVE_ACCESS_TOKEN) {
-      console.log('No API credentials found, trying direct public access...')
+      // console.log('No API credentials found, trying direct public access...')
       const directContent = await driveReader.tryDirectPublicAccess()
       if (directContent) {
         const parsedData = parseCSVToSensorData(directContent)
@@ -257,11 +257,11 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
     
     // Try to list files from the API
     const files = await driveReader.listCSVFiles()
-    console.log(`Found ${files.length} CSV files in Google Drive`)
+    // console.log(`Found ${files.length} CSV files in Google Drive`)
     
     if (files.length > 0) {
       const latestFile = files[0] // Already sorted by modifiedTime desc
-      console.log('Latest file details:', {
+      // console.log('Latest file details:', {
         name: latestFile.name,
         modified: latestFile.modifiedTime,
         size: latestFile.size,
@@ -269,47 +269,47 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
       })
       
       const csvContent = await driveReader.readFileContent(latestFile.id)
-      console.log('CSV content preview:', csvContent.substring(0, 200) + '...')
-      console.log('CSV content length:', csvContent.length, 'characters')
+      // console.log('CSV content preview:', csvContent.substring(0, 200) + '...')
+      // console.log('CSV content length:', csvContent.length, 'characters')
       
       if (csvContent && csvContent.trim()) {
         const parsedData = parseCSVToSensorData(csvContent)
-        console.log('Parsed', parsedData.length, 'data points from CSV')
+        // console.log('Parsed', parsedData.length, 'data points from CSV')
         
         const recentData = getRecentData(parsedData, 1) // Get last 1 minute of data
-        console.log('Filtered to', recentData.length, 'recent data points')
+        // console.log('Filtered to', recentData.length, 'recent data points')
         
         if (recentData.length > 0) {
-          console.log('Successfully returning real CSV data!')
+          // console.log('Successfully returning real CSV data!')
           return recentData
         } else {
-          console.log('No recent data found in CSV, using mock data')
+          // console.log('No recent data found in CSV, using mock data')
         }
       }
     } else {
-      console.log('No CSV files found in the Google Drive folder')
+      // console.log('No CSV files found in the Google Drive folder')
     }
     
     // If no files or empty content, fall back to mock data
-    console.log('No valid CSV data found, using mock data for demo')
+    // console.log('No valid CSV data found, using mock data for demo')
     const mockCSVContent = generateMockCSVContent()
     const parsedData = parseCSVToSensorData(mockCSVContent)
     return getRecentData(parsedData, 1)
     
   } catch (error) {
-    console.error('Error fetching CSV data from Google Drive:', error)
-    console.log('Error details:', error instanceof Error ? error.message : error)
+    // console.error('Error fetching CSV data from Google Drive:', error)
+    // console.log('Error details:', error instanceof Error ? error.message : error)
     
     // Check if it's an API key error
     if (error instanceof Error && error.message.includes('API key')) {
-      console.log('🔑 Google Drive API key is required to access your CSV files')
-      console.log('📁 Your folder ID:', EXTRACTED_FOLDER_ID)
-      console.log('🌐 Folder URL: https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM')
-      console.log('⚙️  Setup: Get API key from Google Cloud Console → Add to Vercel environment variables')
+      // console.log('🔑 Google Drive API key is required to access your CSV files')
+      // console.log('📁 Your folder ID:', EXTRACTED_FOLDER_ID)
+      // console.log('🌐 Folder URL: https://drive.google.com/drive/folders/10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM')
+      // console.log('⚙️  Setup: Get API key from Google Cloud Console → Add to Vercel environment variables')
     }
     
     // Fallback to mock data on error
-    console.log('Falling back to mock data due to error')
+    // console.log('Falling back to mock data due to error')
     const mockCSVContent = generateMockCSVContent()
     const parsedData = parseCSVToSensorData(mockCSVContent)
     return getRecentData(parsedData, 1)
