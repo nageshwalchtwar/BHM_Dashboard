@@ -105,21 +105,21 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         // Debug Temperature_C specifically
         if (exactName === 'Temperature_C' || fallbackName === 'temperature_c') {
           // console.log(`🌡️ Temperature_C parsing:`, {
-            exactName,
-            fallbackName,
-            exactValue: row[exactName],
-            fallbackValue: fallbackName ? lowerRow[fallbackName] : undefined,
-            alternateValues: {
-              'temperature_c': row['temperature_c'],
-              'Temperature_c': row['Temperature_c'], 
-              'TEMPERATURE_C': row['TEMPERATURE_C'],
-              'temperature': lowerRow['temperature'],
-              'temp': lowerRow['temp']
-            },
-            finalValue: val,
-            allRowKeys: Object.keys(row),
-            allValues: row
-          })
+          //   exactName,
+          //   fallbackName,
+          //   exactValue: row[exactName],
+          //   fallbackValue: fallbackName ? lowerRow[fallbackName] : undefined,
+          //   alternateValues: {
+          //     'temperature_c': row['temperature_c'],
+          //     'Temperature_c': row['Temperature_c'], 
+          //     'TEMPERATURE_C': row['TEMPERATURE_C'],
+          //     'temperature': lowerRow['temperature'],
+          //     'temp': lowerRow['temp']
+          //   },
+          //   finalValue: val,
+          //   allRowKeys: Object.keys(row),
+          //   allValues: row
+          // })
         }
         
         if (val !== undefined && val !== null && val !== '') {
