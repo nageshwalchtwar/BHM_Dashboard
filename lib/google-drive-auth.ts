@@ -154,39 +154,21 @@ class GoogleDriveAuthenticatedClient {
       
       const content = await this.downloadFile(latestFile.id);
       
-      // Validate it's a CSV file with flexible header matching
-      // Check for common CSV header patterns and sensor identifiers
-      const hasValidFormat = 
-        content.includes('Device,Timestamp') || 
-        content.includes('88A29E218213') ||
-        content.includes('Timestamp') && content.match(/\d+:\d+:\d+/) || // Any timestamp format with time
-        (content.includes('X,Y,Z') || content.includes('accel')) && content.length > 100; // Sensor data pattern
-      
-      if (hasValidFormat) {
-        console.log(`✅ Valid CSV file found with sensor data format`);
+      // Validate it's a CSV with your expected format
+      if (content.includes('Device,Timestamp') || content.includes('88A29E218213')) {
+        console.log(`✅ Valid CSV file found with your sensor data format`);
         return {
           filename: latestFile.name,
           content: content
         };
       } else {
         console.log(`⚠️ File found but doesn't match expected CSV format`);
-        console.log('📊 Content preview (first 200 chars):', content.substring(0, 200));
-        console.log('📊 File size:', content.length, 'bytes');
-        // Still return the file even if format doesn't match expected pattern
-        // The parser can handle various formats
-        console.log('ℹ️ Returning file anyway - parser may handle it');
-        return {
-          filename: latestFile.name,
-          content: content
-        };
+        console.log('Content preview:', content.substring(0, 200));
+        return null;
       }
 
     } catch (error) {
       console.error('❌ Error getting latest CSV file:', error);
-      if (error instanceof Error) {
-        console.error('💥 Error details:', error.message);
-        console.error('🔍 Stack:', error.stack?.substring(0, 500));
-      }
       return null;
     }
   }

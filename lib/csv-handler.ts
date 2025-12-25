@@ -61,6 +61,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         
         // For sorting and filtering, create a simple numeric timestamp
         // If it's time-only format like "01:29:07", combine with today's date
+        let timestamp: number
         if (rawTimestamp.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
           // Time-only format - create timestamp with today's date
           const today = new Date()

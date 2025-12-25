@@ -28,8 +28,6 @@ import { TemperatureChart } from "@/components/temperature-chart"
 import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
-import { FFTChart } from "@/components/fft-chart"
-import { ThreeAxisAccelerationChart } from "@/components/three-axis-acceleration-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -112,9 +110,7 @@ export default function BHMDashboard() {
           totalDataPoints: result.metadata.totalPoints,
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ? 
             result.data[0].rawTimestamp : 
-            (result.data.length > 0 && typeof result.data[0].timestamp === 'number' ? 
-              new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 
-              'No data'),
+            (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data'),
           dataSource: result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
@@ -364,6 +360,21 @@ export default function BHMDashboard() {
             </CardContent>
           </Card>
 
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Latest Reading</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleTimeString() : (mounted ? 'N/A' : 'Loading...')}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Auto Refresh</CardTitle>
@@ -452,14 +463,12 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="temperature" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
             <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
             <TabsTrigger value="accel-x">X</TabsTrigger>
             <TabsTrigger value="accel-y">Y</TabsTrigger>
             <TabsTrigger value="accel-z">Z</TabsTrigger>
-            <TabsTrigger value="3-axis">3-Axis</TabsTrigger>
-            <TabsTrigger value="fft">FFT</TabsTrigger>
           </TabsList>
 
           <TabsContent value="temperature" className="space-y-4">
@@ -545,40 +554,6 @@ export default function BHMDashboard() {
                   axis="accel_z" 
                   title="Z Acceleration" 
                   color="#8b5cf6" 
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="3-axis" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>3-Axis Acceleration with Zero Baseline</CardTitle>
-                <CardDescription>
-                  Compare all three acceleration axes (X, Y, Z) on one plot with zero baseline reference
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <ThreeAxisAccelerationChart 
-                  data={sensorData} 
-                  isLoading={loading}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="fft" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>FFT Analysis - Z Acceleration</CardTitle>
-                <CardDescription>
-                  Fast Fourier Transform of Z-axis acceleration (latest 1 minute)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <FFTChart 
-                  data={sensorData} 
-                  isLoading={loading}
                 />
               </CardContent>
             </Card>

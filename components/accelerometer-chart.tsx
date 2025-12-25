@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
 
 interface AccelerometerChartProps {
   data: any[]
@@ -12,7 +11,6 @@ interface AccelerometerChartProps {
 }
 
 export function AccelerometerChart({ data, isLoading, axis, title, color }: AccelerometerChartProps) {
-  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
@@ -82,15 +80,6 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4, fill: color }}
-          />
-          <Brush 
-            dataKey="timestamp" 
-            height={30} 
-            stroke={color}
-            fill={color}
-            fillOpacity={0.2}
-            travellerWidth={8}
-            onChange={(state: any) => setZoomData({ startIndex: state.startIndex, endIndex: state.endIndex })}
           />
         </LineChart>
       </ResponsiveContainer>
