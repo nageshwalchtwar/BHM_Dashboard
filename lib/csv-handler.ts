@@ -262,11 +262,12 @@ export async function fetchLatestCSVData(): Promise<CSVSensorData[]> {
     if (files.length > 0) {
       const latestFile = files[0] // Already sorted by modifiedTime desc
       // console.log('Latest file details:', {
-        name: latestFile.name,
-        modified: latestFile.modifiedTime,
-        size: latestFile.size,
-        id: latestFile.id
-      })
+        // console.log('Latest file details:', {
+        //   name: latestFile.name,
+        //   modified: latestFile.modifiedTime,
+        //   size: latestFile.size,
+        //   id: latestFile.id
+        // })
       
       const csvContent = await driveReader.readFileContent(latestFile.id)
       // console.log('CSV content preview:', csvContent.substring(0, 200) + '...')
