@@ -1,6 +1,6 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface StrainChartProps {
   data: any[]
@@ -73,7 +73,7 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
             stroke="#64748b" 
             fontSize={10}
             interval="preserveStartEnd"
-            tick={{ angle: -45 }}
+            // Removed invalid tick angle property
             height={60}
           />
           <YAxis
@@ -92,6 +92,7 @@ export function StrainChart({ data, isLoading }: StrainChartProps) {
             dot={false}
             activeDot={{ r: 4, fill: "#7c3aed" }}
           />
+          <Brush dataKey="timestamp" height={24} stroke="#7c3aed" travellerWidth={12} />
         </LineChart>
       </ResponsiveContainer>
     </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface TemperatureChartProps {
   data: any[]
@@ -77,6 +77,7 @@ export function TemperatureChart({ data, isLoading }: TemperatureChartProps) {
             dot={false}
             activeDot={{ r: 4, fill: "#ea580c" }}
           />
+          <Brush dataKey="timestamp" height={24} stroke="#ea580c" travellerWidth={12} />
         </LineChart>
       </ResponsiveContainer>
     </div>

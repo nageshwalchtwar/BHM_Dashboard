@@ -1,6 +1,6 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 
 interface AccelerometerChartProps {
   data: any[]
@@ -82,6 +82,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
             dot={false}
             activeDot={{ r: 4, fill: color }}
           />
+          <Brush dataKey="timestamp" height={24} stroke={color} travellerWidth={12} />
         </LineChart>
       </ResponsiveContainer>
     </div>

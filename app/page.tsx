@@ -28,6 +28,7 @@ import { TemperatureChart } from "@/components/temperature-chart"
 import { VibrationChart } from "@/components/vibration-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
+import { InteractiveChart } from "@/components/interactive-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -463,13 +464,46 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="temperature" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="temperature">Temperature_C</TabsTrigger>
-            <TabsTrigger value="stroke">Stroke_mm</TabsTrigger>
-            <TabsTrigger value="accel-x">X</TabsTrigger>
-            <TabsTrigger value="accel-y">Y</TabsTrigger>
-            <TabsTrigger value="accel-z">Z</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <TabsTrigger value="temperature" asChild>
+              <Button variant="secondary" className="min-w-[120px]">Temperature_C</Button>
+            </TabsTrigger>
+            <TabsTrigger value="stroke" asChild>
+              <Button variant="secondary" className="min-w-[120px]">Stroke_mm</Button>
+            </TabsTrigger>
+            <TabsTrigger value="accel-x" asChild>
+              <Button variant="secondary" className="min-w-[80px]">X</Button>
+            </TabsTrigger>
+            <TabsTrigger value="accel-y" asChild>
+              <Button variant="secondary" className="min-w-[80px]">Y</Button>
+            </TabsTrigger>
+            <TabsTrigger value="accel-z" asChild>
+              <Button variant="secondary" className="min-w-[80px]">Z</Button>
+            </TabsTrigger>
+            <TabsTrigger value="plotly-z" asChild>
+              <Button variant="outline" className="min-w-[120px]">Z (Plotly)</Button>
+            </TabsTrigger>
+          </div>
+          <TabsContent value="plotly-z" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Z Acceleration (Plotly)</CardTitle>
+                <CardDescription>
+                  Interactive Plotly chart for Z-axis acceleration (zoom, pan, export)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <InteractiveChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="accel_z"
+                  title="Z Acceleration"
+                  color="#8b5cf6"
+                  unit="g"
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="temperature" className="space-y-4">
             <Card>
