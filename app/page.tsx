@@ -1,5 +1,23 @@
+// --- Sinusoidal demo data generator ---
+function generateSinusoidalData(n = 500) {
+  const now = Date.now();
+  const data = [];
+  for (let i = 0; i < n; i++) {
+    const t = now + i * 1000; // 1 second apart
+    data.push({
+      timestamp: new Date(t).toISOString(),
+      temperature_c: 25 + 5 * Math.sin(i * 2 * Math.PI / 100),
+      stroke_mm: 10 + 2 * Math.sin(i * 2 * Math.PI / 80 + 1),
+      accel_x: 0.01 * Math.sin(i * 2 * Math.PI / 60),
+      accel_y: 0.01 * Math.sin(i * 2 * Math.PI / 60 + 2),
+      accel_z: 0.01 * Math.sin(i * 2 * Math.PI / 60 + 4),
+    });
+  }
+  return data;
+}
 "use client"
 
+    const [mounted, setMounted] = useState(false);
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -147,12 +165,6 @@ export default function BHMDashboard() {
       setLoading(false)
     }
   }
-
-  const getLatestValues = () => {
-    if (sensorData.length === 0) return null
-    const latest = sensorData[0]
-    const acceleration = Math.sqrt(latest.accel_x**2 + latest.accel_y**2 + latest.accel_z**2)
-    return {
       vibration: acceleration?.toFixed(2) || 'N/A',  // Use acceleration as vibration
       temperature: latest.temperature_c?.toFixed(1) || 'N/A',
       strain: latest.stroke_mm?.toFixed(2) || 'N/A',  // Use stroke_mm as strain
@@ -489,8 +501,8 @@ export default function BHMDashboard() {
                         </CardHeader>
                         <CardContent className="h-[500px]">
                           <PlotlyChart
-                            data={sensorData}
-                            isLoading={loading}
+                            data={generateSinusoidalData()}
+                            isLoading={false}
                             field="accel_xyz"
                             title="Accelerometer (x, y, z)"
                             color="#000"
@@ -512,8 +524,8 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <PlotlyChart
-                  data={sensorData}
-                  isLoading={loading}
+                  data={generateSinusoidalData()}
+                  isLoading={false}
                   field="temperature_c"
                   title="Temperature"
                   color="#ef4444"
@@ -534,8 +546,8 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <PlotlyChart
-                  data={sensorData}
-                  isLoading={loading}
+                  data={generateSinusoidalData()}
+                  isLoading={false}
                   field="stroke_mm"
                   title="LVDT"
                   color="#22c55e"
@@ -555,8 +567,8 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <PlotlyChart
-                  data={sensorData}
-                  isLoading={loading}
+                  data={generateSinusoidalData()}
+                  isLoading={false}
                   field="accel_x"
                   title="accele_x"
                   color="#3b82f6"
@@ -576,8 +588,8 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <PlotlyChart
-                  data={sensorData}
-                  isLoading={loading}
+                  data={generateSinusoidalData()}
+                  isLoading={false}
                   field="accel_y"
                   title="accele_y"
                   color="#f59e0b"
@@ -597,8 +609,8 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <PlotlyChart
-                  data={sensorData}
-                  isLoading={loading}
+                  data={generateSinusoidalData()}
+                  isLoading={false}
                   field="accel_z"
                   title="accele_z"
                   color="#8b5cf6"
