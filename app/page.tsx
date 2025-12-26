@@ -494,7 +494,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <TemperatureChart isLoading={false} />
+                <TemperatureChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -508,7 +508,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <StrainChart isLoading={false} />
+                <StrainChart data={sensorData} isLoading={loading} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -522,7 +522,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart isLoading={false} axis="accel_x" title="accele_x" color="#3b82f6" />
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_x" title="accele_x" color="#3b82f6" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -536,7 +536,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart isLoading={false} axis="accel_y" title="accele_y" color="#f59e0b" />
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_y" title="accele_y" color="#f59e0b" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -550,7 +550,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart isLoading={false} axis="accel_z" title="accele_z" color="#8b5cf6" />
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_z" title="accele_z" color="#8b5cf6" />
               </CardContent>
             </Card>
           </TabsContent>
