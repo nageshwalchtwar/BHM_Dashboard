@@ -464,7 +464,7 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Only CSV Columns */}
         <Tabs defaultValue="temperature" className="space-y-4">
-          <div className="flex flex-wrap gap-2 mb-2">
+          <TabsList className="flex flex-wrap gap-2 mb-2">
             <TabsTrigger value="temperature" asChild>
               <Button variant="secondary" className="min-w-[120px]">Temperature_C</Button>
             </TabsTrigger>
@@ -483,7 +483,7 @@ export default function BHMDashboard() {
             <TabsTrigger value="plotly-z" asChild>
               <Button variant="outline" className="min-w-[120px]">Z (Plotly)</Button>
             </TabsTrigger>
-          </div>
+          </TabsList>
           <TabsContent value="plotly-z" className="space-y-4">
             <Card>
               <CardHeader>
