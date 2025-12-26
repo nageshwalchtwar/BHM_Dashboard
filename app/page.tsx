@@ -476,6 +476,31 @@ export default function BHMDashboard() {
             <TabsTrigger value="accel-z" asChild>
               <Button variant="secondary" className="min-w-[100px]">accele_z</Button>
             </TabsTrigger>
+            <TabsTrigger value="accel-xyz" asChild>
+              <Button variant="outline" className="min-w-[160px]">Accelerometer (x, y, z)</Button>
+            </TabsTrigger>
+                    <TabsContent value="accel-xyz" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Accelerometer (x, y, z)</CardTitle>
+                          <CardDescription>
+                            All accelerometer axes in one plot
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="h-[500px]">
+                          <PlotlyChart
+                            data={sensorData}
+                            isLoading={loading}
+                            field="accel_xyz"
+                            title="Accelerometer (x, y, z)"
+                            color="#000"
+                            unit="g"
+                            yRange={undefined}
+                            multiAxis={true}
+                          />
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
           </TabsList>
           <TabsContent value="temperature" className="space-y-4">
             <Card>

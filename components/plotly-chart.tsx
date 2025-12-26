@@ -11,36 +11,67 @@ interface PlotlyChartProps {
   color: string
   unit?: string
   yRange?: [number, number] | null
+  multiAxis?: boolean
 }
 
-export function PlotlyChart({ data, isLoading, field, title, color, unit = '', yRange = null }: PlotlyChartProps) {
+export function PlotlyChart({ data, isLoading, field, title, color, unit = '', yRange = null, multiAxis = false }: PlotlyChartProps) {
   const plotData = useMemo(() => {
     if (!data || data.length === 0) return []
     const timestamps = data.map(item => new Date(item.timestamp))
-    const values = data.map(item => {
-      const v = item[field]
-      return (typeof v === 'number' && !isNaN(v)) ? v : null
-    })
-    return [{
-      x: timestamps,
-      y: values,
-      type: 'scatter' as const,
-      mode: 'lines+markers' as const,
-      name: title,
-      line: {
-        color: color,
-        width: 2
-      },
-      marker: {
-        color: color,
-        size: 4
-      },
-      hovertemplate: `<b>${title}</b><br>` +
-                    `Time: %{x}<br>` +
-                    `Value: %{y:.4f} ${unit}<br>` +
-                    '<extra></extra>'
-    }]
-  }, [data, field, title, color, unit])
+    if (multiAxis) {
+      // Plot accel_x, accel_y, accel_z together
+      return [
+        {
+          x: timestamps,
+          y: data.map(item => (typeof item.accel_x === 'number' ? item.accel_x : null)),
+          type: 'scatter',
+          mode: 'lines',
+          name: 'accele_x',
+          line: { color: '#3b82f6', width: 2 },
+        },
+        {
+          x: timestamps,
+          y: data.map(item => (typeof item.accel_y === 'number' ? item.accel_y : null)),
+          type: 'scatter',
+          mode: 'lines',
+          name: 'accele_y',
+          line: { color: '#f59e0b', width: 2 },
+        },
+        {
+          x: timestamps,
+          y: data.map(item => (typeof item.accel_z === 'number' ? item.accel_z : null)),
+          type: 'scatter',
+          mode: 'lines',
+          name: 'accele_z',
+          line: { color: '#8b5cf6', width: 2 },
+        },
+      ]
+    } else {
+      const values = data.map(item => {
+        const v = item[field]
+        return (typeof v === 'number' && !isNaN(v)) ? v : null
+      })
+      return [{
+        x: timestamps,
+        y: values,
+        type: 'scatter' as const,
+        mode: 'lines+markers' as const,
+        name: title,
+        line: {
+          color: color,
+          width: 2
+        },
+        marker: {
+          color: color,
+          size: 4
+        },
+        hovertemplate: `<b>${title}</b><br>` +
+                      `Time: %{x}<br>` +
+                      `Value: %{y:.4f} ${unit}<br>` +
+                      '<extra></extra>'
+      }]
+    }
+  }, [data, field, title, color, unit, multiAxis])
 
   const layout = useMemo(() => ({
     title: {
