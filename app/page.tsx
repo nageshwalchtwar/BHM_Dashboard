@@ -1,22 +1,5 @@
 
 "use client"
-// --- Sinusoidal demo data generator ---
-function generateSinusoidalData(n = 500) {
-  const now = Date.now();
-  const data = [];
-  for (let i = 0; i < n; i++) {
-    const t = now + i * 1000; // 1 second apart
-    data.push({
-      timestamp: new Date(t).toISOString(),
-      temperature_c: 25 + 5 * Math.sin(i * 2 * Math.PI / 100),
-      stroke_mm: 10 + 2 * Math.sin(i * 2 * Math.PI / 80 + 1),
-      accel_x: 0.01 * Math.sin(i * 2 * Math.PI / 60),
-      accel_y: 0.01 * Math.sin(i * 2 * Math.PI / 60 + 2),
-      accel_z: 0.01 * Math.sin(i * 2 * Math.PI / 60 + 4),
-    });
-  }
-  return data;
-}
 
     const [mounted, setMounted] = useState(false);
 import { useState, useEffect } from "react"
@@ -512,7 +495,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <TemperatureChart data={generateSinusoidalData()} isLoading={false} />
+                <TemperatureChart isLoading={false} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -526,7 +509,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <StrainChart data={generateSinusoidalData()} isLoading={false} />
+                <StrainChart isLoading={false} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -540,7 +523,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_x" title="accele_x" color="#3b82f6" />
+                <AccelerometerChart isLoading={false} axis="accel_x" title="accele_x" color="#3b82f6" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -554,7 +537,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_y" title="accele_y" color="#f59e0b" />
+                <AccelerometerChart isLoading={false} axis="accel_y" title="accele_y" color="#f59e0b" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -568,7 +551,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_z" title="accele_z" color="#8b5cf6" />
+                <AccelerometerChart isLoading={false} axis="accel_z" title="accele_z" color="#8b5cf6" />
               </CardContent>
             </Card>
           </TabsContent>
