@@ -24,11 +24,7 @@ import {
   User
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
-import { TemperatureChart } from "@/components/temperature-chart"
-import { VibrationChart } from "@/components/vibration-chart"
-import { StrainChart } from "@/components/strain-chart"
-import { AccelerometerChart } from "@/components/accelerometer-chart"
-import { InteractiveChart } from "@/components/interactive-chart"
+import { PlotlyChart } from "@/components/plotly-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -466,55 +462,39 @@ export default function BHMDashboard() {
         <Tabs defaultValue="temperature" className="space-y-4">
           <TabsList className="flex flex-wrap gap-2 mb-2">
             <TabsTrigger value="temperature" asChild>
-              <Button variant="secondary" className="min-w-[120px]">Temperature_C</Button>
+              <Button variant="secondary" className="min-w-[120px]">Temperature</Button>
             </TabsTrigger>
             <TabsTrigger value="stroke" asChild>
-              <Button variant="secondary" className="min-w-[120px]">Stroke_mm</Button>
+              <Button variant="secondary" className="min-w-[120px]">LVDT</Button>
             </TabsTrigger>
             <TabsTrigger value="accel-x" asChild>
-              <Button variant="secondary" className="min-w-[80px]">X</Button>
+              <Button variant="secondary" className="min-w-[100px]">accele_x</Button>
             </TabsTrigger>
             <TabsTrigger value="accel-y" asChild>
-              <Button variant="secondary" className="min-w-[80px]">Y</Button>
+              <Button variant="secondary" className="min-w-[100px]">accele_y</Button>
             </TabsTrigger>
             <TabsTrigger value="accel-z" asChild>
-              <Button variant="secondary" className="min-w-[80px]">Z</Button>
-            </TabsTrigger>
-            <TabsTrigger value="plotly-z" asChild>
-              <Button variant="outline" className="min-w-[120px]">Z (Plotly)</Button>
+              <Button variant="secondary" className="min-w-[100px]">accele_z</Button>
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="plotly-z" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Z Acceleration (Plotly)</CardTitle>
-                <CardDescription>
-                  Interactive Plotly chart for Z-axis acceleration (zoom, pan, export)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <InteractiveChart
-                  data={sensorData}
-                  isLoading={loading}
-                  field="accel_z"
-                  title="Z Acceleration"
-                  color="#8b5cf6"
-                  unit="g"
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="temperature" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Temperature_C Data</CardTitle>
+                <CardTitle>Temperature</CardTitle>
                 <CardDescription>
-                  Structural temperature measurements in Celsius
+                  Temperature measurements in Celsius
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <TemperatureChart data={sensorData} isLoading={loading} />
+                <PlotlyChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="temperature_c"
+                  title="Temperature"
+                  color="#ef4444"
+                  unit="°C"
+                  yRange={[10, 40]}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -522,13 +502,20 @@ export default function BHMDashboard() {
           <TabsContent value="stroke" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Stroke_mm Data</CardTitle>
+                <CardTitle>LVDT</CardTitle>
                 <CardDescription>
-                  Stroke displacement measurements in millimeters
+                  LVDT displacement measurements in millimeters
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <StrainChart data={sensorData} isLoading={loading} />
+                <PlotlyChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="stroke_mm"
+                  title="LVDT"
+                  color="#22c55e"
+                  unit="mm"
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -536,18 +523,19 @@ export default function BHMDashboard() {
           <TabsContent value="accel-x" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>X Acceleration Data</CardTitle>
+                <CardTitle>accele_x</CardTitle>
                 <CardDescription>
                   X-axis acceleration measurements
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  axis="accel_x" 
-                  title="X Acceleration" 
-                  color="#3b82f6" 
+                <PlotlyChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="accel_x"
+                  title="accele_x"
+                  color="#3b82f6"
+                  unit="g"
                 />
               </CardContent>
             </Card>
@@ -556,18 +544,19 @@ export default function BHMDashboard() {
           <TabsContent value="accel-y" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Y Acceleration Data</CardTitle>
+                <CardTitle>accele_y</CardTitle>
                 <CardDescription>
                   Y-axis acceleration measurements
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  axis="accel_y" 
-                  title="Y Acceleration" 
-                  color="#f59e0b" 
+                <PlotlyChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="accel_y"
+                  title="accele_y"
+                  color="#f59e0b"
+                  unit="g"
                 />
               </CardContent>
             </Card>
@@ -576,18 +565,19 @@ export default function BHMDashboard() {
           <TabsContent value="accel-z" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Z Acceleration Data</CardTitle>
+                <CardTitle>accele_z</CardTitle>
                 <CardDescription>
                   Z-axis acceleration measurements
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <AccelerometerChart 
-                  data={sensorData} 
-                  isLoading={loading} 
-                  axis="accel_z" 
-                  title="Z Acceleration" 
-                  color="#8b5cf6" 
+                <PlotlyChart
+                  data={sensorData}
+                  isLoading={loading}
+                  field="accel_z"
+                  title="accele_z"
+                  color="#8b5cf6"
+                  unit="g"
                 />
               </CardContent>
             </Card>
