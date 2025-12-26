@@ -165,6 +165,13 @@ export default function BHMDashboard() {
       setLoading(false)
     }
   }
+
+  // Returns latest values from the latest data point
+  const getLatestValues = () => {
+    if (sensorData.length === 0) return null
+    const latest = sensorData[0]
+    const acceleration = Math.sqrt(latest.accel_x**2 + latest.accel_y**2 + latest.accel_z**2)
+    return {
       vibration: acceleration?.toFixed(2) || 'N/A',  // Use acceleration as vibration
       temperature: latest.temperature_c?.toFixed(1) || 'N/A',
       strain: latest.stroke_mm?.toFixed(2) || 'N/A',  // Use stroke_mm as strain
