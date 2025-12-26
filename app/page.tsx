@@ -43,7 +43,9 @@ import {
   User
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
-import { PlotlyChart } from "@/components/plotly-chart"
+import { TemperatureChart } from "@/components/temperature-chart"
+import { StrainChart } from "@/components/strain-chart"
+import { AccelerometerChart } from "@/components/accelerometer-chart"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -499,28 +501,7 @@ export default function BHMDashboard() {
             <TabsTrigger value="accel-xyz" asChild>
               <Button variant="outline" className="min-w-[160px]">Accelerometer (x, y, z)</Button>
             </TabsTrigger>
-                    <TabsContent value="accel-xyz" className="space-y-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Accelerometer (x, y, z)</CardTitle>
-                          <CardDescription>
-                            All accelerometer axes in one plot
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="h-[500px]">
-                          <PlotlyChart
-                            data={generateSinusoidalData()}
-                            isLoading={false}
-                            field="accel_xyz"
-                            title="Accelerometer (x, y, z)"
-                            color="#000"
-                            unit="g"
-                            yRange={undefined}
-                            multiAxis={true}
-                          />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
+                    {/* Remove combined accelerometer plot for now, or implement with Recharts if needed */}
           </TabsList>
           <TabsContent value="temperature" className="space-y-4">
             <Card>
@@ -531,15 +512,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <PlotlyChart
-                  data={generateSinusoidalData()}
-                  isLoading={false}
-                  field="temperature_c"
-                  title="Temperature"
-                  color="#ef4444"
-                  unit="°C"
-                  yRange={[10, 40]}
-                />
+                <TemperatureChart data={generateSinusoidalData()} isLoading={false} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -553,14 +526,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <PlotlyChart
-                  data={generateSinusoidalData()}
-                  isLoading={false}
-                  field="stroke_mm"
-                  title="LVDT"
-                  color="#22c55e"
-                  unit="mm"
-                />
+                <StrainChart data={generateSinusoidalData()} isLoading={false} />
               </CardContent>
             </Card>
           </TabsContent>
@@ -574,14 +540,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <PlotlyChart
-                  data={generateSinusoidalData()}
-                  isLoading={false}
-                  field="accel_x"
-                  title="accele_x"
-                  color="#3b82f6"
-                  unit="g"
-                />
+                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_x" title="accele_x" color="#3b82f6" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -595,14 +554,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <PlotlyChart
-                  data={generateSinusoidalData()}
-                  isLoading={false}
-                  field="accel_y"
-                  title="accele_y"
-                  color="#f59e0b"
-                  unit="g"
-                />
+                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_y" title="accele_y" color="#f59e0b" />
               </CardContent>
             </Card>
           </TabsContent>
@@ -616,14 +568,7 @@ export default function BHMDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <PlotlyChart
-                  data={generateSinusoidalData()}
-                  isLoading={false}
-                  field="accel_z"
-                  title="accele_z"
-                  color="#8b5cf6"
-                  unit="g"
-                />
+                <AccelerometerChart data={generateSinusoidalData()} isLoading={false} axis="accel_z" title="accele_z" color="#8b5cf6" />
               </CardContent>
             </Card>
           </TabsContent>
