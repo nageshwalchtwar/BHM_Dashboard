@@ -5,6 +5,22 @@ import { SimpleGoogleDriveAPI } from '@/lib/simple-google-api'
 export async function GET(request: Request) {
   try {
     console.log('🔧 Starting comprehensive Google Drive debug...')
+
+    // helper safe fetch with timeout
+    async function safeFetch(url: string, opts: any = {}, timeoutMs = 8000) {
+      const controller = new AbortController()
+      const id = setTimeout(() => controller.abort(), timeoutMs)
+      try {
+        const res = await fetch(url, { ...opts, signal: controller.signal })
+        if (!res) return { ok: false, status: null, text: null, error: 'no response' }
+        const txt = await res.text()
+        return { ok: res.ok, status: res.status, text: txt }
+      } catch (err) {
+        return { ok: false, status: null, text: null, error: err instanceof Error ? err.message : String(err) }
+      } finally {
+        clearTimeout(id)
+      }
+    }
     
     const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY
@@ -27,14 +43,26 @@ export async function GET(request: Request) {
       try {
         console.log('🔑 Testing API key validity...')
         const testUrl = `https://www.googleapis.com/drive/v3/about?key=${apiKey}`
-        const response = await fetch(testUrl)
-        
-        debugInfo.tests.push({
-          name: 'API Key Validation',
-          status: response.ok ? 'PASS' : 'FAIL',
-          details: response.ok ? 'API key is valid' : `HTTP ${response.status}: ${response.statusText}`,
-          response: response.ok ? await response.json() : await response.text()
-        })
+        const apiResp = await safeFetch(testUrl, {}, 7000)
+
+        if (apiResp.ok) {
+          let parsed = null
+          try { parsed = JSON.parse(apiResp.text || '{}') } catch (e) { parsed = apiResp.text }
+
+          debugInfo.tests.push({
+            name: 'API Key Validation',
+            status: 'PASS',
+            details: 'API key is valid',
+            response: parsed
+          })
+        } else {
+          debugInfo.tests.push({
+            name: 'API Key Validation',
+            status: apiResp.error ? 'ERROR' : 'FAIL',
+            details: apiResp.error || `HTTP ${apiResp.status}`,
+            responseText: apiResp.text || null
+          })
+        }
       } catch (error) {
         debugInfo.tests.push({
           name: 'API Key Validation',
@@ -116,26 +144,21 @@ export async function GET(request: Request) {
       for (const pattern of testPatterns.slice(0, 3)) {
         try {
           const url = `https://docs.google.com/spreadsheets/d/${pattern}/export?format=csv`
-          const response = await fetch(url, {
-            headers: {
-              'User-Agent': 'BHM-Dashboard/1.0',
-              'Accept': 'text/csv,*/*'
-            }
-          })
-          
-          const content = response.ok ? await response.text() : null
+          const resp = await safeFetch(url, { headers: { 'User-Agent': 'BHM-Dashboard/1.0', 'Accept': 'text/csv,*/*' } }, 7000)
+          const content = resp.ok ? resp.text : null
           
           directAccessResults.push({
             pattern: pattern,
             url: url,
-            status: response.status,
-            success: response.ok && content && content.length > 100,
+            status: resp.status,
+            success: resp.ok && content && content.length > 100,
             contentLength: content?.length || 0,
             contentPreview: content ? content.substring(0, 100) : null,
-            isCSV: content ? content.includes('Device') : false
+            isCSV: content ? content.includes('Device') : false,
+            error: resp.error || null
           })
           
-          if (response.ok && content && content.includes('Device')) {
+          if (resp.ok && content && content.includes('Device')) {
             console.log(`✅ Found working pattern: ${pattern}`)
             break // Found a working pattern
           }

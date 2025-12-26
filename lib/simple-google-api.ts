@@ -7,6 +7,21 @@ export class SimpleGoogleDriveAPI {
     private apiKey?: string
   ) {}
 
+  // Helper to perform fetch with timeout, returns null on failure
+  private async fetchWithTimeout(url: string, opts: any = {}, timeoutMs = 8000) {
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(url, { ...opts, signal: controller.signal })
+      return res
+    } catch (err) {
+      console.log(`❌ fetch failed for ${url}:`, err instanceof Error ? err.message : String(err))
+      return null
+    } finally {
+      clearTimeout(id)
+    }
+  }
+
   // Method 1: Try with API Key (if folder is publicly shared)
   async listFilesWithAPIKey(): Promise<Array<{id: string, name: string, modifiedTime: string}> | null> {
     if (!this.apiKey) {
@@ -20,11 +35,11 @@ export class SimpleGoogleDriveAPI {
       
       const url = `https://www.googleapis.com/drive/v3/files?q='${this.folderId}'+in+parents&orderBy=modifiedTime desc&key=${this.apiKey}&fields=files(id,name,modifiedTime,size,mimeType)`;
       
-      const response = await fetch(url);
+      const response = await this.fetchWithTimeout(url)
       
-      if (!response.ok) {
-        console.log(`❌ API key request failed: ${response.status} - ${response.statusText}`);
-        const errorText = await response.text();
+      if (!response || !response.ok) {
+        console.log(`❌ API key request failed or timed out`);
+        const errorText = response ? await response.text() : 'timeout or fetch error'
         console.log(`📄 Error response: ${errorText}`);
         return null;
       }
@@ -55,7 +70,7 @@ export class SimpleGoogleDriveAPI {
       console.log(`🔄 Downloading file: ${fileId}`);
       
       // First try Google Sheets export (most common case) - No API key needed for export
-      const exportResponse = await fetch(
+      const exportResponse = await this.fetchWithTimeout(
         `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
         {
           headers: {
@@ -65,7 +80,7 @@ export class SimpleGoogleDriveAPI {
         }
       );
       
-      if (exportResponse.ok) {
+      if (exportResponse && exportResponse.ok) {
         const content = await exportResponse.text();
         console.log(`📄 Export response: ${content.length} chars`);
         
@@ -79,22 +94,22 @@ export class SimpleGoogleDriveAPI {
           console.log(`📄 Content preview: ${content.substring(0, 200)}...`);
         }
       } else {
-        console.log(`❌ Export failed: ${exportResponse.status} ${exportResponse.statusText}`);
+        console.log(`❌ Export failed or timed out`);
       }
       
       // Fallback to regular file download for actual CSV files
-      const response = await fetch(
+      const response = await this.fetchWithTimeout(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`
       );
       
-      if (response.ok) {
+      if (response && response.ok) {
         const content = await response.text();
         if (content && content.includes('Device')) {
           console.log('✅ Successfully downloaded file via Drive API');
           return content;
         }
       } else {
-        console.log(`❌ Drive API download failed: ${response.status} ${response.statusText}`);
+        console.log(`❌ Drive API download failed or timed out`);
       }
       
       return null;
@@ -122,14 +137,14 @@ export class SimpleGoogleDriveAPI {
         try {
           console.log(`🔍 Trying: ${url.substring(0, 60)}...`);
           
-          const response = await fetch(url, {
+          const response = await this.fetchWithTimeout(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (compatible; BHM-Dashboard/1.0)',
               'Accept': 'text/csv,application/csv,text/plain,*/*'
             }
           });
           
-          if (response.ok) {
+          if (response && response.ok) {
             const content = await response.text();
             
             // Check if this looks like CSV content
@@ -137,6 +152,8 @@ export class SimpleGoogleDriveAPI {
               console.log(`✅ Found CSV content (${content.length} chars)`);
               return content;
             }
+          } else {
+            console.log(`❌ Public URL failed or timed out: ${url}`)
           }
           
         } catch (error) {
