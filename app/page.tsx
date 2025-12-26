@@ -1,3 +1,5 @@
+
+"use client"
 // --- Sinusoidal demo data generator ---
 function generateSinusoidalData(n = 500) {
   const now = Date.now();
@@ -15,7 +17,6 @@ function generateSinusoidalData(n = 500) {
   }
   return data;
 }
-"use client"
 
     const [mounted, setMounted] = useState(false);
 import { useState, useEffect } from "react"
