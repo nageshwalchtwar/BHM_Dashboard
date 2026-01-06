@@ -42,45 +42,64 @@ export function folderIdToUrl(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }
 
-// Default device configuration with the 3 new devices
-const DEFAULT_DEVICES: Device[] = [
-  {
-    id: 'bridge-001',
-    name: 'd1',
-    description: 'Device 1 - Primary monitoring station',
-    folderId: '1Aw_zJdQcV5M1Rj5IShq10eLs5wQwjTha',
-    folderUrl: folderIdToUrl('1Aw_zJdQcV5M1Rj5IShq10eLs5wQwjTha'),
-    isActive: true,
-    addedAt: new Date('2024-01-01')
-  },
-  {
-    id: 'bridge-002',
-    name: 'd2',
-    description: 'Device 2 - Secondary monitoring station',
-    folderId: '1DfMUNQ3dNqWUHSoNYLVGW0-v-wqcJlq5',
-    folderUrl: folderIdToUrl('1DfMUNQ3dNqWUHSoNYLVGW0-v-wqcJlq5'),
-    isActive: true,
-    addedAt: new Date('2024-01-01')
-  },
-  {
-    id: 'bridge-003',
-    name: 'd3',
-    description: 'Device 3 - Tertiary monitoring station',
-    folderId: '1P7rHZS4vGaMqsahQhiZl1FQAmI1lk3AH',
-    folderUrl: folderIdToUrl('1P7rHZS4vGaMqsahQhiZl1FQAmI1lk3AH'),
-    isActive: true,
-    addedAt: new Date('2024-01-01')
+// Get devices from environment variables
+function getDevicesFromEnv(): Device[] {
+  const devices: Device[] = [];
+  
+  // Device 1
+  const device1FolderId = process.env.DEVICE_1_FOLDER_ID;
+  if (device1FolderId) {
+    devices.push({
+      id: 'd1',
+      name: process.env.DEVICE_1_NAME || 'd1',
+      description: 'Device 1 monitoring station',
+      folderId: device1FolderId,
+      folderUrl: folderIdToUrl(device1FolderId),
+      isActive: true,
+      addedAt: new Date('2024-01-01')
+    });
   }
-];
+  
+  // Device 2
+  const device2FolderId = process.env.DEVICE_2_FOLDER_ID;
+  if (device2FolderId) {
+    devices.push({
+      id: 'd2',
+      name: process.env.DEVICE_2_NAME || 'd2',
+      description: 'Device 2 monitoring station',
+      folderId: device2FolderId,
+      folderUrl: folderIdToUrl(device2FolderId),
+      isActive: true,
+      addedAt: new Date('2024-01-01')
+    });
+  }
+  
+  // Device 3
+  const device3FolderId = process.env.DEVICE_3_FOLDER_ID;
+  if (device3FolderId) {
+    devices.push({
+      id: 'd3',
+      name: process.env.DEVICE_3_NAME || 'd3',
+      description: 'Device 3 monitoring station',
+      folderId: device3FolderId,
+      folderUrl: folderIdToUrl(device3FolderId),
+      isActive: true,
+      addedAt: new Date('2024-01-01')
+    });
+  }
+  
+  return devices;
+}
 
 // In-memory storage for devices (in production, this would be a database)
 class DeviceConfigManager {
   private config: DeviceConfig;
   
   constructor() {
+    const envDevices = getDevicesFromEnv();
     this.config = {
-      devices: [...DEFAULT_DEVICES],
-      defaultDeviceId: 'bridge-001'
+      devices: envDevices,
+      defaultDeviceId: envDevices.length > 0 ? envDevices[0].id : undefined
     };
   }
 

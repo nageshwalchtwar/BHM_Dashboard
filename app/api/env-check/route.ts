@@ -5,9 +5,15 @@ export async function GET() {
   const envVars = {
     GOOGLE_DRIVE_API_KEY: process.env.GOOGLE_DRIVE_API_KEY || 'NOT_SET',
     GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || 'NOT_SET',
+    DEVICE_1_FOLDER_ID: process.env.DEVICE_1_FOLDER_ID || 'NOT_SET',
+    DEVICE_2_FOLDER_ID: process.env.DEVICE_2_FOLDER_ID || 'NOT_SET', 
+    DEVICE_3_FOLDER_ID: process.env.DEVICE_3_FOLDER_ID || 'NOT_SET',
+    DEVICE_1_NAME: process.env.DEVICE_1_NAME || 'NOT_SET',
+    DEVICE_2_NAME: process.env.DEVICE_2_NAME || 'NOT_SET',
+    DEVICE_3_NAME: process.env.DEVICE_3_NAME || 'NOT_SET',
     NODE_ENV: process.env.NODE_ENV || 'NOT_SET',
     // Check if any env vars are loaded at all
-    hasAnyGoogleVars: !!(process.env.GOOGLE_DRIVE_API_KEY || process.env.GOOGLE_DRIVE_FOLDER_ID),
+    hasAnyGoogleVars: !!(process.env.GOOGLE_DRIVE_API_KEY || process.env.DEVICE_1_FOLDER_ID),
     totalEnvVars: Object.keys(process.env).length
   }
 
