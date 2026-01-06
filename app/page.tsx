@@ -104,8 +104,6 @@ export default function BHMDashboard() {
     setConnectionStatus('connecting')
     try {
       let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
-      
-      // Add device parameter if a specific device is selected
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
       }

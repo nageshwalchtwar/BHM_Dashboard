@@ -46,8 +46,8 @@ export function folderIdToUrl(folderId: string): string {
 const DEFAULT_DEVICES: Device[] = [
   {
     id: 'bridge-001',
-    name: 'Main Bridge Sensor',
-    description: 'Primary monitoring station for structural health',
+    name: 'd1',
+    description: 'Device 1 - Primary monitoring station',
     folderId: '1Aw_zJdQcV5M1Rj5IShq10eLs5wQwjTha',
     folderUrl: folderIdToUrl('1Aw_zJdQcV5M1Rj5IShq10eLs5wQwjTha'),
     isActive: true,
@@ -55,8 +55,8 @@ const DEFAULT_DEVICES: Device[] = [
   },
   {
     id: 'bridge-002',
-    name: 'Secondary Bridge Monitor',
-    description: 'Backup monitoring system for redundancy',
+    name: 'd2',
+    description: 'Device 2 - Secondary monitoring station',
     folderId: '1DfMUNQ3dNqWUHSoNYLVGW0-v-wqcJlq5',
     folderUrl: folderIdToUrl('1DfMUNQ3dNqWUHSoNYLVGW0-v-wqcJlq5'),
     isActive: true,
@@ -64,8 +64,8 @@ const DEFAULT_DEVICES: Device[] = [
   },
   {
     id: 'bridge-003',
-    name: 'Tertiary Bridge Sensor',
-    description: 'Additional monitoring point for comprehensive coverage',
+    name: 'd3',
+    description: 'Device 3 - Tertiary monitoring station',
     folderId: '1P7rHZS4vGaMqsahQhiZl1FQAmI1lk3AH',
     folderUrl: folderIdToUrl('1P7rHZS4vGaMqsahQhiZl1FQAmI1lk3AH'),
     isActive: true,
