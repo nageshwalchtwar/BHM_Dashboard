@@ -28,6 +28,8 @@ import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
+import { ADXLChart } from "@/components/adxl-chart"
+import { WT901Chart } from "@/components/wt901-chart"
 import { DeviceSelector } from "@/components/device-selector"
 
 interface SensorData {
@@ -498,6 +500,12 @@ export default function BHMDashboard() {
             <TabsTrigger value="stroke" asChild>
               <Button variant="secondary" className="min-w-[120px]">LVDT</Button>
             </TabsTrigger>
+            <TabsTrigger value="adxl-xyz" asChild>
+              <Button variant="outline" className="min-w-[140px]">ADXL (X,Y,Z)</Button>
+            </TabsTrigger>
+            <TabsTrigger value="wt901-xyz" asChild>
+              <Button variant="outline" className="min-w-[140px]">WT901 (X,Y,Z)</Button>
+            </TabsTrigger>
             <TabsTrigger value="accel-x" asChild>
               <Button variant="secondary" className="min-w-[100px]">accele_x</Button>
             </TabsTrigger>
@@ -536,6 +544,34 @@ export default function BHMDashboard() {
               </CardHeader>
               <CardContent className="h-[500px]">
                 <StrainChart data={sensorData} isLoading={loading} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="adxl-xyz" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>ADXL Accelerometer (X, Y, Z)</CardTitle>
+                <CardDescription>
+                  ADXL accelerometer measurements across all three axes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <ADXLChart data={sensorData} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wt901-xyz" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>WT901 Accelerometer (X, Y, Z)</CardTitle>
+                <CardDescription>
+                  WT901 accelerometer measurements across all three axes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <WT901Chart data={sensorData} />
               </CardContent>
             </Card>
           </TabsContent>

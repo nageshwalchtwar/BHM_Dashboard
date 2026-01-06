@@ -14,6 +14,14 @@ export interface CSVSensorData extends SensorData {
   accel_z?: number
   stroke_mm?: number
   temperature_c?: number
+  // New WT901 accelerometer fields
+  ax_wt901?: number
+  ay_wt901?: number
+  az_wt901?: number
+  // New ADXL accelerometer fields
+  ax_adxl?: number
+  ay_adxl?: number
+  az_adxl?: number
 }
 
 /**
@@ -94,11 +102,11 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       
       // Parse values with exact column name matching first, then fallback to lowercase
       const parseValue = (exactName: string, fallbackName?: string): number => {
-        let val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : undefined)
+        let val = row[exactName] || (fallbackName ? lowerRow[fallbackName] : lowerRow[exactName.toLowerCase()])
         
-        // Special handling for temperature - try multiple variations
-        if ((exactName === 'Temperature_C' || fallbackName === 'temperature_c') && !val) {
-          val = row['temperature_c'] || row['Temperature_c'] || row['TEMPERATURE_C'] || 
+        // Special handling for temperature - try multiple variations including new Temp_C format
+        if ((exactName === 'Temp_C' || exactName === 'Temperature_C' || fallbackName === 'temperature_c') && !val) {
+          val = row['Temp_C'] || row['temperature_c'] || row['Temperature_C'] || row['Temperature_c'] || row['TEMPERATURE_C'] || 
                 lowerRow['temperature'] || lowerRow['temp'] || lowerRow['temperature_c']
         }
         
@@ -132,21 +140,30 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       const sensorData: CSVSensorData = {
         timestamp,
         rawTimestamp, // Add the rawTimestamp field here
-        // Map to new CSV column names first, then fallback to old names
-        accel_x: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'),
-        accel_y: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'), 
-        accel_z: parseValue('accel_z', 'accel_z') || parseValue('Z', 'z'),
-        stroke_mm: parseValue('stroke_mm', 'stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'),
-        temperature_c: parseValue('temperature_C', 'temperature_c') || parseValue('Temperature_C', 'temperature_c'),
+        // ADXL accelerometer data (primary for general use)
+        accel_x: parseValue('ax_adxl') || parseValue('accel_x') || parseValue('X', 'x'),
+        accel_y: parseValue('ay_adxl') || parseValue('accel_y') || parseValue('Y', 'y'), 
+        accel_z: parseValue('az_adxl') || parseValue('accel_z') || parseValue('Z', 'z'),
+        // Separate ADXL fields
+        ax_adxl: parseValue('ax_adxl'),
+        ay_adxl: parseValue('ay_adxl'),
+        az_adxl: parseValue('az_adxl'),
+        // Separate WT901 fields
+        ax_wt901: parseValue('ax_wt901'),
+        ay_wt901: parseValue('ay_wt901'),
+        az_wt901: parseValue('az_wt901'),
+        // Other sensor data
+        stroke_mm: parseValue('stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'),
+        temperature_c: parseValue('Temp_C') || parseValue('temperature_C') || parseValue('Temperature_C', 'temperature_c'),
         // Keep old field names for backward compatibility
-        x: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'),
-        y: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'),
-        z: parseValue('accel_z', 'accel_z') || parseValue('Z', 'z'),
+        x: parseValue('ax_adxl') || parseValue('accel_x') || parseValue('X', 'x'),
+        y: parseValue('ay_adxl') || parseValue('accel_y') || parseValue('Y', 'y'),
+        z: parseValue('az_adxl') || parseValue('accel_z') || parseValue('Z', 'z'),
         // Keep legacy fields for backward compatibility
-        vibration: parseValue('accel_x', 'accel_x') || parseValue('X', 'x'), // Use accel_x for vibration chart
-        acceleration: parseValue('accel_y', 'accel_y') || parseValue('Y', 'y'), // Use accel_y for acceleration chart  
-        strain: parseValue('stroke_mm', 'stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'), // Use stroke for strain chart
-        temperature: parseValue('temperature_C', 'temperature_c') || parseValue('Temperature_C', 'temperature_c'), // Use temp_c for temperature chart
+        vibration: parseValue('ax_adxl') || parseValue('accel_x') || parseValue('X', 'x'), // Use ax_adxl for vibration chart
+        acceleration: parseValue('ay_adxl') || parseValue('accel_y') || parseValue('Y', 'y'), // Use ay_adxl for acceleration chart  
+        strain: parseValue('stroke_mm') || parseValue('Stroke_mm', 'stroke_mm'), // Use stroke for strain chart
+        temperature: parseValue('Temp_C') || parseValue('temperature_C') || parseValue('Temperature_C', 'temperature_c'), // Use Temp_C for temperature chart
         id: `${i}`, // Use row number as ID instead of device column
         created_at: lowerRow['created_at'] || new Date(timestamp).toISOString()
       }
