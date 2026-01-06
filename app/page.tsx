@@ -353,138 +353,94 @@ export default function BHMDashboard() {
           </Alert>
         )}
 
-        {/* System Status Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Data Points</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDataPoints.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                Filtered: {sensorData.length.toLocaleString()} from {timeRange} min
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              {stats.healthStatus === 'healthy' ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              ) : stats.healthStatus === 'warning' ? (
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              ) : (
-                <XCircle className="h-4 w-4 text-red-500" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold capitalize">{stats.healthStatus}</div>
-              <p className="text-xs text-muted-foreground">
-                Last update: {mounted ? (stats.lastUpdate || new Date().toLocaleString()) : 'Loading...'}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Latest Reading</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleTimeString() : (mounted ? 'N/A' : 'Loading...')}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {mounted && stats.latestTimestamp ? new Date(stats.latestTimestamp).toLocaleDateString() : (mounted ? 'No data available' : 'Loading...')}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Auto Refresh</CardTitle>
-              <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant={autoRefresh ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAutoRefresh(!autoRefresh)}
-                >
-                  {autoRefresh ? "ON" : "OFF"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Updates every 30s
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Live Values Cards - Only CSV Columns (excluding Device) */}
+        {/* Compact Stats Grid */}
         {latestValues && (
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-            <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">Temperature_C</CardTitle>
-                <Thermometer className="h-4 w-4 text-red-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-800">
-                  {sensorData.length > 0 ? (sensorData[0].temperature_c?.toFixed(2) || '0.00') : 'N/A'}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            {/* Data Points */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
+                  <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
+                  <p className="text-xs text-gray-400">Last {timeRange}min</p>
                 </div>
-                <p className="text-xs text-red-600">°C</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-green-700">Stroke_mm</CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-800">
-                  {sensorData.length > 0 ? (sensorData[0].stroke_mm?.toFixed(2) || '0.00') : 'N/A'}
+                <Database className="h-5 w-5 text-blue-500" />
+              </div>
+            </div>
+            
+            {/* System Status */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                  <p className="text-lg font-bold text-green-600">
+                    {stats?.healthStatus === 'healthy' ? 'Healthy' : 
+                     stats?.healthStatus === 'warning' ? 'Warning' : 'Error'}
+                  </p>
+                  <p className="text-xs text-gray-400">{mounted && stats?.lastUpdate ? new Date(stats.lastUpdate).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 </div>
-                <p className="text-xs text-green-600">mm</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-700">X</CardTitle>
-                <Activity className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-800">{sensorData.length > 0 ? sensorData[0].accel_x?.toFixed(3) : 'N/A'}</div>
-                <p className="text-xs text-blue-600">g</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-yellow-700">Y</CardTitle>
-                <Zap className="h-4 w-4 text-yellow-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-800">{sensorData.length > 0 ? sensorData[0].accel_y?.toFixed(3) : 'N/A'}</div>
-                <p className="text-xs text-yellow-600">g</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-700">Z</CardTitle>
-                <Activity className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-800">{sensorData.length > 0 ? sensorData[0].accel_z?.toFixed(3) : 'N/A'}</div>
-                <p className="text-xs text-purple-600">g</p>
-              </CardContent>
-            </Card>
+                {stats?.healthStatus === 'healthy' ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : stats?.healthStatus === 'warning' ? (
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                )}
+              </div>
+            </div>
+            
+            {/* Latest Reading */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Latest</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {stats?.latestTimestamp !== 'No data' ? 
+                      (typeof stats?.latestTimestamp === 'string' && stats.latestTimestamp.includes(':') ? 
+                        stats.latestTimestamp : 
+                        'N/A') : 'N/A'}
+                  </p>
+                  <p className="text-xs text-gray-400">Timestamp</p>
+                </div>
+                <TrendingUp className="h-5 w-5 text-purple-500" />
+              </div>
+            </div>
+            
+            {/* Temperature */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Temp</p>
+                  <p className="text-lg font-bold text-gray-900">{latestValues.temperature}°C</p>
+                  <p className="text-xs text-gray-400">Current</p>
+                </div>
+                <Thermometer className="h-5 w-5 text-red-500" />
+              </div>
+            </div>
+            
+            {/* LVDT */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">LVDT</p>
+                  <p className="text-lg font-bold text-gray-900">{latestValues.strain}mm</p>
+                  <p className="text-xs text-gray-400">Stroke</p>
+                </div>
+                <Activity className="h-5 w-5 text-green-500" />
+              </div>
+            </div>
+            
+            {/* Acceleration */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Accel</p>
+                  <p className="text-lg font-bold text-gray-900">{latestValues.acceleration}g</p>
+                  <p className="text-xs text-gray-400">Peak</p>
+                </div>
+                <Zap className="h-5 w-5 text-yellow-500" />
+              </div>
+            </div>
           </div>
         )}
 
@@ -503,6 +459,7 @@ export default function BHMDashboard() {
                 <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
               </TabsList>
             </div>
+
             <TabsContent value="temperature" className="p-4">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Temperature</h3>
@@ -523,114 +480,82 @@ export default function BHMDashboard() {
               </div>
             </TabsContent>
 
-          <TabsContent value="adxl-x" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>ADXL X-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  ADXL accelerometer X-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="adxl-x" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="adxl-y" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>ADXL Y-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  ADXL accelerometer Y-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="adxl-y" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="adxl-z" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>ADXL Z-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  ADXL accelerometer Z-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="adxl-z" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="wt901-x" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>WT901 X-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  WT901 accelerometer X-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="wt901-x" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 X-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer X-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="wt901-y" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>WT901 Y-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  WT901 accelerometer Y-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="wt901-y" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Y-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Y-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="wt901-z" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>WT901 Z-Axis Acceleration</CardTitle>
-                <CardDescription>
-                  WT901 accelerometer Z-axis measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
-              </CardContent>
-            </Card>
-          </TabsContent>
-            <Card>
-              <CardHeader>
-                <CardTitle>accele_x</CardTitle>
-                <CardDescription>
-                  X-axis acceleration measurements
-                </CardDescription>
-              </CardHeader>
-        </Tabs>
+            <TabsContent value="wt901-z" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Z-Axis Acceleration</h3>
+                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Z-axis measurements</p>
+                <div className="h-[400px]">
+                  <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Footer Info */}
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-blue-800">Bridge Health Monitoring System</h3>
-                <p className="text-sm text-blue-600">
-                  Real-time monitoring with automatic data synchronization from Google Drive
-                </p>
-              </div>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Live Data
-              </Badge>
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-800">Bridge Health Monitoring System</h3>
+              <p className="text-sm text-blue-600">
+                Real-time monitoring with automatic data synchronization from Google Drive
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+              Live Data
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
