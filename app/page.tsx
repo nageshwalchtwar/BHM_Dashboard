@@ -22,7 +22,9 @@ import {
   Wifi,
   WifiOff,
   LogOut,
-  User
+  User,
+  Users,
+  Settings
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
@@ -54,7 +56,7 @@ export default function BHMDashboard() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentUser, setCurrentUser] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [sensorData, setSensorData] = useState<SensorData[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     totalDataPoints: 0,
@@ -73,21 +75,27 @@ export default function BHMDashboard() {
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
 
-  // Set mounted state and check authentication
+  // Authentication check
   useEffect(() => {
-    setMounted(true)
-    
-    // Check authentication
-    const isLoggedIn = localStorage.getItem('bhm_authenticated') === 'true'
-    const user = localStorage.getItem('bhm_user')
-    
-    if (!isLoggedIn) {
-      router.push('/login')
-      return
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        const result = await response.json()
+        
+        if (result.success) {
+          setIsAuthenticated(true)
+          setCurrentUser(result.user)
+        } else {
+          router.push('/login')
+        }
+      } catch (error) {
+        router.push('/login')
+      } finally {
+        setMounted(true)
+      }
     }
     
-    setIsAuthenticated(true)
-    setCurrentUser(user)
+    checkAuth()
   }, [router])
 
   // Auto-refresh data every 30 seconds and when time range or device changes
@@ -173,10 +181,14 @@ export default function BHMDashboard() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('bhm_authenticated')
-    localStorage.removeItem('bhm_user')
-    localStorage.removeItem('bhm_login_time')
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      // Ignore logout API errors
+    }
+    
+    // Always redirect to login
     router.push('/login')
   }
 
@@ -188,6 +200,10 @@ export default function BHMDashboard() {
 
   const handleAdminClick = () => {
     router.push('/admin')
+  }
+
+  const handleUserManagement = () => {
+    router.push('/users')
   }
 
   // Don't render anything until authentication is checked
@@ -270,6 +286,31 @@ export default function BHMDashboard() {
               >
                 <AlertTriangle className="h-3 w-3" />
               </Button>
+
+              {/* Admin-only buttons */}
+              {currentUser?.role === 'admin' && (
+                <>
+                  <Button 
+                    onClick={handleUserManagement}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 flex items-center space-x-1"
+                  >
+                    <Users className="h-3 w-3" />
+                    <span className="text-xs">Users</span>
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleAdminClick}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 flex items-center space-x-1"
+                  >
+                    <Settings className="h-3 w-3" />
+                    <span className="text-xs">Devices</span>
+                  </Button>
+                </>
+              )}
               
               <Button 
                 variant="ghost" 

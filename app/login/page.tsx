@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Lock, User, Shield } from "lucide-react"
+import { Loader2, Lock, User, Shield, Mail } from "lucide-react"
+import Link from "next/link"
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -19,10 +20,17 @@ export default function LoginPage() {
 
   // Check if already logged in
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('bhm_authenticated') === 'true'
-    if (isLoggedIn) {
-      router.push('/')
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          router.push('/')
+        }
+      } catch (error) {
+        // User not authenticated, continue with login
+      }
     }
+    checkAuth()
   }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -30,20 +38,25 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800))
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
 
-    // Check credentials
-    if (username === "admin" && password === "admin") {
-      // Set authentication in localStorage
-      localStorage.setItem('bhm_authenticated', 'true')
-      localStorage.setItem('bhm_user', 'admin')
-      localStorage.setItem('bhm_login_time', new Date().toISOString())
-      
-      // Redirect to dashboard
-      router.push('/')
-    } else {
-      setError("Invalid username or password. Please use admin/admin.")
+      const result = await response.json()
+
+      if (result.success) {
+        // Successful login - redirect to dashboard
+        router.push('/')
+      } else {
+        setError(result.error || 'Login failed')
+      }
+    } catch (error) {
+      setError('Network error. Please try again.')
     }
 
     setIsLoading(false)
@@ -82,15 +95,15 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="username"
-                    type="text"
-                    placeholder="Enter username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
                     required
                     disabled={isLoading}
@@ -129,19 +142,32 @@ export default function LoginPage() {
                   "Sign In"
                 )}
               </Button>
+
+              <div className="text-center text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <Link 
+                  href="/register" 
+                  className="text-blue-600 hover:text-blue-500 font-medium hover:underline"
+                >
+                  Create one here
+                </Link>
+              </div>
             </form>
           </CardContent>
         </Card>
 
-        {/* Demo Credentials Info */}
-        <Card className="bg-blue-50 border-blue-200">
+        {/* Demo Info */}
+        <Card className="shadow-sm border border-blue-200 bg-blue-50">
           <CardContent className="pt-6">
             <div className="text-center space-y-2">
-              <h3 className="font-semibold text-blue-800">Demo Credentials</h3>
+              <h3 className="font-semibold text-blue-800">Default Admin Account</h3>
               <div className="text-sm text-blue-700 space-y-1">
-                <div><strong>Username:</strong> admin</div>
-                <div><strong>Password:</strong> admin</div>
+                <div><strong>Email:</strong> theccbussiness@gmail.com</div>
+                <div><strong>Password:</strong> admin123</div>
               </div>
+              <p className="text-xs text-blue-600 mt-2">
+                You can promote other users to admin after they register
+              </p>
             </div>
           </CardContent>
         </Card>

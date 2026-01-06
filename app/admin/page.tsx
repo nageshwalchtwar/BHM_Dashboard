@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,8 +35,10 @@ import {
   Star, 
   RefreshCw,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  ArrowLeft
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface Device {
   id: string
@@ -55,6 +58,8 @@ interface DeviceStats {
 }
 
 export default function DeviceAdminPage() {
+  const router = useRouter()
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [devices, setDevices] = useState<Device[]>([])
   const [defaultDevice, setDefaultDevice] = useState<Device | null>(null)
   const [stats, setStats] = useState<DeviceStats | null>(null)
@@ -71,6 +76,33 @@ export default function DeviceAdminPage() {
     setAsDefault: false
   })
   const [addLoading, setAddLoading] = useState(false)
+
+  // Check authentication and admin role
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        const result = await response.json()
+        
+        if (!result.success) {
+          router.push('/login')
+          return
+        }
+        
+        if (result.user.role !== 'admin') {
+          router.push('/')
+          return
+        }
+        
+        setCurrentUser(result.user)
+        await fetchDevices()
+      } catch (error) {
+        router.push('/login')
+      }
+    }
+    
+    checkAuth()
+  }, [router])
 
   const fetchDevices = async () => {
     try {
@@ -203,9 +235,17 @@ export default function DeviceAdminPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Device Administration</h1>
-          <p className="text-muted-foreground">Manage bridge monitoring devices and their Google Drive folders</p>
+        <div className="flex items-center space-x-4">
+          <Link 
+            href="/"
+            className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Device Administration</h1>
+            <p className="text-muted-foreground">Manage bridge monitoring devices and their Google Drive folders</p>
+          </div>
         </div>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
