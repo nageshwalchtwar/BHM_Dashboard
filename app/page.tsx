@@ -27,7 +27,8 @@ import {
   Settings,
   UserCog,
   Moon,
-  Sun
+  Sun,
+  Mail
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
@@ -216,6 +217,10 @@ export default function BHMDashboard() {
     router.push('/account')
   }
 
+  const handleEmailReports = () => {
+    router.push('/email-reports')
+  }
+
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
     document.documentElement.classList.toggle('dark')
@@ -333,6 +338,16 @@ export default function BHMDashboard() {
                   >
                     <Settings className="h-3 w-3" />
                     <span className="text-xs">Devices</span>
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleEmailReports}
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 flex items-center space-x-1"
+                  >
+                    <Mail className="h-3 w-3" />
+                    <span className="text-xs">Reports</span>
                   </Button>
                 </>
               )}
