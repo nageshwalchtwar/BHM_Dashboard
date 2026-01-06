@@ -203,104 +203,103 @@ export default function BHMDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-              Bridge Health Monitoring
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Real-time structural health monitoring system
-            </p>
-          </div>
-          
-          {/* User Info and Logout */}
+        <div className="flex items-center justify-between py-2 border-b border-gray-200">
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm">
-              <User className="h-4 w-4" />
-              <span>Welcome, {currentUser}</span>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleLogout}
-              className="flex items-center space-x-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Connection Status and Controls */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              {connectionStatus === 'connected' ? (
-                <Wifi className="h-4 w-4 text-green-500" />
-              ) : connectionStatus === 'connecting' ? (
-                <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />
-              ) : (
-                <WifiOff className="h-4 w-4 text-red-500" />
-              )}
-              <span className="text-sm">
-                {connectionStatus === 'connected' ? 'Connected' : 
-                 connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-              </span>
-            </div>
-            
-            {/* Time Range Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Time Range:</span>
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Last 1 minute</SelectItem>
-                  <SelectItem value="5">Last 5 minutes</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Bridge Health Monitor
+              </h1>
+              <p className="text-sm text-gray-600">
+                Real-time structural monitoring system
+              </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">            <Button 
-              onClick={fetchData} 
-              disabled={loading}
-              size="sm"
-              variant="outline"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+          {/* User Info and Controls */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 text-sm">
+              {/* Connection Status */}
+              <div className="flex items-center space-x-2">
+                {connectionStatus === 'connected' ? (
+                  <Wifi className="h-4 w-4 text-green-500" />
+                ) : connectionStatus === 'connecting' ? (
+                  <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                )}
+                <span className="text-xs text-gray-600">
+                  {connectionStatus === 'connected' ? 'Live' : 
+                   connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
+                </span>
+              </div>
+              
+              {/* Time Range */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">Range:</span>
+                <Select value={timeRange} onValueChange={setTimeRange}>
+                  <SelectTrigger className="w-28 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1min</SelectItem>
+                    <SelectItem value="5">5min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             
-            <Button 
-              onClick={runDebugTest} 
-              disabled={loading}
-              size="sm"
-              variant="secondary"
-            >
-              <AlertTriangle className={`h-4 w-4 mr-2`} />
-              Debug
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={fetchData} 
+                disabled={loading}
+                size="sm"
+                variant="outline"
+                className="h-8"
+              >
+                <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              
+              <Button 
+                onClick={runDebugTest} 
+                disabled={loading}
+                size="sm"
+                variant="ghost"
+                className="h-8"
+              >
+                <AlertTriangle className="h-3 w-3" />
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleLogout}
+                className="h-8 flex items-center space-x-1"
+              >
+                <User className="h-3 w-3" />
+                <LogOut className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Device Selector */}
-        <DeviceSelector 
-          selectedDevice={selectedDevice}
-          onDeviceChange={handleDeviceChange}
-          onAdminClick={handleAdminClick}
-          className="max-w-2xl"
-        />
+        {/* Device Selector - Compact */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3">
+          <DeviceSelector 
+            selectedDevice={selectedDevice}
+            onDeviceChange={handleDeviceChange}
+            onAdminClick={handleAdminClick}
+            className=""
+          />
+        </div>
 
-        {/* Connection Error Alert */}
+        {/* Connection Error Alert - Compact */}
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="border-red-200 bg-red-50">
             <XCircle className="h-4 w-4" />
-            <AlertTitle>Connection Error</AlertTitle>
-            <AlertDescription>
+            <AlertTitle className="text-sm">Error</AlertTitle>
+            <AlertDescription className="text-sm">
               {error}
             </AlertDescription>
           </Alert>
@@ -489,61 +488,40 @@ export default function BHMDashboard() {
           </div>
         )}
 
-        {/* Charts Section - Only CSV Columns */}
-        <Tabs defaultValue="temperature" className="space-y-4">
-          <TabsList className="flex flex-wrap gap-2 mb-2">
-            <TabsTrigger value="temperature" asChild>
-              <Button variant="secondary" className="min-w-[120px]">Temperature</Button>
-            </TabsTrigger>
-            <TabsTrigger value="stroke" asChild>
-              <Button variant="secondary" className="min-w-[120px]">LVDT</Button>
-            </TabsTrigger>
-            <TabsTrigger value="adxl-x" asChild>
-              <Button variant="outline" className="min-w-[100px]">ADXL X</Button>
-            </TabsTrigger>
-            <TabsTrigger value="adxl-y" asChild>
-              <Button variant="outline" className="min-w-[100px]">ADXL Y</Button>
-            </TabsTrigger>
-            <TabsTrigger value="adxl-z" asChild>
-              <Button variant="outline" className="min-w-[100px]">ADXL Z</Button>
-            </TabsTrigger>
-            <TabsTrigger value="wt901-x" asChild>
-              <Button variant="outline" className="min-w-[100px]">WT901 X</Button>
-            </TabsTrigger>
-            <TabsTrigger value="wt901-y" asChild>
-              <Button variant="outline" className="min-w-[100px]">WT901 Y</Button>
-            </TabsTrigger>
-            <TabsTrigger value="wt901-z" asChild>
-              <Button variant="outline" className="min-w-[100px]">WT901 Z</Button>
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="temperature" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Temperature</CardTitle>
-                <CardDescription>
-                  Temperature measurements in Celsius
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <TemperatureChart data={sensorData} isLoading={loading} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Charts Section - Compact */}
+        <div className="bg-white border border-gray-200 rounded-lg">
+          <Tabs defaultValue="temperature" className="w-full">
+            <div className="border-b border-gray-200 px-4 py-2">
+              <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
+                <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temperature</TabsTrigger>
+                <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
+                <TabsTrigger value="adxl-x" className="text-xs px-3 py-1.5">ADXL X</TabsTrigger>
+                <TabsTrigger value="adxl-y" className="text-xs px-3 py-1.5">ADXL Y</TabsTrigger>
+                <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
+                <TabsTrigger value="wt901-x" className="text-xs px-3 py-1.5">WT901 X</TabsTrigger>
+                <TabsTrigger value="wt901-y" className="text-xs px-3 py-1.5">WT901 Y</TabsTrigger>
+                <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="temperature" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">Temperature</h3>
+                <p className="text-xs text-gray-500 mb-3">Temperature measurements in Celsius</p>
+                <div className="h-[400px]">
+                  <TemperatureChart data={sensorData} isLoading={loading} />
+                </div>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="stroke" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>LVDT</CardTitle>
-                <CardDescription>
-                  LVDT displacement measurements in millimeters
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <StrainChart data={sensorData} isLoading={loading} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="stroke" className="p-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">LVDT</h3>
+                <p className="text-xs text-gray-500 mb-3">LVDT displacement measurements in millimeters</p>
+                <div className="h-[400px]">
+                  <StrainChart data={sensorData} isLoading={loading} />
+                </div>
+              </div>
+            </TabsContent>
 
           <TabsContent value="adxl-x" className="space-y-4">
             <Card>

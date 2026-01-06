@@ -13,10 +13,10 @@ interface AccelerometerChartProps {
 export function AccelerometerChart({ data, isLoading, axis, title, color }: AccelerometerChartProps) {
   if (isLoading) {
     return (
-      <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
+      <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: color }}></div>
-          <span className="text-slate-600">Loading {title} data...</span>
+          <span className="text-gray-600">Loading {title} data...</span>
         </div>
       </div>
     )
@@ -52,10 +52,10 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
   }
 
   return (
-    <div className="h-[300px] w-full">
+    <div className="h-[350px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis 
             dataKey="timestamp" 
             tickFormatter={formatXAxis} 
@@ -67,22 +67,20 @@ export function AccelerometerChart({ data, isLoading, axis, title, color }: Acce
           <YAxis
             domain={['dataMin - 0.1', 'dataMax + 0.1']}
             stroke="#64748b"
-            fontSize={12}
-            label={{ value: `${title} (g)`, angle: -90, position: "insideLeft" }}
-            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
+            fontSize={10}
+            label={{ value: `${title} (g)`, angle: -90, position: "insideLeft", style: { fontSize: '10px' } }}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(3) : value}
           />
           <Tooltip content={<CustomTooltip />} />
-          <ReferenceLine y={0.5} stroke="#ef4444" strokeDasharray="5 5" label="High Threshold" />
-          <ReferenceLine y={-0.5} stroke="#ef4444" strokeDasharray="5 5" label="Low Threshold" />
           <Line
             type="monotone"
             dataKey={axis}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             dot={false}
-            activeDot={{ r: 4, fill: color }}
+            activeDot={{ r: 3, fill: color }}
           />
-          <Brush dataKey="timestamp" height={24} stroke={color} travellerWidth={12} />
+          <Brush dataKey="timestamp" height={20} stroke={color} travellerWidth={8} />
         </LineChart>
       </ResponsiveContainer>
     </div>

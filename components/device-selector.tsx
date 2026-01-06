@@ -80,32 +80,24 @@ export function DeviceSelector({
 
   if (loading) {
     return (
-      <Card className={className}>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span className="text-sm text-muted-foreground">Loading devices...</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center space-x-2 py-2">
+        <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+        <span className="text-sm text-gray-600">Loading devices...</span>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Card className={className}>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-red-600">
-              <Server className="h-4 w-4" />
-              <span className="text-sm">Error loading devices</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchDevices}>
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-between py-2">
+        <div className="flex items-center space-x-2 text-red-600">
+          <Server className="h-4 w-4" />
+          <span className="text-sm">Error loading devices</span>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchDevices} className="h-8">
+          Retry
+        </Button>
+      </div>
     )
   }
 
@@ -114,84 +106,77 @@ export function DeviceSelector({
     : defaultDevice
 
   return (
-    <Card className={className}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between space-x-4">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-2">
-              <Server className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium">Device Selector</span>
-              {stats && (
-                <Badge variant="secondary" className="text-xs">
-                  {stats.totalDevices} device{stats.totalDevices !== 1 ? 's' : ''}
-                </Badge>
-              )}
-            </div>
-            
-            <Select
-              value={selectedDevice || 'default'}
-              onValueChange={handleDeviceSelect}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select device..." />
-              </SelectTrigger>
-              <SelectContent>
-                {defaultDevice && (
-                  <SelectItem value="default">
-                    <div className="flex items-center space-x-2">
-                      <span>{defaultDevice.name}</span>
-                      <Badge variant="outline" className="text-xs">Default</Badge>
-                    </div>
-                  </SelectItem>
-                )}
-                {devices.filter(d => d.id !== defaultDevice?.id).map((device) => (
-                  <SelectItem key={device.id} value={device.id}>
-                    <div className="flex flex-col">
-                      <span>{device.name}</span>
-                      {device.description && (
-                        <span className="text-xs text-muted-foreground">
-                          {device.description}
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {currentDevice && (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Current: {currentDevice.name}
-                {currentDevice.description && (
-                  <span className="block">{currentDevice.description}</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {onAdminClick && (
-            <div className="flex flex-col space-y-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onAdminClick}
-                className="h-8"
-              >
-                <Settings className="h-3 w-3 mr-1" />
-                Admin
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={fetchDevices}
-                className="h-8"
-              >
-                <RefreshCw className="h-3 w-3" />
-              </Button>
-            </div>
+    <div className="flex items-center justify-between space-x-4">
+      <div className="flex items-center space-x-3 flex-1">
+        <div className="flex items-center space-x-2">
+          <Server className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium text-gray-900">Device:</span>
+          {stats && (
+            <Badge variant="secondary" className="text-xs">
+              {stats.totalDevices}
+            </Badge>
           )}
         </div>
-      </CardContent>
-    </Card>
+        
+        <Select
+          value={selectedDevice || 'default'}
+          onValueChange={handleDeviceSelect}
+        >
+          <SelectTrigger className="w-48 h-8">
+            <SelectValue placeholder="Select device..." />
+          </SelectTrigger>
+          <SelectContent>
+            {defaultDevice && (
+              <SelectItem value="default">
+                <div className="flex items-center space-x-2">
+                  <span>{defaultDevice.name}</span>
+                  <Badge variant="outline" className="text-xs">Default</Badge>
+                </div>
+              </SelectItem>
+            )}
+            {devices.filter(d => d.id !== defaultDevice?.id).map((device) => (
+              <SelectItem key={device.id} value={device.id}>
+                <div className="flex flex-col">
+                  <span>{device.name}</span>
+                  {device.description && (
+                    <span className="text-xs text-gray-500">
+                      {device.description}
+                    </span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {currentDevice && (
+          <span className="text-xs text-gray-500">
+            {currentDevice.name}
+          </span>
+        )}
+      </div>
+
+      {onAdminClick && (
+        <div className="flex space-x-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAdminClick}
+            className="h-8 px-3"
+          >
+            <Settings className="h-3 w-3 mr-1" />
+            Admin
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchDevices}
+            className="h-8 px-2"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
