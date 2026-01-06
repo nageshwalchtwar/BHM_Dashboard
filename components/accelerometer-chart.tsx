@@ -5,7 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface AccelerometerChartProps {
   data: any[]
   isLoading: boolean
-  axis: 'x' | 'y' | 'z' | 'accel_x' | 'accel_y' | 'accel_z'
+  axis: 'x' | 'y' | 'z' | 'accel_x' | 'accel_y' | 'accel_z' | 'ax_adxl' | 'ay_adxl' | 'az_adxl' | 'ax_wt901' | 'ay_wt901' | 'az_wt901'
   title: string
   color: string
 }

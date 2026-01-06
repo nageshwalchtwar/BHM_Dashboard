@@ -28,8 +28,6 @@ import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
-import { ADXLChart } from "@/components/adxl-chart"
-import { WT901Chart } from "@/components/wt901-chart"
 import { DeviceSelector } from "@/components/device-selector"
 
 interface SensorData {
@@ -500,25 +498,24 @@ export default function BHMDashboard() {
             <TabsTrigger value="stroke" asChild>
               <Button variant="secondary" className="min-w-[120px]">LVDT</Button>
             </TabsTrigger>
-            <TabsTrigger value="adxl-xyz" asChild>
-              <Button variant="outline" className="min-w-[140px]">ADXL (X,Y,Z)</Button>
+            <TabsTrigger value="adxl-x" asChild>
+              <Button variant="outline" className="min-w-[100px]">ADXL X</Button>
             </TabsTrigger>
-            <TabsTrigger value="wt901-xyz" asChild>
-              <Button variant="outline" className="min-w-[140px]">WT901 (X,Y,Z)</Button>
+            <TabsTrigger value="adxl-y" asChild>
+              <Button variant="outline" className="min-w-[100px]">ADXL Y</Button>
             </TabsTrigger>
-            <TabsTrigger value="accel-x" asChild>
-              <Button variant="secondary" className="min-w-[100px]">accele_x</Button>
+            <TabsTrigger value="adxl-z" asChild>
+              <Button variant="outline" className="min-w-[100px]">ADXL Z</Button>
             </TabsTrigger>
-            <TabsTrigger value="accel-y" asChild>
-              <Button variant="secondary" className="min-w-[100px]">accele_y</Button>
+            <TabsTrigger value="wt901-x" asChild>
+              <Button variant="outline" className="min-w-[100px]">WT901 X</Button>
             </TabsTrigger>
-            <TabsTrigger value="accel-z" asChild>
-              <Button variant="secondary" className="min-w-[100px]">accele_z</Button>
+            <TabsTrigger value="wt901-y" asChild>
+              <Button variant="outline" className="min-w-[100px]">WT901 Y</Button>
             </TabsTrigger>
-            <TabsTrigger value="accel-xyz" asChild>
-              <Button variant="outline" className="min-w-[160px]">Accelerometer (x, y, z)</Button>
+            <TabsTrigger value="wt901-z" asChild>
+              <Button variant="outline" className="min-w-[100px]">WT901 Z</Button>
             </TabsTrigger>
-                    {/* Remove combined accelerometer plot for now, or implement with Recharts if needed */}
           </TabsList>
           <TabsContent value="temperature" className="space-y-4">
             <Card>
@@ -548,35 +545,89 @@ export default function BHMDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="adxl-xyz" className="space-y-4">
+          <TabsContent value="adxl-x" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>ADXL Accelerometer (X, Y, Z)</CardTitle>
+                <CardTitle>ADXL X-Axis Acceleration</CardTitle>
                 <CardDescription>
-                  ADXL accelerometer measurements across all three axes
+                  ADXL accelerometer X-axis measurements
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <ADXLChart data={sensorData} />
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" />
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="wt901-xyz" className="space-y-4">
+          <TabsContent value="adxl-y" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>WT901 Accelerometer (X, Y, Z)</CardTitle>
+                <CardTitle>ADXL Y-Axis Acceleration</CardTitle>
                 <CardDescription>
-                  WT901 accelerometer measurements across all three axes
+                  ADXL accelerometer Y-axis measurements
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-[500px]">
-                <WT901Chart data={sensorData} />
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" />
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="accel-x" className="space-y-4">
+          <TabsContent value="adxl-z" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>ADXL Z-Axis Acceleration</CardTitle>
+                <CardDescription>
+                  ADXL accelerometer Z-axis measurements
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wt901-x" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>WT901 X-Axis Acceleration</CardTitle>
+                <CardDescription>
+                  WT901 accelerometer X-axis measurements
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wt901-y" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>WT901 Y-Axis Acceleration</CardTitle>
+                <CardDescription>
+                  WT901 accelerometer Y-axis measurements
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="wt901-z" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>WT901 Z-Axis Acceleration</CardTitle>
+                <CardDescription>
+                  WT901 accelerometer Z-axis measurements
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px]">
+                <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
+              </CardContent>
+            </Card>
+          </TabsContent>
             <Card>
               <CardHeader>
                 <CardTitle>accele_x</CardTitle>
@@ -584,39 +635,6 @@ export default function BHMDashboard() {
                   X-axis acceleration measurements
                 </CardDescription>
               </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_x" title="accele_x" color="#3b82f6" />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="accel-y" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>accele_y</CardTitle>
-                <CardDescription>
-                  Y-axis acceleration measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_y" title="accele_y" color="#f59e0b" />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="accel-z" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>accele_z</CardTitle>
-                <CardDescription>
-                  Z-axis acceleration measurements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[500px]">
-                <AccelerometerChart data={sensorData} isLoading={loading} axis="accel_z" title="accele_z" color="#8b5cf6" />
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
         {/* Footer Info */}
