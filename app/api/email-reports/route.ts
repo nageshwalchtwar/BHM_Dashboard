@@ -28,12 +28,14 @@ export async function GET(request: NextRequest) {
     const jobs = emailScheduler.getJobs()
     const systemHealth = await emailService.getSystemHealth()
     const userStats = userAuthManager.getStats()
+    const emailStatus = emailService.getEmailStatus()
 
     return NextResponse.json({
       success: true,
       jobs,
       systemHealth,
       userStats,
+      emailStatus,
       lastRun: {
         morning: jobs.find(j => j.id === 'morning-report')?.lastRun,
         evening: jobs.find(j => j.id === 'evening-report')?.lastRun

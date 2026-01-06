@@ -41,11 +41,21 @@ interface SystemHealth {
   dataStatus: 'good' | 'partial' | 'no_data'
 }
 
+interface EmailStatus {
+  configured: boolean
+  service: string
+  user: string
+  hasCredentials: boolean
+  recipientCount: number
+  recipients: string[]
+}
+
 export default function EmailReportsPage() {
   const router = useRouter()
   const [jobs, setJobs] = useState<CronJob[]>([])
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
   const [userStats, setUserStats] = useState<any>(null)
+  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -89,6 +99,7 @@ export default function EmailReportsPage() {
         setJobs(result.jobs)
         setSystemHealth(result.systemHealth)
         setUserStats(result.userStats)
+        setEmailStatus(result.emailStatus)
       } else {
         setError(result.error || 'Failed to load report data')
       }
@@ -198,6 +209,73 @@ export default function EmailReportsPage() {
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">{success}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Email Configuration Status */}
+        {emailStatus && (
+          <Card className={`border-2 ${emailStatus.configured ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Mail className={`h-5 w-5 ${emailStatus.configured ? 'text-green-600' : 'text-red-600'}`} />
+                <span>Email Configuration</span>
+                <Badge variant={emailStatus.configured ? 'default' : 'destructive'}>
+                  {emailStatus.configured ? 'Configured' : 'Not Configured'}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                {emailStatus.configured 
+                  ? `Email service ready - sending to ${emailStatus.recipientCount} registered users`
+                  : 'Email credentials needed - currently using simulation mode'
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p><strong>Service:</strong> {emailStatus.service}</p>
+                  <p><strong>Sender:</strong> {emailStatus.user}</p>
+                </div>
+                <div>
+                  <p><strong>Credentials:</strong> {emailStatus.hasCredentials ? '✅ Set' : '❌ Missing'}</p>
+                  <p><strong>Recipients:</strong> {emailStatus.recipientCount} registered users</p>
+                </div>
+              </div>
+              
+              {emailStatus.recipients.length > 0 && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <h4 className="font-medium text-blue-900 mb-2">📧 Email Recipients ({emailStatus.recipientCount}):</h4>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    {emailStatus.recipients.map((email, index) => (
+                      <span key={index} className="inline-block bg-blue-100 px-2 py-1 rounded mr-2 mb-1">
+                        {email}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">✨ Recipients are automatically updated when users register on the website</p>
+                </div>
+              )}
+              
+              {emailStatus.recipientCount === 0 && (
+                <Alert className="mt-4 border-amber-200 bg-amber-50">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>No Recipients:</strong> No active users found. Users need to register on the website to receive email reports.
+                    <br />Visit the registration page to create user accounts that will automatically receive daily reports.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {!emailStatus.configured && emailStatus.recipientCount > 0 && (
+                <Alert className="mt-4 border-blue-200 bg-blue-50">
+                  <AlertTriangle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Setup Required:</strong> Add EMAIL_USER and EMAIL_PASS to your .env.local file to enable real email sending.
+                    <br />For Gmail: Use an App Password instead of your regular password.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* System Overview */}

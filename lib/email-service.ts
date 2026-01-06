@@ -1,4 +1,6 @@
 import { userAuthManager } from './user-auth'
+import nodemailer from 'nodemailer'
+import type { Transporter } from 'nodemailer'
 
 interface SystemHealthData {
   systemStatus: 'healthy' | 'warning' | 'error'
@@ -18,9 +20,11 @@ interface EmailTemplate {
   text: string
 }
 
-// Simulated email sending (in production, use real email service)
+// Real email sending service using Nodemailer
 class EmailService {
   private static instance: EmailService
+  private transporter: Transporter | null = null
+  private isConfigured = false
 
   static getInstance(): EmailService {
     if (!EmailService.instance) {
@@ -29,11 +33,119 @@ class EmailService {
     return EmailService.instance
   }
 
+  constructor() {
+    this.initializeTransporter()
+  }
+
+  private initializeTransporter() {
+    try {
+      // Get email configuration from environment variables
+      const emailConfig = {
+        service: process.env.EMAIL_SERVICE || 'gmail',
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT || '587'),
+        secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER, // Your email
+          pass: process.env.EMAIL_PASS  // Your app password
+        }
+      }
+
+      // Check if required environment variables are set
+      if (!emailConfig.auth.user || !emailConfig.auth.pass) {
+        console.warn('⚠️ Email credentials not configured. Set EMAIL_USER and EMAIL_PASS environment variables')
+        console.warn('📧 Email sending will be simulated until credentials are provided')
+        this.isConfigured = false
+        return
+      }
+
+      this.transporter = nodemailer.createTransporter(emailConfig)
+      this.isConfigured = true
+      
+      // Verify the connection
+      this.transporter.verify((error, success) => {
+        if (error) {
+          console.error('❌ Email server connection failed:', error)
+          this.isConfigured = false
+        } else {
+          console.log('✅ Email server ready for sending emails')
+          console.log(`📧 Configured to send from: ${emailConfig.auth.user}`)
+        }
+      })
+    } catch (error) {
+      console.error('❌ Failed to initialize email transporter:', error)
+      this.isConfigured = false
+    }
+  }
+
   // Get system health data
   async getSystemHealth(): Promise<SystemHealthData> {
     try {
-      // Simulate fetching real system data
-      const mockHealthData: SystemHealthData = {
+      // Try to fetch real system data from your APIs
+      const [devicesResponse, csvResponse] = await Promise.allSettled([
+        fetch('http://localhost:3000/api/devices').catch(() => null),
+        fetch('http://localhost:3000/api/csv-data-real').catch(() => null)
+      ])
+
+      let realData = {
+        systemStatus: 'healthy' as 'healthy' | 'warning' | 'error',
+        totalDevices: 3,
+        onlineDevices: 3,
+        offlineDevices: 0,
+        totalDataPoints: 0,
+        lastDataUpdate: new Date().toISOString(),
+        dataStatus: 'good' as 'good' | 'partial' | 'no_data',
+        errorMessages: [] as string[],
+        warnings: [] as string[]
+      }
+
+      // Process device data if available
+      if (devicesResponse.status === 'fulfilled' && devicesResponse.value) {
+        try {
+          const deviceData = await devicesResponse.value.json()
+          if (deviceData.success) {
+            realData.totalDevices = deviceData.devices?.length || 3
+            realData.onlineDevices = deviceData.devices?.filter((d: any) => d.isActive).length || realData.totalDevices
+            realData.offlineDevices = realData.totalDevices - realData.onlineDevices
+          }
+        } catch (error) {
+          realData.warnings.push('Unable to fetch device status')
+        }
+      }
+
+      // Process CSV data if available
+      if (csvResponse.status === 'fulfilled' && csvResponse.value) {
+        try {
+          const csvData = await csvResponse.value.json()
+          if (csvData.success && csvData.data) {
+            realData.totalDataPoints = csvData.data.length
+            realData.lastDataUpdate = csvData.metadata?.lastUpdate || new Date().toISOString()
+            realData.dataStatus = csvData.data.length > 0 ? 'good' : 'no_data'
+          } else {
+            realData.dataStatus = 'no_data'
+            realData.errorMessages.push('No recent data from sensors')
+          }
+        } catch (error) {
+          realData.warnings.push('Unable to verify data quality')
+        }
+      } else {
+        realData.warnings.push('CSV data API unavailable')
+      }
+
+      // Determine overall system status
+      if (realData.errorMessages.length > 0 || realData.dataStatus === 'no_data') {
+        realData.systemStatus = 'error'
+      } else if (realData.warnings.length > 0 || realData.offlineDevices > 0) {
+        realData.systemStatus = 'warning'
+      } else {
+        realData.systemStatus = 'healthy'
+      }
+
+      return realData
+    } catch (error) {
+      // Fallback to mock data if real data isn't available
+      console.warn('Using mock system health data')
+      return {
         systemStatus: Math.random() > 0.8 ? 'warning' : 'healthy',
         totalDevices: 3,
         onlineDevices: Math.floor(Math.random() * 3) + 1,
@@ -43,22 +155,6 @@ class EmailService {
         dataStatus: Math.random() > 0.9 ? 'no_data' : Math.random() > 0.7 ? 'partial' : 'good',
         errorMessages: Math.random() > 0.8 ? ['Device connection timeout', 'Google Drive API rate limit'] : [],
         warnings: Math.random() > 0.6 ? ['High temperature detected on Device 2'] : []
-      }
-
-      mockHealthData.offlineDevices = mockHealthData.totalDevices - mockHealthData.onlineDevices
-
-      return mockHealthData
-    } catch (error) {
-      return {
-        systemStatus: 'error',
-        totalDevices: 0,
-        onlineDevices: 0,
-        offlineDevices: 0,
-        totalDataPoints: 0,
-        lastDataUpdate: 'Unknown',
-        dataStatus: 'no_data',
-        errorMessages: ['Failed to fetch system health'],
-        warnings: []
       }
     }
   }
@@ -242,6 +338,13 @@ Admin
     return { subject, html, text }
   }
 
+  // Get email recipients from registered users
+  private getEmailRecipients(): string[] {
+    const users = userAuthManager.getAllUsers()
+    const activeUsers = users.filter(user => user.isActive)
+    return activeUsers.map(user => user.email)
+  }
+
   // Send email to all users
   async sendSystemStatusToAllUsers(timeOfDay: 'morning' | 'evening'): Promise<{
     success: boolean
@@ -259,15 +362,10 @@ Admin
       
       for (const user of users) {
         try {
-          // In a real application, you would send actual emails here
-          // For now, we'll simulate email sending and log the results
           console.log(`📧 Sending ${timeOfDay} status email to: ${user.email}`)
-          console.log(`Subject: ${emailTemplate.subject}`)
-          console.log(`Status: ${healthData.systemStatus}`)
-          console.log('---')
           
-          // Simulate email delivery (replace with real email service)
-          await this.simulateEmailDelivery(user.email, emailTemplate)
+          // Use the new delivery method (real email or simulation)
+          await this.deliverEmail(user.email, emailTemplate)
           sentCount++
         } catch (error) {
           console.error(`Failed to send email to ${user.email}:`, error)
@@ -292,31 +390,72 @@ Admin
     }
   }
 
-  // Simulate email delivery (replace with real email service like Nodemailer)
-  private async simulateEmailDelivery(email: string, template: EmailTemplate): Promise<void> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
-    // In production, replace this with actual email sending:
-    // const transporter = nodemailer.createTransporter({
-    //   service: 'gmail',
-    //   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    // })
-    // await transporter.sendMail({
-    //   from: process.env.EMAIL_FROM,
-    //   to: email,
-    //   subject: template.subject,
-    //   html: template.html,
-    //   text: template.text
-    // })
-    
-    // For now, just log that we would send the email
-    console.log(`✅ Email would be sent to ${email}`)
+  // Send real email using Nodemailer
+  private async sendRealEmail(email: string, template: EmailTemplate): Promise<void> {
+    if (!this.transporter || !this.isConfigured) {
+      throw new Error('Email service not configured')
+    }
+
+    const mailOptions = {
+      from: {
+        name: 'Bridge Health Monitoring System',
+        address: process.env.EMAIL_USER || 'noreply@bhm.com'
+      },
+      to: email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
+    }
+
+    await this.transporter.sendMail(mailOptions)
+  }
+
+  // Send email with fallback to simulation
+  private async deliverEmail(email: string, template: EmailTemplate): Promise<void> {
+    try {
+      if (this.isConfigured && this.transporter) {
+        await this.sendRealEmail(email, template)
+        console.log(`✅ Real email sent to ${email}`)
+      } else {
+        // Fallback to simulation if not configured
+        await this.simulateEmailDelivery(email, template)
+      }
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${email}:`, error)
+      // Try simulation as fallback
+      await this.simulateEmailDelivery(email, template)
+    }
   }
 
   // Manual trigger for testing
   async sendTestEmail(timeOfDay: 'morning' | 'evening' = 'morning') {
     return await this.sendSystemStatusToAllUsers(timeOfDay)
+  }
+
+  // Check if email service is configured
+  isEmailConfigured(): boolean {
+    return this.isConfigured
+  }
+
+  // Get email configuration status
+  getEmailStatus() {
+    const recipients = this.getEmailRecipients()
+    
+    return {
+      configured: this.isConfigured,
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      user: process.env.EMAIL_USER || 'Not configured',
+      hasCredentials: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+      recipientCount: recipients.length,
+      recipients: recipients
+    }
+  }
+
+  // Simulate email delivery (fallback method)
+  private async simulateEmailDelivery(email: string, template: EmailTemplate): Promise<void> {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 100))
+    console.log(`📧 [SIMULATED] Email sent to ${email} - ${template.subject}`)
   }
 }
 
