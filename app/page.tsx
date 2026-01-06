@@ -24,7 +24,10 @@ import {
   LogOut,
   User,
   Users,
-  Settings
+  Settings,
+  UserCog,
+  Moon,
+  Sun
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
@@ -74,6 +77,9 @@ export default function BHMDashboard() {
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
+  
+  // UI state
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   // Authentication check
   useEffect(() => {
@@ -206,6 +212,25 @@ export default function BHMDashboard() {
     router.push('/users')
   }
 
+  const handleAccountManagement = () => {
+    router.push('/account')
+  }
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode)
+    document.documentElement.classList.toggle('dark')
+    localStorage.setItem('bhm_dark_mode', (!isDarkMode).toString())
+  }
+
+  // Load dark mode preference
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('bhm_dark_mode') === 'true'
+    setIsDarkMode(savedDarkMode)
+    if (savedDarkMode) {
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
+
   // Don't render anything until authentication is checked
   if (!mounted || !isAuthenticated) {
     return (
@@ -311,6 +336,27 @@ export default function BHMDashboard() {
                   </Button>
                 </>
               )}
+
+              {/* Account Management */}
+              <Button 
+                onClick={handleAccountManagement}
+                size="sm"
+                variant="ghost"
+                className="h-8 flex items-center space-x-1"
+              >
+                <UserCog className="h-3 w-3" />
+                <span className="text-xs">Account</span>
+              </Button>
+
+              {/* Dark Mode Toggle */}
+              <Button 
+                onClick={toggleDarkMode}
+                size="sm"
+                variant="ghost"
+                className="h-8"
+              >
+                {isDarkMode ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+              </Button>
               
               <Button 
                 variant="ghost" 

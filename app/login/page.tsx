@@ -156,22 +156,6 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        {/* Demo Info */}
-        <Card className="shadow-sm border border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <h3 className="font-semibold text-blue-800">Default Admin Account</h3>
-              <div className="text-sm text-blue-700 space-y-1">
-                <div><strong>Email:</strong> theccbussiness@gmail.com</div>
-                <div><strong>Password:</strong> admin123</div>
-              </div>
-              <p className="text-xs text-blue-600 mt-2">
-                You can promote other users to admin after they register
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
           <p>© 2024 Bridge Health Monitoring System</p>
