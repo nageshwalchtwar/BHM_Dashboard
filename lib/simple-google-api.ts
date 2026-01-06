@@ -214,11 +214,11 @@ export class SimpleGoogleDriveAPI {
 }
 
 // Quick helper function to try getting CSV content using any available method
-export async function getCSVFromGoogleDrive(): Promise<{filename: string, content: string} | null> {
+export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string} | null> {
   try {
     // Try different API configurations
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    const folderId = customFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     
     const api = new SimpleGoogleDriveAPI(folderId, apiKey);
     return await api.getLatestCSV();

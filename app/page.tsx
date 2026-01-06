@@ -28,6 +28,7 @@ import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
+import { DeviceSelector } from "@/components/device-selector"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -67,6 +68,9 @@ export default function BHMDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  
+  // Device selector state
+  const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
 
   // Set mounted state and check authentication
@@ -86,7 +90,7 @@ export default function BHMDashboard() {
     setCurrentUser(user)
   }, [router])
 
-  // Auto-refresh data every 30 seconds and when time range changes
+  // Auto-refresh data every 30 seconds and when time range or device changes
   useEffect(() => {
     fetchData()
     
@@ -94,12 +98,17 @@ export default function BHMDashboard() {
       const interval = setInterval(fetchData, 30000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh, timeRange]) // Add timeRange dependency back
+  }, [autoRefresh, timeRange, selectedDevice]) // Add selectedDevice dependency
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
       let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
+      
+      // Add device parameter if a specific device is selected
+      if (selectedDevice) {
+        apiUrl += `&device=${selectedDevice}`
+      }
       
       const response = await fetch(apiUrl)
       const result = await response.json()
@@ -111,7 +120,9 @@ export default function BHMDashboard() {
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ? 
             result.data[0].rawTimestamp : 
             (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data'),
-          dataSource: result.metadata.filename || 'Google Drive',
+          dataSource: result.metadata.device ? 
+            `${result.metadata.device.name} (${result.metadata.filename || 'Google Drive'})` : 
+            result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
         })
@@ -171,6 +182,16 @@ export default function BHMDashboard() {
     router.push('/login')
   }
 
+  const handleDeviceChange = (deviceId: string | undefined) => {
+    setSelectedDevice(deviceId)
+    setError(null) // Clear any previous errors
+    fetchData() // Immediately fetch data for new device
+  }
+
+  const handleAdminClick = () => {
+    router.push('/admin')
+  }
+
   // Don't render anything until authentication is checked
   if (!mounted || !isAuthenticated) {
     return (
@@ -215,7 +236,7 @@ export default function BHMDashboard() {
         </div>
 
         {/* Connection Status and Controls */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               {connectionStatus === 'connected' ? (
@@ -267,6 +288,14 @@ export default function BHMDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Device Selector */}
+        <DeviceSelector 
+          selectedDevice={selectedDevice}
+          onDeviceChange={handleDeviceChange}
+          onAdminClick={handleAdminClick}
+          className="max-w-2xl"
+        />
 
         {/* Connection Error Alert */}
         {error && (
