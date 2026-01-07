@@ -211,7 +211,7 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
   // Determine target samples per second based on time window
   let targetSamplesPerSecond: number
   if (minutes <= 1) {
-    targetSamplesPerSecond = 40 // 1 minute view: 40 samples/sec
+    targetSamplesPerSecond = 30 // 1 minute view: 30 samples/sec (1800 samples total)
   } else {
     targetSamplesPerSecond = 30 // 5+ minute view: 30 samples/sec
   }
@@ -293,9 +293,7 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   }
   
   // Apply sample rate filtering based on time window
-  // TEMPORARILY DISABLE SAMPLE FILTERING TO TEST TIME WINDOW
-  // const sampledData = applySampleRateFilter(filteredData, minutes)
-  const sampledData = filteredData // Use all data within time window for now
+  const sampledData = applySampleRateFilter(filteredData, minutes)
   
   console.log(`✅ Final result: ${data.length} total → ${sampledData.length} filtered points for last ${minutes} minute(s)`)
   
