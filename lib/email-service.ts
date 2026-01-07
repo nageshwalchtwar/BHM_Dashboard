@@ -127,10 +127,6 @@ class EmailService {
             }
           })
         })
-          console.log('✅ Email server ready for sending emails')
-          console.log(`📧 Configured to send from: ${emailConfig.auth.user}`)
-        }
-      })
     } catch (error) {
       console.error('❌ Failed to initialize email transporter:', error)
       this.isConfigured = false

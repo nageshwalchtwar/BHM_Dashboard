@@ -1,1 +1,53 @@
-import { NextResponse } from 'next/server'\nimport emailService from '@/lib/email-service'\n\nexport async function POST() {\n  try {\n    console.log('🧪 Manual email configuration test...')\n    \n    // Force re-initialize the email service\n    const testResult = await emailService.sendTestEmail('morning')\n    \n    console.log('🧪 Test result:', testResult)\n    \n    return NextResponse.json({\n      success: testResult.success,\n      message: testResult.message,\n      details: {\n        configured: emailService.isEmailConfigured(),\n        status: emailService.getEmailStatus(),\n        timestamp: new Date().toISOString()\n      }\n    })\n    \n  } catch (error) {\n    console.error('🧪 Email test failed:', error)\n    \n    return NextResponse.json({\n      success: false,\n      error: 'Email test failed',\n      message: error instanceof Error ? error.message : 'Unknown error',\n      details: {\n        configured: emailService.isEmailConfigured(),\n        status: emailService.getEmailStatus(),\n        timestamp: new Date().toISOString()\n      }\n    }, { status: 500 })\n  }\n}\n\nexport async function GET() {\n  // Just return the current email configuration status\n  return NextResponse.json({\n    status: emailService.getEmailStatus(),\n    configured: emailService.isEmailConfigured(),\n    timestamp: new Date().toISOString(),\n    envVars: {\n      hasEmailUser: !!process.env.EMAIL_USER,\n      hasEmailPass: !!process.env.EMAIL_PASS,\n      emailService: process.env.EMAIL_SERVICE,\n      userValue: process.env.EMAIL_USER,\n      passLength: process.env.EMAIL_PASS?.length\n    }\n  })\n}
+import { NextResponse } from 'next/server'
+import emailService from '@/lib/email-service'
+
+export async function POST() {
+  try {
+    console.log('🧪 Manual email configuration test...')
+    
+    // Force re-initialize the email service
+    const testResult = await emailService.sendTestEmail('morning')
+    
+    console.log('🧪 Test result:', testResult)
+    
+    return NextResponse.json({
+      success: testResult.success,
+      message: testResult.message,
+      details: {
+        configured: emailService.isEmailConfigured(),
+        status: emailService.getEmailStatus(),
+        timestamp: new Date().toISOString()
+      }
+    })
+    
+  } catch (error) {
+    console.error('🧪 Email test failed:', error)
+    
+    return NextResponse.json({
+      success: false,
+      error: 'Email test failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      details: {
+        configured: emailService.isEmailConfigured(),
+        status: emailService.getEmailStatus(),
+        timestamp: new Date().toISOString()
+      }
+    }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  // Just return the current email configuration status
+  return NextResponse.json({
+    status: emailService.getEmailStatus(),
+    configured: emailService.isEmailConfigured(),
+    timestamp: new Date().toISOString(),
+    envVars: {
+      hasEmailUser: !!process.env.EMAIL_USER,
+      hasEmailPass: !!process.env.EMAIL_PASS,
+      emailService: process.env.EMAIL_SERVICE,
+      userValue: process.env.EMAIL_USER,
+      passLength: process.env.EMAIL_PASS?.length
+    }
+  })
+}
