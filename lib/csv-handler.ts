@@ -211,7 +211,7 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
   // Determine target samples per second based on time window
   let targetSamplesPerSecond: number
   if (minutes <= 1) {
-    targetSamplesPerSecond = 30 // 1 minute view: 30 samples/sec (1800 samples total)
+    targetSamplesPerSecond = 40 // 1 minute view: 40 samples/sec (2400 samples total)
   } else {
     targetSamplesPerSecond = 30 // 5+ minute view: 30 samples/sec
   }
@@ -244,10 +244,21 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
   for (let i = 0; i < sortedData.length; i++) {
     const currentTime = sortedData[i].timestamp
     
-    // Take first sample or if enough time has passed since last sample
-    if (i === 0 || (currentTime - lastSampleTime) >= targetInterval) {
+    // Take first sample, last sample, or if enough time has passed since last sample
+    if (i === 0 || i === sortedData.length - 1 || (currentTime - lastSampleTime) >= targetInterval) {
       sampledData.push(sortedData[i])
       lastSampleTime = currentTime
+    }
+  }
+  
+  // If we don't have enough samples, use index-based sampling as fallback
+  if (sampledData.length < (targetSamplesPerSecond * totalSeconds * 0.8)) {
+    console.log(`⚠️ Time-based sampling gave only ${sampledData.length} samples, using index-based fallback`)
+    sampledData.length = 0 // Clear array
+    
+    const skipRatio = originalSamplesPerSecond / targetSamplesPerSecond
+    for (let i = 0; i < sortedData.length; i += Math.max(1, Math.floor(skipRatio))) {
+      sampledData.push(sortedData[i])
     }
   }
   
