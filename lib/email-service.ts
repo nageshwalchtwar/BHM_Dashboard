@@ -42,14 +42,27 @@ class EmailService {
       // Get email configuration from environment variables
       const emailConfig = {
         service: process.env.EMAIL_SERVICE || 'gmail',
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || '587'),
-        secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // true for 465, false for other ports
         auth: {
           user: process.env.EMAIL_USER, // Your email
           pass: process.env.EMAIL_PASS  // Your app password
+        },
+        tls: {
+          rejectUnauthorized: false // Allow self-signed certificates
         }
       }
+
+      // Debug logging
+      console.log('📧 Email Config Debug:', {
+        service: emailConfig.service,
+        host: emailConfig.host,
+        port: emailConfig.port,
+        user: emailConfig.auth.user,
+        hasPassword: !!emailConfig.auth.pass,
+        passwordLength: emailConfig.auth.pass?.length || 0
+      })
 
       // Check if required environment variables are set
       if (!emailConfig.auth.user || !emailConfig.auth.pass) {
@@ -62,12 +75,58 @@ class EmailService {
       this.transporter = nodemailer.createTransporter(emailConfig)
       this.isConfigured = true
       
-      // Verify the connection
-      this.transporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ Email server connection failed:', error)
-          this.isConfigured = false
-        } else {
+      // Verify the connection with timeout
+      const verificationPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('SMTP verification timeout after 10 seconds'))
+        }, 10000)
+        
+        this.transporter!.verify((error, success) => {
+          clearTimeout(timeout)
+          if (error) {
+            reject(error)
+          } else {
+            resolve(success)
+          }
+        })
+      })
+      
+      verificationPromise
+        .then(() => {
+          console.log('✅ Email server connection verified successfully!')
+          this.isConfigured = true
+        })
+        .catch((error) => {
+          console.error('❌ Email server verification failed:', error.message)
+          console.log('🔄 Trying alternative configuration...')
+          
+          // Try alternative configuration for Gmail
+          const altConfig = {
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            },
+            tls: {
+              rejectUnauthorized: false
+            }
+          }
+          
+          this.transporter = nodemailer.createTransporter(altConfig)
+          
+          this.transporter.verify((altError, altSuccess) => {
+            if (altError) {
+              console.error('❌ Alternative config also failed:', altError.message)
+              console.warn('📧 Falling back to simulation mode')
+              this.isConfigured = false
+            } else {
+              console.log('✅ Alternative email config worked!')
+              this.isConfigured = true
+            }
+          })
+        })
           console.log('✅ Email server ready for sending emails')
           console.log(`📧 Configured to send from: ${emailConfig.auth.user}`)
         }

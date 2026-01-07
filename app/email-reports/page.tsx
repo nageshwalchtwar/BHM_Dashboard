@@ -60,6 +60,22 @@ export default function EmailReportsPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  
+  // Function to debug email configuration
+  const debugEmailConfig = async () => {
+    setActionLoading('debug')
+    try {
+      const response = await fetch('/api/test-email-config', { method: 'GET' })
+      const result = await response.json()
+      console.log('🧪 Email Debug Info:', result)
+      setMessage(`Debug: ${result.configured ? 'Email configured ✅' : 'Email not configured ❌'} | Pass length: ${result.envVars.passLength} | User: ${result.envVars.userValue}`)
+    } catch (error) {
+      setMessage('Error debugging email config')
+    } finally {
+      setActionLoading(null)
+      setTimeout(() => setMessage(''), 8000)
+    }
+  }
 
   // Check authentication and load data
   useEffect(() => {
@@ -435,6 +451,28 @@ export default function EmailReportsPage() {
                 <Moon className="h-4 w-4" />
                 <span>Send Test Evening Report</span>
                 {actionLoading === 'test' && <RefreshCw className="h-3 w-3 animate-spin" />}
+              </Button>
+              
+              <Button
+                onClick={debugEmailConfig}
+                disabled={actionLoading === 'debug'}
+                variant="secondary"
+                className="flex items-center space-x-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span>Debug Email Config</span>
+                {actionLoading === 'debug' && <RefreshCw className="h-3 w-3 animate-spin" />}
+              </Button>
+              
+              <Button
+                onClick={debugEmailConfig}
+                disabled={actionLoading === 'debug'}
+                variant="secondary"
+                className="flex items-center space-x-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span>Debug Email Config</span>
+                {actionLoading === 'debug' && <RefreshCw className="h-3 w-3 animate-spin" />}
               </Button>
             </div>
           </CardContent>

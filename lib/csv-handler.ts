@@ -220,26 +220,40 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
   const originalSamplesPerSecond = 100
   const skipRatio = originalSamplesPerSecond / targetSamplesPerSecond
   
-  console.log(`📊 Applying sample rate filter: ${targetSamplesPerSecond} samples/sec (skip ratio: ${skipRatio.toFixed(2)})`)
+  console.log(`📊 Applying sample rate filter: ${targetSamplesPerSecond} samples/sec (skip ratio: ${skipRatio.toFixed(2)}) for ${minutes}min view`)
+  console.log(`📊 Input data: ${data.length} points`)
   
   // Sort by timestamp (oldest first) for proper sampling
   const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp)
   
   const sampledData: CSVSensorData[] = []
-  let sampleIndex = 0
+  
+  // Use time-based sampling instead of simple index-based sampling
+  if (data.length === 0) return sampledData
+  
+  // Calculate time interval between samples based on target rate
+  const timeWindow = (data[0].timestamp - data[data.length - 1].timestamp) // Total time span in ms
+  const totalSeconds = timeWindow / 1000
+  const targetInterval = 1000 / targetSamplesPerSecond // milliseconds between samples
+  
+  console.log(`📊 Time window: ${totalSeconds.toFixed(1)}s, Target interval: ${targetInterval}ms`)
+  
+  let lastSampleTime = 0
   
   for (let i = 0; i < sortedData.length; i++) {
-    // Take sample at regular intervals based on skip ratio
-    if (i >= Math.round(sampleIndex * skipRatio)) {
+    const currentTime = sortedData[i].timestamp
+    
+    // Take first sample or if enough time has passed since last sample
+    if (i === 0 || (currentTime - lastSampleTime) >= targetInterval) {
       sampledData.push(sortedData[i])
-      sampleIndex++
+      lastSampleTime = currentTime
     }
   }
   
   // Sort back to newest first for consistency with other functions
   const finalData = sampledData.sort((a, b) => b.timestamp - a.timestamp)
   
-  console.log(`✅ Sample filtering: ${data.length} → ${finalData.length} points (${minutes}min view, ${targetSamplesPerSecond}sps)`)
+  console.log(`✅ Sample filtering complete: ${data.length} → ${finalData.length} points (${minutes}min view, ${targetSamplesPerSecond}sps)`)
   
   return finalData
 }
@@ -250,7 +264,7 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
 export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
   if (data.length === 0) return []
   
-  // console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
+  console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
   
   // Sort by timestamp descending (most recent first)
   const sortedData = data.sort((a, b) => b.timestamp - a.timestamp)
@@ -271,7 +285,7 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   // Apply sample rate filtering based on time window
   const sampledData = applySampleRateFilter(filteredData, minutes)
   
-  // console.log(`✅ Filtered ${data.length} total points to ${sampledData.length} points for last ${minutes} minute(s)`)
+  console.log(`✅ Final result: ${data.length} total → ${sampledData.length} filtered points for last ${minutes} minute(s)`)
   // console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
   
   return sampledData
