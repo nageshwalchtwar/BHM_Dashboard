@@ -201,7 +201,51 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
 }
 
 /**
- * Filter data to get only the most recent N minutes
+ * Apply sample rate filtering based on time window requirements
+ * 1 minute view: 40 samples/second (from 100 samples/second - take every ~2.5th sample)
+ * 5+ minute view: 30 samples/second (from 100 samples/second - take every ~3.33th sample)
+ */
+function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSensorData[] {
+  if (data.length === 0) return []
+  
+  // Determine target samples per second based on time window
+  let targetSamplesPerSecond: number
+  if (minutes <= 1) {
+    targetSamplesPerSecond = 40 // 1 minute view: 40 samples/sec
+  } else {
+    targetSamplesPerSecond = 30 // 5+ minute view: 30 samples/sec
+  }
+  
+  // Original sample rate is ~100 samples/second
+  const originalSamplesPerSecond = 100
+  const skipRatio = originalSamplesPerSecond / targetSamplesPerSecond
+  
+  console.log(`📊 Applying sample rate filter: ${targetSamplesPerSecond} samples/sec (skip ratio: ${skipRatio.toFixed(2)})`)
+  
+  // Sort by timestamp (oldest first) for proper sampling
+  const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp)
+  
+  const sampledData: CSVSensorData[] = []
+  let sampleIndex = 0
+  
+  for (let i = 0; i < sortedData.length; i++) {
+    // Take sample at regular intervals based on skip ratio
+    if (i >= Math.round(sampleIndex * skipRatio)) {
+      sampledData.push(sortedData[i])
+      sampleIndex++
+    }
+  }
+  
+  // Sort back to newest first for consistency with other functions
+  const finalData = sampledData.sort((a, b) => b.timestamp - a.timestamp)
+  
+  console.log(`✅ Sample filtering: ${data.length} → ${finalData.length} points (${minutes}min view, ${targetSamplesPerSecond}sps)`)
+  
+  return finalData
+}
+
+/**
+ * Filter data to get only the most recent N minutes with specified sample rate with specified sample rate
  */
 export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
   if (data.length === 0) return []
@@ -224,10 +268,13 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   // Filter data within the time window
   const filteredData = sortedData.filter(item => item.timestamp >= cutoffTime)
   
-  // console.log(`✅ Filtered ${data.length} total points to ${filteredData.length} points for last ${minutes} minute(s)`)
+  // Apply sample rate filtering based on time window
+  const sampledData = applySampleRateFilter(filteredData, minutes)
+  
+  // console.log(`✅ Filtered ${data.length} total points to ${sampledData.length} points for last ${minutes} minute(s)`)
   // console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
   
-  return filteredData
+  return sampledData
 }
 
 /**
