@@ -232,10 +232,11 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
   if (data.length === 0) return sampledData
   
   // Calculate time interval between samples based on target rate
-  const timeWindow = (data[0].timestamp - data[data.length - 1].timestamp) // Total time span in ms
+  const timeWindow = sortedData.length > 1 ? (sortedData[sortedData.length - 1].timestamp - sortedData[0].timestamp) : 0
   const totalSeconds = timeWindow / 1000
   const targetInterval = 1000 / targetSamplesPerSecond // milliseconds between samples
   
+  console.log(`📊 Time analysis: First=${new Date(sortedData[0].timestamp).toLocaleTimeString()}, Last=${new Date(sortedData[sortedData.length - 1].timestamp).toLocaleTimeString()}`)
   console.log(`📊 Time window: ${totalSeconds.toFixed(1)}s, Target interval: ${targetInterval}ms`)
   
   let lastSampleTime = 0
@@ -273,20 +274,37 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
   
   // Get the most recent timestamp
   const latestTimestamp = sortedData[0].timestamp
-  // console.log(`🕐 Latest data timestamp: ${new Date(latestTimestamp).toLocaleString()}`)
+  const oldestTimestamp = sortedData[sortedData.length - 1].timestamp
+  console.log(`🕐 Data time range: ${new Date(oldestTimestamp).toLocaleTimeString()} to ${new Date(latestTimestamp).toLocaleTimeString()}`)
   
   // Calculate cutoff time (minutes ago from the latest data point)
   const cutoffTime = latestTimestamp - (minutes * 60 * 1000) // Convert minutes to milliseconds
-  // console.log(`🕐 Cutoff time: ${new Date(cutoffTime).toLocaleString()}`)
+  console.log(`🕐 Cutoff time: ${new Date(cutoffTime).toLocaleTimeString()} (${minutes} min ago from latest)`)
   
   // Filter data within the time window
   const filteredData = sortedData.filter(item => item.timestamp >= cutoffTime)
   
+  if (filteredData.length > 0) {
+    const filteredOldest = filteredData[filteredData.length - 1].timestamp
+    const filteredNewest = filteredData[0].timestamp
+    console.log(`🕐 After time filter: ${filteredData.length} points from ${new Date(filteredOldest).toLocaleTimeString()} to ${new Date(filteredNewest).toLocaleTimeString()}`)
+  } else {
+    console.log(`⚠️ No data points found within ${minutes} minute(s) window!`)
+  }
+  
   // Apply sample rate filtering based on time window
-  const sampledData = applySampleRateFilter(filteredData, minutes)
+  // TEMPORARILY DISABLE SAMPLE FILTERING TO TEST TIME WINDOW
+  // const sampledData = applySampleRateFilter(filteredData, minutes)
+  const sampledData = filteredData // Use all data within time window for now
   
   console.log(`✅ Final result: ${data.length} total → ${sampledData.length} filtered points for last ${minutes} minute(s)`)
-  // console.log(`🕐 Time range: ${new Date(cutoffTime).toLocaleString()} to ${new Date(latestTimestamp).toLocaleString()}`)
+  
+  if (sampledData.length > 0) {
+    const finalOldest = sampledData[sampledData.length - 1].timestamp
+    const finalNewest = sampledData[0].timestamp
+    const finalTimeSpan = (finalNewest - finalOldest) / 1000
+    console.log(`🕐 Final time range: ${new Date(finalOldest).toLocaleTimeString()} to ${new Date(finalNewest).toLocaleTimeString()} (${finalTimeSpan.toFixed(1)}s)`)
+  }
   
   return sampledData
 }
