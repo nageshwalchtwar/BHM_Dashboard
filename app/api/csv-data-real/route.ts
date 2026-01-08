@@ -44,8 +44,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const minutes = parseInt(searchParams.get("minutes") || "1") // Default to 1 minute
   const deviceId = searchParams.get("device") // Optional device parameter
+  const samplesPerSecond = searchParams.get("samplesPerSecond") // Optional sampling rate
   
-  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}`)
+  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}`)
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from Google Drive...')
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     allData.sort((a, b) => b.timestamp - a.timestamp)
     
     // Get recent data based on requested timeframe (max 10 minutes)
-    const filteredData = getRecentData(allData, Math.min(minutes, 10))
+    const filteredData = getRecentData(allData, Math.min(minutes, 10), samplesPerSecond)
     const timeframeDescription = `${minutes} minute(s)`
     
     console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
         totalPoints: allData.length,
         recentPoints: filteredData.length,
         timeframe: timeframeDescription,
+        samplingRate: samplesPerSecond || 'raw',
         lastUpdate: new Date().toISOString(),
         latestDataTime: filteredData[0] ? new Date(filteredData[0].timestamp).toLocaleString() : null,
         isRealData: true,

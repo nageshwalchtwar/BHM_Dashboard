@@ -306,15 +306,23 @@ function generateSyntheticTimeSeriesData(minutes: number, startTime?: number, en
   
   return data.sort((a, b) => b.timestamp - a.timestamp)
 }
-function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSensorData[] {
+function applySampleRateFilter(data: CSVSensorData[], minutes: number, customSamplesPerSecond?: number): CSVSensorData[] {
   if (data.length === 0) return []
   
-  // Determine target samples per second based on time window
+  // Determine target samples per second
   let targetSamplesPerSecond: number
-  if (minutes <= 1) {
-    targetSamplesPerSecond = 40 // 1 minute view: 40 samples/sec (2400 samples total)
+  
+  if (customSamplesPerSecond) {
+    targetSamplesPerSecond = customSamplesPerSecond
+    console.log(`📊 Using custom sample rate: ${targetSamplesPerSecond} samples/sec`)
   } else {
-    targetSamplesPerSecond = 30 // 5+ minute view: 30 samples/sec
+    // Default rates based on time window
+    if (minutes <= 1) {
+      targetSamplesPerSecond = 40 // 1 minute view: 40 samples/sec (2400 samples total)
+    } else {
+      targetSamplesPerSecond = 30 // 5+ minute view: 30 samples/sec
+    }
+    console.log(`📊 Using default sample rate: ${targetSamplesPerSecond} samples/sec for ${minutes}min view`)
   }
   
   // Original sample rate is ~100 samples/second
@@ -372,15 +380,21 @@ function applySampleRateFilter(data: CSVSensorData[], minutes: number): CSVSenso
 }
 
 /**
- * Filter data to get only the most recent N minutes with specified sample rate with specified sample rate
+ * Filter data to get only the most recent N minutes with optional sample rate filtering
  */
-export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSensorData[] {
+export function getRecentData(data: CSVSensorData[], minutes: number = 1, samplesPerSecond?: string | null): CSVSensorData[] {
   if (data.length === 0) {
     console.log(`⚠️ No input data, generating ${minutes} minute(s) of synthetic data`)
-    return applySampleRateFilter(generateSyntheticTimeSeriesData(minutes), minutes)
+    const syntheticData = generateSyntheticTimeSeriesData(minutes)
+    
+    if (!samplesPerSecond || samplesPerSecond === 'raw') {
+      return syntheticData // Return all synthetic data
+    } else {
+      return applySampleRateFilter(syntheticData, minutes, parseInt(samplesPerSecond))
+    }
   }
   
-  console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points`)
+  console.log(`🕐 Filtering data for last ${minutes} minute(s) from ${data.length} total points (sampling: ${samplesPerSecond || 'raw'})`)
   
   // Ensure we have enough time coverage first
   const timeExtendedData = ensureTimeWindow(data, minutes)
@@ -410,8 +424,17 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1): CSVSe
     console.log(`⚠️ No data points found within ${minutes} minute(s) window!`)
   }
   
-  // Apply sample rate filtering based on time window
-  const sampledData = applySampleRateFilter(filteredData, minutes)
+  // Apply sample rate filtering based on time window and user selection
+  let sampledData: CSVSensorData[]
+  
+  if (!samplesPerSecond || samplesPerSecond === 'raw') {
+    console.log(`🎯 Returning RAW data: ${filteredData.length} points (no sampling)`)
+    sampledData = filteredData
+  } else {
+    const targetSps = parseInt(samplesPerSecond)
+    console.log(`📊 Applying custom sample rate: ${targetSps} samples/sec`)
+    sampledData = applySampleRateFilter(filteredData, minutes, targetSps)
+  }
   
   console.log(`✅ Final result: ${data.length} total → ${sampledData.length} filtered points for last ${minutes} minute(s)`)
   

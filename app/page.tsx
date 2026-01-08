@@ -78,6 +78,7 @@ export default function BHMDashboard() {
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
+  const [samplesPerSecond, setSamplesPerSecond] = useState<string>('raw') // Default to raw data
   
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -113,7 +114,7 @@ export default function BHMDashboard() {
       const interval = setInterval(fetchData, 30000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh, timeRange, selectedDevice]) // Add selectedDevice dependency
+  }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond]) // Add samplesPerSecond dependency
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
@@ -121,6 +122,9 @@ export default function BHMDashboard() {
       let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
+      }
+      if (samplesPerSecond !== 'raw') {
+        apiUrl += `&samplesPerSecond=${samplesPerSecond}`
       }
       
       const response = await fetch(apiUrl)
@@ -291,6 +295,27 @@ export default function BHMDashboard() {
                   <SelectContent>
                     <SelectItem value="1">1min</SelectItem>
                     <SelectItem value="5">5min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Samples Per Second */}
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">Samples/sec:</span>
+                <Select value={samplesPerSecond} onValueChange={setSamplesPerSecond}>
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="raw">Raw</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="40">40</SelectItem>
+                    <SelectItem value="30">30</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="1">1</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
