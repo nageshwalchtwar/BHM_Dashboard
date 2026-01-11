@@ -3,13 +3,13 @@ import { NextResponse } from 'next/server';
 const FOLDER_ID = '17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai';
 const API_KEY = 'AIzaSyBlwJphSwxTpoUX2Bxfrmvooc6xs6jl6J8';
 
-// Cache to reduce Railway usage - cache data for 5 minutes
+// Cache to reduce Railway usage - cache data for 30 minutes (AGGRESSIVE COST SAVING)
 let lastFetchTime = 0;
 let cachedData: any = null;
-const CACHE_DURATION = 5 * 60 * 1000;
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes cache
 
 export async function GET() {
-  console.log('📄 Fetching CSV (Railway optimized with caching)...');
+  console.log('📄 Fetching CSV (Railway ULTRA-OPTIMIZED - 30min cache)...');
 
   try {
     // Check cache first to reduce API calls and save Railway costs

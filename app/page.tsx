@@ -106,15 +106,15 @@ export default function BHMDashboard() {
     checkAuth()
   }, [router])
 
-  // Auto-refresh data every 30 seconds and when time range or device changes
-  useEffect(() => {
-    fetchData()
-    
-    if (autoRefresh) {
-      const interval = setInterval(fetchData, 300000) // 5 minutes instead of 30 seconds
-      return () => clearInterval(interval)
-    }
-  }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond]) // Add samplesPerSecond dependency
+  // DISABLED AUTO-REFRESH to save Railway costs - MANUAL REFRESH ONLY
+  // useEffect(() => {
+  //   fetchData()
+  //   
+  //   if (autoRefresh) {
+  //     const interval = setInterval(fetchData, 300000) // 5 minutes
+  //     return () => clearInterval(interval)
+  //   }
+  // }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond])
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
