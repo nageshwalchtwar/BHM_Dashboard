@@ -111,7 +111,7 @@ export default function BHMDashboard() {
     fetchData()
     
     if (autoRefresh) {
-      const interval = setInterval(fetchData, 30000)
+      const interval = setInterval(fetchData, 300000) // 5 minutes instead of 30 seconds
       return () => clearInterval(interval)
     }
   }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond]) // Add samplesPerSecond dependency
