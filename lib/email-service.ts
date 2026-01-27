@@ -72,7 +72,7 @@ class EmailService {
         return
       }
 
-      this.transporter = nodemailer.createTransporter(emailConfig)
+      this.transporter = nodemailer.createTransport(emailConfig)
       this.isConfigured = true
       
       // Verify the connection with timeout
@@ -114,7 +114,7 @@ class EmailService {
             }
           }
           
-          this.transporter = nodemailer.createTransporter(altConfig)
+          this.transporter = nodemailer.createTransport(altConfig)
           
           this.transporter.verify((altError, altSuccess) => {
             if (altError) {
