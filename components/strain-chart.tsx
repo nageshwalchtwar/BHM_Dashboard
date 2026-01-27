@@ -5,9 +5,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface StrainChartProps {
   data: any[]
   isLoading: boolean
+  chartKey?: string
 }
 
-export function StrainChart({ data, isLoading }: StrainChartProps) {
+export function StrainChart({ data, isLoading, chartKey }: StrainChartProps) {
   // Debug stroke data
   if (data && data.length > 0) {
     console.log('🔧 Stroke chart data:', {

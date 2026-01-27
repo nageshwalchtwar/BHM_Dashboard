@@ -17,9 +17,10 @@ interface LatestDataChartProps {
     warning: number
     critical: number
   }
+  chartKey?: string
 }
 
-export function LatestDataChart({ title, dataKey, unit, color, thresholds }: LatestDataChartProps) {
+export function LatestDataChart({ title, dataKey, unit, color, thresholds, chartKey }: LatestDataChartProps) {
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<CSVSensorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -166,7 +167,7 @@ export function LatestDataChart({ title, dataKey, unit, color, thresholds }: Lat
           </div>
         ) : (
           <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer key={chartKey} width="100%" height="100%">
               <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis 

@@ -5,9 +5,10 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface VibrationChartProps {
   data: any[]
   isLoading: boolean
+  chartKey?: string
 }
 
-export function VibrationChart({ data, isLoading }: VibrationChartProps) {
+export function VibrationChart({ data, isLoading, chartKey }: VibrationChartProps) {
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
@@ -48,7 +49,7 @@ export function VibrationChart({ data, isLoading }: VibrationChartProps) {
 
   return (
     <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer key={chartKey} width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis 

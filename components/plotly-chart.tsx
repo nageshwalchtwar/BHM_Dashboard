@@ -12,9 +12,10 @@ interface PlotlyChartProps {
   unit?: string
   yRange?: [number, number] | null
   multiAxis?: boolean
+  chartKey?: string
 }
 
-export function PlotlyChart({ data, isLoading, field, title, color, unit = '', yRange = null, multiAxis = false }: PlotlyChartProps) {
+export function PlotlyChart({ data, isLoading, field, title, color, unit = '', yRange = null, multiAxis = false, chartKey }: PlotlyChartProps) {
   const plotData = useMemo(() => {
     if (!data || data.length === 0) return []
     const timestamps = data.map(item => new Date(item.timestamp))
@@ -158,6 +159,7 @@ export function PlotlyChart({ data, isLoading, field, title, color, unit = '', y
   return (
     <div className="h-[400px] w-full">
       <Plot
+        key={chartKey}
         data={plotData}
         layout={layout}
         config={config}

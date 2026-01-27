@@ -116,6 +116,13 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond])
 
+  // Fetch data when timeRange or samplesPerSecond changes (not auto-refresh)
+  useEffect(() => {
+    if (mounted) {
+      fetchData()
+    }
+  }, [timeRange, samplesPerSecond, mounted])
+
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
@@ -203,6 +210,18 @@ export default function BHMDashboard() {
     router.push('/login')
   }
 
+  const handleTimeRangeChange = (newTimeRange: string) => {
+    setTimeRange(newTimeRange)
+    setSensorData([]) // Clear current data immediately
+    setError(null)
+  }
+
+  const handleSamplesChange = (newSamples: string) => {
+    setSamplesPerSecond(newSamples)
+    setSensorData([]) // Clear current data immediately
+    setError(null)
+  }
+
   const handleDeviceChange = (deviceId: string | undefined) => {
     setSelectedDevice(deviceId)
     setError(null) // Clear any previous errors
@@ -288,7 +307,7 @@ export default function BHMDashboard() {
               {/* Time Range */}
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-gray-500">Range:</span>
-                <Select value={timeRange} onValueChange={setTimeRange}>
+                <Select value={timeRange} onValueChange={handleTimeRangeChange}>
                   <SelectTrigger className="w-28 h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -302,7 +321,7 @@ export default function BHMDashboard() {
               {/* Samples Per Second */}
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-gray-500">Samples/sec:</span>
-                <Select value={samplesPerSecond} onValueChange={setSamplesPerSecond}>
+                <Select value={samplesPerSecond} onValueChange={handleSamplesChange}>
                   <SelectTrigger className="w-24 h-8">
                     <SelectValue />
                   </SelectTrigger>
@@ -592,7 +611,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Temperature</h3>
                 <p className="text-xs text-gray-500 mb-3">Temperature measurements in Celsius</p>
                 <div className="h-[400px]">
-                  <TemperatureChart data={sensorData} isLoading={loading} />
+                  <TemperatureChart key={`temp-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} />
                 </div>
               </div>
             </TabsContent>
@@ -602,7 +621,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">LVDT</h3>
                 <p className="text-xs text-gray-500 mb-3">LVDT displacement measurements in millimeters</p>
                 <div className="h-[400px]">
-                  <StrainChart data={sensorData} isLoading={loading} />
+                  <StrainChart key={`strain-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} />
                 </div>
               </div>
             </TabsContent>
@@ -612,7 +631,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" />
+                  <AccelerometerChart key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" />
                 </div>
               </div>
             </TabsContent>
@@ -622,7 +641,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" />
+                  <AccelerometerChart key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" />
                 </div>
               </div>
             </TabsContent>
@@ -632,7 +651,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" />
+                  <AccelerometerChart key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" />
                 </div>
               </div>
             </TabsContent>
@@ -642,7 +661,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
+                  <AccelerometerChart key={`wt901-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
                 </div>
               </div>
             </TabsContent>
@@ -652,7 +671,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
+                  <AccelerometerChart key={`wt901-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
                 </div>
               </div>
             </TabsContent>
@@ -662,7 +681,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
+                  <AccelerometerChart key={`wt901-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
                 </div>
               </div>
             </TabsContent>

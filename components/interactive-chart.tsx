@@ -13,9 +13,10 @@ interface InteractiveChartProps {
   title: string
   color: string
   unit?: string
+  chartKey?: string
 }
 
-export function InteractiveChart({ data, isLoading, field, title, color, unit = '' }: InteractiveChartProps) {
+export function InteractiveChart({ data, isLoading, field, title, color, unit = '', chartKey }: InteractiveChartProps) {
   const plotData = useMemo(() => {
     if (!data || data.length === 0) return []
 
@@ -122,6 +123,7 @@ export function InteractiveChart({ data, isLoading, field, title, color, unit = 
   return (
     <div className="h-[400px] w-full">
       <Plot
+        key={chartKey}
         data={plotData}
         layout={layout}
         config={config}

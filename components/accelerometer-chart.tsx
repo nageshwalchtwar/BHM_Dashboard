@@ -8,9 +8,10 @@ interface AccelerometerChartProps {
   axis: 'x' | 'y' | 'z' | 'accel_x' | 'accel_y' | 'accel_z' | 'ax_adxl' | 'ay_adxl' | 'az_adxl' | 'ax_wt901' | 'ay_wt901' | 'az_wt901'
   title: string
   color: string
+  chartKey?: string
 }
 
-export function AccelerometerChart({ data, isLoading, axis, title, color }: AccelerometerChartProps) {
+export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey }: AccelerometerChartProps) {
   if (isLoading) {
     return (
       <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
