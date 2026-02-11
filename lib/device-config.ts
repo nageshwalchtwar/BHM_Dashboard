@@ -88,6 +88,20 @@ function getDevicesFromEnv(): Device[] {
     });
   }
   
+  // Device 4
+  const device4FolderId = process.env.DEVICE_4_FOLDER_ID;
+  if (device4FolderId) {
+    devices.push({
+      id: 'd4',
+      name: process.env.DEVICE_4_NAME || 'd4',
+      description: 'Device 4 monitoring station',
+      folderId: device4FolderId,
+      folderUrl: folderIdToUrl(device4FolderId),
+      isActive: true,
+      addedAt: new Date('2024-01-01')
+    });
+  }
+  
   return devices;
 }
 

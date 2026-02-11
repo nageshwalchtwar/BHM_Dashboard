@@ -16,9 +16,11 @@ export async function GET() {
         device1FolderId: process.env.DEVICE_1_FOLDER_ID || 'NOT_SET',
         device2FolderId: process.env.DEVICE_2_FOLDER_ID || 'NOT_SET', 
         device3FolderId: process.env.DEVICE_3_FOLDER_ID || 'NOT_SET',
+        device4FolderId: process.env.DEVICE_4_FOLDER_ID || 'NOT_SET',
         device1Name: process.env.DEVICE_1_NAME || 'NOT_SET',
         device2Name: process.env.DEVICE_2_NAME || 'NOT_SET',
         device3Name: process.env.DEVICE_3_NAME || 'NOT_SET',
+        device4Name: process.env.DEVICE_4_NAME || 'NOT_SET',
       },
       loadedDevices: {
         count: devices.length,
@@ -44,6 +46,7 @@ export async function GET() {
         device1FolderId: process.env.DEVICE_1_FOLDER_ID || 'NOT_SET',
         device2FolderId: process.env.DEVICE_2_FOLDER_ID || 'NOT_SET',
         device3FolderId: process.env.DEVICE_3_FOLDER_ID || 'NOT_SET',
+        device4FolderId: process.env.DEVICE_4_FOLDER_ID || 'NOT_SET',
       }
     }, { status: 500 });
   }

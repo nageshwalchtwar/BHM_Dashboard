@@ -14,6 +14,7 @@ export async function GET() {
       DEVICE_1_FOLDER_ID: process.env.DEVICE_1_FOLDER_ID || 'NOT_SET',
       DEVICE_2_FOLDER_ID: process.env.DEVICE_2_FOLDER_ID || 'NOT_SET',
       DEVICE_3_FOLDER_ID: process.env.DEVICE_3_FOLDER_ID || 'NOT_SET',
+      DEVICE_4_FOLDER_ID: process.env.DEVICE_4_FOLDER_ID || 'NOT_SET',
       GOOGLE_DRIVE_API_KEY: process.env.GOOGLE_DRIVE_API_KEY ? 'SET' : 'NOT_SET'
     };
 
