@@ -112,14 +112,18 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
+  // Get the base URL for redirects
+  const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 
+    request.headers.get('origin') || 'http://localhost:3000'
+
   // Handle OAuth errors
   if (error) {
     const errorDescription = searchParams.get('error_description') || 'Authentication failed'
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorDescription)}`, request.url))
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorDescription)}`, baseUrl))
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(new URL('/login?error=Invalid OAuth response', request.url))
+    return NextResponse.redirect(new URL('/login?error=Invalid OAuth response', baseUrl))
   }
 
   try {
@@ -128,18 +132,16 @@ export async function GET(request: NextRequest) {
     const provider = stateData.provider
 
     if (!['google', 'github', 'microsoft'].includes(provider)) {
-      return NextResponse.redirect(new URL('/login?error=Invalid provider', request.url))
+      return NextResponse.redirect(new URL('/login?error=Invalid provider', baseUrl))
     }
 
     const config = OAUTH_CONFIG[provider as keyof typeof OAUTH_CONFIG]
     
     if (!config.clientId || !config.clientSecret) {
-      return NextResponse.redirect(new URL('/login?error=OAuth not configured', request.url))
+      return NextResponse.redirect(new URL('/login?error=OAuth not configured', baseUrl))
     }
 
     // Get the callback URL
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 
-      request.headers.get('origin') || 'http://localhost:3000'
     const redirectUri = `${baseUrl}/api/auth/oauth/callback`
 
     // Exchange code for access token
@@ -147,7 +149,7 @@ export async function GET(request: NextRequest) {
 
     if (tokenData.error) {
       console.error('Token exchange error:', tokenData)
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(tokenData.error_description || 'Token exchange failed')}`, request.url))
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(tokenData.error_description || 'Token exchange failed')}`, baseUrl))
     }
 
     const accessToken = tokenData.access_token
@@ -157,7 +159,7 @@ export async function GET(request: NextRequest) {
     const userInfo = normalizeUserInfo(provider, rawUserInfo)
 
     if (!userInfo.email) {
-      return NextResponse.redirect(new URL('/login?error=Could not retrieve email from provider', request.url))
+      return NextResponse.redirect(new URL('/login?error=Could not retrieve email from provider', baseUrl))
     }
 
     // Register or login the user via OAuth
@@ -170,7 +172,7 @@ export async function GET(request: NextRequest) {
 
     if (result.success && result.token) {
       // Set authentication cookie and redirect to dashboard
-      const response = NextResponse.redirect(new URL('/', request.url))
+      const response = NextResponse.redirect(new URL('/', baseUrl))
       
       response.cookies.set('bhm_token', result.token, {
         httpOnly: true,
@@ -181,11 +183,12 @@ export async function GET(request: NextRequest) {
 
       return response
     } else {
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(result.error || 'Authentication failed')}`, request.url))
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(result.error || 'Authentication failed')}`, baseUrl))
     }
 
   } catch (error) {
     console.error('OAuth callback error:', error)
-    return NextResponse.redirect(new URL('/login?error=Authentication failed. Please try again.', request.url))
+    const fallbackUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    return NextResponse.redirect(new URL('/login?error=Authentication failed. Please try again.', fallbackUrl))
   }
 }
