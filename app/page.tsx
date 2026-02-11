@@ -78,7 +78,7 @@ export default function BHMDashboard() {
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
-  const [samplesPerSecond, setSamplesPerSecond] = useState<string>('raw') // Default to raw data
+  const [samplesPerSecond, setSamplesPerSecond] = useState<string>('40') // Default to 40 samples/sec
   
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
