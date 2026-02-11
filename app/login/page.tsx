@@ -219,7 +219,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>© 2024 Bridge Health Monitoring System</p>
+          <p>© 2026 Bridge Health Monitoring System</p>
           <p>Real-time structural health monitoring</p>
         </div>
       </div>
