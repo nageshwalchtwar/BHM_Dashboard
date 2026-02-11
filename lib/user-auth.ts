@@ -54,7 +54,19 @@ class UserAuthManager {
       isActive: true
     }
     
+    // Create second admin user
+    const secondAdmin: User = {
+      id: 'admin-2',
+      email: 'i2r@gmail.com',
+      name: 'I2R Administrator',
+      password: 'i2r@123', // In production, this should be hashed
+      role: 'admin',
+      createdAt: new Date(),
+      isActive: true
+    }
+    
     this.users.push(defaultAdmin)
+    this.users.push(secondAdmin)
     this.initialized = true
   }
 
