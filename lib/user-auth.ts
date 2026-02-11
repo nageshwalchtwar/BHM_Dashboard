@@ -7,6 +7,8 @@ interface User {
   createdAt: Date
   lastLogin?: Date
   isActive: boolean
+  oauthProvider?: string // OAuth provider (google, github, microsoft)
+  oauthProviderId?: string // Unique ID from the OAuth provider
 }
 
 interface UserSession {
@@ -115,6 +117,64 @@ class UserAuthManager {
         success: false,
         error: 'Invalid email or password'
       }
+    }
+
+    // Update last login
+    user.lastLogin = new Date()
+
+    // Create session token
+    const token = this.generateToken()
+    const session: UserSession = {
+      id: `session-${Date.now()}`,
+      userId: user.id,
+      token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      createdAt: new Date()
+    }
+
+    this.sessions.push(session)
+
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = user
+    return {
+      success: true,
+      user: userWithoutPassword,
+      token
+    }
+  }
+
+  // OAuth login - create or login user via OAuth provider
+  oauthLogin(email: string, name: string, provider: string, providerId: string): LoginResult {
+    // Check if user already exists with this email
+    let user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase())
+
+    if (user) {
+      // User exists - update OAuth info if not set
+      if (!user.oauthProvider) {
+        user.oauthProvider = provider
+        user.oauthProviderId = providerId
+      }
+      
+      if (!user.isActive) {
+        return {
+          success: false,
+          error: 'Account is deactivated. Please contact administrator.'
+        }
+      }
+    } else {
+      // Create new user via OAuth
+      user = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        email: email.toLowerCase(),
+        name,
+        password: `oauth-${provider}-${Date.now()}`, // Generate random password for OAuth users
+        role: 'user',
+        createdAt: new Date(),
+        isActive: true,
+        oauthProvider: provider,
+        oauthProviderId: providerId
+      }
+      this.users.push(user)
     }
 
     // Update last login
