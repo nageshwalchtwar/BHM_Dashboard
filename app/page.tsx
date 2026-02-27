@@ -649,7 +649,19 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={rmsPerSecond.map(r => ({ timestamp: r.timestamp, ax_adxl: r.accel_x_rms }))} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis RMS (1s)" color="#ef4444" />
+                  <AccelerometerChart
+                    key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
+                    data={rmsPerSecond.map(r => ({
+                      timestamp: r.timestamp,
+                      ax_adxl: r.accel_x_rms,
+                      ay_adxl: undefined,
+                      az_adxl: undefined
+                    }))}
+                    isLoading={loading}
+                    axis="ax_adxl"
+                    title="ADXL X-Axis RMS (1s)"
+                    color="#ef4444"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -659,7 +671,19 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={rmsPerSecond.map(r => ({ timestamp: r.timestamp, ay_adxl: r.accel_y_rms }))} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis RMS (1s)" color="#22c55e" />
+                  <AccelerometerChart
+                    key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
+                    data={rmsPerSecond.map(r => ({
+                      timestamp: r.timestamp,
+                      ax_adxl: undefined,
+                      ay_adxl: r.accel_y_rms,
+                      az_adxl: undefined
+                    }))}
+                    isLoading={loading}
+                    axis="ay_adxl"
+                    title="ADXL Y-Axis RMS (1s)"
+                    color="#22c55e"
+                  />
                 </div>
               </div>
             </TabsContent>
@@ -669,7 +693,19 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={rmsPerSecond.map(r => ({ timestamp: r.timestamp, az_adxl: r.accel_z_rms }))} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis RMS (1s)" color="#3b82f6" />
+                  <AccelerometerChart
+                    key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
+                    data={rmsPerSecond.map(r => ({
+                      timestamp: r.timestamp,
+                      ax_adxl: undefined,
+                      ay_adxl: undefined,
+                      az_adxl: r.accel_z_rms
+                    }))}
+                    isLoading={loading}
+                    axis="az_adxl"
+                    title="ADXL Z-Axis RMS (1s)"
+                    color="#3b82f6"
+                  />
                 </div>
               </div>
             </TabsContent>
