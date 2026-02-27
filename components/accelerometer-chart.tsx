@@ -2,7 +2,6 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
 import { useEffect, useState } from "react"
-import { useState } from "react"
 
 
 interface AccelerometerChartProps {
