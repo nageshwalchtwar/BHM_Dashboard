@@ -1,6 +1,7 @@
 "use client"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
+import { useEffect, useState } from "react"
 import { useState } from "react"
 
 interface AccelerometerChartProps {
@@ -10,11 +11,17 @@ interface AccelerometerChartProps {
   title: string
   color: string
   chartKey?: string
+  rms?: number // Pass the RMS value for this axis
 }
 
-export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey }: AccelerometerChartProps) {
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   const [selectedValue, setSelectedValue] = useState<any>(null)
+
+  // Step function transformation: duplicate each value except the last, shifting timestamp forward
+  const stepData = data.length < 2 ? data : data.flatMap((d, i) => {
+    if (i === data.length - 1) return [d]
+    return [d, { ...d, timestamp: data[i + 1].timestamp }]
+  })
 
   if (isLoading) {
     return (
@@ -61,9 +68,9 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   }
 
   // Get visible data for zoom/brush
-  const visibleData = data.slice(
+  const visibleData = stepData.slice(
     Math.max(0, zoomData.startIndex),
-    Math.min(data.length, zoomData.endIndex + 1)
+    Math.min(stepData.length, zoomData.endIndex + 1)
   )
   const latest = visibleData.length > 0 ? visibleData[visibleData.length - 1] : null
   const oldest = visibleData.length > 0 ? visibleData[0] : null
@@ -71,7 +78,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   return (
     <div className="h-[350px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <LineChart data={stepData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis 
             dataKey="timestamp" 
@@ -90,13 +97,17 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
           />
           <Tooltip content={<CustomTooltip />} />
           <Line
-            type="monotone"
+            type="stepAfter"
             dataKey={axis}
             stroke={color}
             strokeWidth={1.5}
             dot={false}
             activeDot={{ r: 3, fill: color }}
           />
+          {/* RMS horizontal line overlay */}
+          {typeof (arguments[0]?.rms) === 'number' && (
+            <ReferenceLine y={arguments[0].rms} stroke="#6366f1" strokeDasharray="6 2" label={{ value: `RMS: ${arguments[0].rms.toFixed(4)} g`, position: 'right', fill: '#6366f1', fontSize: 10 }} />
+          )}
           <Brush 
             dataKey="timestamp" 
             height={20} 
