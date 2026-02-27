@@ -69,10 +69,8 @@ export default function BHMDashboard() {
     healthStatus: 'healthy',
     lastUpdate: ''
   })
-  // Store RMS values for display (latest 1s window)
+  // Store RMS values for display
   const [rms, setRms] = useState<{ accel_x_rms: number, accel_y_rms: number, accel_z_rms: number } | null>(null)
-  // Store per-second RMS array for charting
-  const [rmsPerSecond, setRmsPerSecond] = useState<Array<{ timestamp: number, accel_x_rms: number, accel_y_rms: number, accel_z_rms: number }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -154,8 +152,7 @@ export default function BHMDashboard() {
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
         })
-        setRms(result.rmsPerSecond && result.rmsPerSecond.length > 0 ? result.rmsPerSecond[result.rmsPerSecond.length - 1] : null)
-        setRmsPerSecond(result.rmsPerSecond || [])
+        setRms(result.rms || null)
         setError(null)
         setConnectionStatus('connected')
       } else {
@@ -649,19 +646,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart
-                    key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
-                    data={rmsPerSecond.map(r => ({
-                      timestamp: r.timestamp,
-                      ax_adxl: r.accel_x_rms,
-                      ay_adxl: undefined,
-                      az_adxl: undefined
-                    }))}
-                    isLoading={loading}
-                    axis="ax_adxl"
-                    title="ADXL X-Axis RMS (1s)"
-                    color="#ef4444"
-                  />
+                  <AccelerometerChart key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" rms={rms ? rms.accel_x_rms : undefined} />
                 </div>
               </div>
             </TabsContent>
@@ -671,19 +656,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart
-                    key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
-                    data={rmsPerSecond.map(r => ({
-                      timestamp: r.timestamp,
-                      ax_adxl: undefined,
-                      ay_adxl: r.accel_y_rms,
-                      az_adxl: undefined
-                    }))}
-                    isLoading={loading}
-                    axis="ay_adxl"
-                    title="ADXL Y-Axis RMS (1s)"
-                    color="#22c55e"
-                  />
+                  <AccelerometerChart key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" rms={rms ? rms.accel_y_rms : undefined} />
                 </div>
               </div>
             </TabsContent>
@@ -693,19 +666,7 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart
-                    key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`}
-                    data={rmsPerSecond.map(r => ({
-                      timestamp: r.timestamp,
-                      ax_adxl: undefined,
-                      ay_adxl: undefined,
-                      az_adxl: r.accel_z_rms
-                    }))}
-                    isLoading={loading}
-                    axis="az_adxl"
-                    title="ADXL Z-Axis RMS (1s)"
-                    color="#3b82f6"
-                  />
+                  <AccelerometerChart key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" rms={rms ? rms.accel_z_rms : undefined} />
                 </div>
               </div>
             </TabsContent>
