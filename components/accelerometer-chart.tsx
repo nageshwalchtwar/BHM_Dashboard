@@ -17,6 +17,31 @@ interface AccelerometerChartProps {
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   const [selectedValue, setSelectedValue] = useState<any>(null)
 
+  // Zoom in/out handlers
+  const zoomStep = Math.max(2, Math.floor((zoomData.endIndex - zoomData.startIndex) * 0.2))
+  const canZoomIn = (zoomData.endIndex - zoomData.startIndex) > 10
+  const canZoomOut = (zoomData.startIndex > 0 || zoomData.endIndex < stepData.length - 1)
+  const handleZoomIn = () => {
+    if (!canZoomIn) return
+    setZoomData(prev => {
+      const mid = Math.floor((prev.startIndex + prev.endIndex) / 2)
+      const range = Math.floor((prev.endIndex - prev.startIndex) / 2)
+      return {
+        startIndex: Math.max(0, mid - Math.floor(range / 2)),
+        endIndex: Math.min(stepData.length - 1, mid + Math.floor(range / 2))
+      }
+    })
+  }
+  const handleZoomOut = () => {
+    setZoomData(prev => ({
+      startIndex: Math.max(0, prev.startIndex - zoomStep),
+      endIndex: Math.min(stepData.length - 1, prev.endIndex + zoomStep)
+    }))
+  }
+  const handleResetZoom = () => {
+    setZoomData({ startIndex: 0, endIndex: stepData.length - 1 })
+  }
+
   // Step function transformation: duplicate each value except the last, shifting timestamp forward
   const stepData = data.length < 2 ? data : data.flatMap((d, i) => {
     if (i === data.length - 1) return [d]
@@ -76,9 +101,15 @@ interface AccelerometerChartProps {
   const oldest = visibleData.length > 0 ? visibleData[0] : null
 
   return (
-    <div className="h-[350px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={stepData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+    <div className="h-[380px] w-full">
+      {/* Zoom controls */}
+      <div className="flex gap-2 mb-1 justify-end">
+        <button onClick={handleZoomIn} disabled={!canZoomIn} className="px-2 py-1 text-xs border rounded disabled:opacity-50">Zoom In</button>
+        <button onClick={handleZoomOut} disabled={!canZoomOut} className="px-2 py-1 text-xs border rounded disabled:opacity-50">Zoom Out</button>
+        <button onClick={handleResetZoom} className="px-2 py-1 text-xs border rounded">Reset</button>
+      </div>
+      <ResponsiveContainer width="100%" height="90%">
+        <LineChart data={stepData.slice(zoomData.startIndex, zoomData.endIndex + 1)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis 
             dataKey="timestamp" 
