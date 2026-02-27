@@ -1,6 +1,7 @@
 "use client"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
+import { useState } from "react"
 
 interface AccelerometerChartProps {
   data: any[]
@@ -12,6 +13,9 @@ interface AccelerometerChartProps {
 }
 
 export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey }: AccelerometerChartProps) {
+  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
+  const [selectedValue, setSelectedValue] = useState<any>(null)
+
   if (isLoading) {
     return (
       <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
@@ -37,7 +41,11 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     if (active && payload && payload.length) {
       const dataPoint = payload[0].payload // Get the full data point
       const actualValue = dataPoint[axis] || payload[0].value // Use the actual field value
-      
+      setSelectedValue({
+        value: actualValue,
+        timestamp: dataPoint.timestamp,
+        rawTimestamp: dataPoint.rawTimestamp
+      })
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -51,6 +59,14 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     }
     return null
   }
+
+  // Get visible data for zoom/brush
+  const visibleData = data.slice(
+    Math.max(0, zoomData.startIndex),
+    Math.min(data.length, zoomData.endIndex + 1)
+  )
+  const latest = visibleData.length > 0 ? visibleData[visibleData.length - 1] : null
+  const oldest = visibleData.length > 0 ? visibleData[0] : null
 
   return (
     <div className="h-[350px] w-full">
@@ -81,9 +97,27 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
             dot={false}
             activeDot={{ r: 3, fill: color }}
           />
-          <Brush dataKey="timestamp" height={20} stroke={color} travellerWidth={8} />
+          <Brush 
+            dataKey="timestamp" 
+            height={20} 
+            stroke={color} 
+            travellerWidth={8}
+            onChange={(state: any) => setZoomData({ startIndex: state.startIndex, endIndex: state.endIndex })}
+          />
         </LineChart>
       </ResponsiveContainer>
+      {/* ThingSpeak-like value display */}
+      <div className="flex flex-wrap gap-4 mt-2 text-xs justify-between">
+        <div>
+          <span className="font-semibold">Oldest in view:</span> {oldest ? `${oldest[axis]?.toFixed(4)} g @ ${oldest.rawTimestamp || new Date(oldest.timestamp).toLocaleTimeString('en-US', { hour12: false })}` : 'N/A'}
+        </div>
+        <div>
+          <span className="font-semibold">Latest in view:</span> {latest ? `${latest[axis]?.toFixed(4)} g @ ${latest.rawTimestamp || new Date(latest.timestamp).toLocaleTimeString('en-US', { hour12: false })}` : 'N/A'}
+        </div>
+        <div>
+          <span className="font-semibold">Selected:</span> {selectedValue ? `${selectedValue.value?.toFixed(4)} g @ ${selectedValue.rawTimestamp || new Date(selectedValue.timestamp).toLocaleTimeString('en-US', { hour12: false })}` : 'Click/hover chart'}
+        </div>
+      </div>
     </div>
   )
 }

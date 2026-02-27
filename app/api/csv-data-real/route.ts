@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, getRecentData } from "@/lib/csv-handler"
+import { parseCSVToSensorData, getRecentData, getLatestRMSValues } from "@/lib/csv-handler"
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
@@ -97,9 +97,13 @@ export async function GET(request: NextRequest) {
     console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
     console.log(`📊 Data time range: ${filteredData.length > 0 ? new Date(filteredData[filteredData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(filteredData[0].timestamp).toLocaleString() : 'No data'}`)
     
+    // Calculate latest 1-second RMS values for accel_x, accel_y, accel_z
+    const rms = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40)
+
     return NextResponse.json({
       success: true,
       data: filteredData,
+      rms,
       metadata: {
         source: dataSource,
         filename: filename,

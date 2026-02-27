@@ -69,6 +69,8 @@ export default function BHMDashboard() {
     healthStatus: 'healthy',
     lastUpdate: ''
   })
+  // Store RMS values for display
+  const [rms, setRms] = useState<{ accel_x_rms: number, accel_y_rms: number, accel_z_rms: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -150,6 +152,7 @@ export default function BHMDashboard() {
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
         })
+        setRms(result.rms || null)
         setError(null)
         setConnectionStatus('connected')
       } else {
@@ -501,7 +504,7 @@ export default function BHMDashboard() {
 
         {/* Compact Stats Grid */}
         {latestValues && (
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
             {/* Data Points */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -576,7 +579,7 @@ export default function BHMDashboard() {
               </div>
             </div>
             
-            {/* Acceleration */}
+            {/* Acceleration (Peak) */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -585,6 +588,18 @@ export default function BHMDashboard() {
                   <p className="text-xs text-gray-400">Peak</p>
                 </div>
                 <Zap className="h-5 w-5 text-yellow-500" />
+              </div>
+            </div>
+            {/* RMS Acceleration (1s window) */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">RMS (1s)</p>
+                <div className="flex flex-col text-xs">
+                  <span className="font-bold text-blue-700">X: {rms ? rms.accel_x_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-yellow-700">Y: {rms ? rms.accel_y_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-purple-700">Z: {rms ? rms.accel_z_rms.toFixed(4) : 'N/A'} g</span>
+                </div>
+                <p className="text-xs text-gray-400">RMS (last 1s, {samplesPerSecond} sps)</p>
               </div>
             </div>
           </div>

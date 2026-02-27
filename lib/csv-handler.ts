@@ -1,3 +1,34 @@
+// Calculate RMS for a numeric array
+function calculateRMS(values: number[]): number {
+  if (!values.length) return 0;
+  const meanSquare = values.reduce((sum, v) => sum + v * v, 0) / values.length;
+  return Math.sqrt(meanSquare);
+}
+
+/**
+ * Calculate RMS for accel_x, accel_y, accel_z over a 1-second window (most recent second)
+ * @param data CSVSensorData[] (should be sorted by timestamp descending)
+ * @param samplesPerSecond number (default 40)
+ * @returns { accel_x_rms, accel_y_rms, accel_z_rms }
+ */
+export function getLatestRMSValues(
+  data: CSVSensorData[],
+  samplesPerSecond: number = 40
+): { accel_x_rms: number; accel_y_rms: number; accel_z_rms: number } {
+  if (!data.length) return { accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0 };
+  // Take the most recent 1 second of data
+  const latestTimestamp = data[0].timestamp;
+  const oneSecondAgo = latestTimestamp - 1000;
+  const windowData = data.filter(d => d.timestamp >= oneSecondAgo);
+  const accel_x = windowData.map(d => d.accel_x ?? 0);
+  const accel_y = windowData.map(d => d.accel_y ?? 0);
+  const accel_z = windowData.map(d => d.accel_z ?? 0);
+  return {
+    accel_x_rms: calculateRMS(accel_x),
+    accel_y_rms: calculateRMS(accel_y),
+    accel_z_rms: calculateRMS(accel_z)
+  };
+}
 import { SensorData } from './data-generator'
 import { GoogleDriveCSVReader, EXTRACTED_FOLDER_ID } from './google-drive'
 
