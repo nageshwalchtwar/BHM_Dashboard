@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useEffect, useState } from "react"
 import { useState } from "react"
 
+
 interface AccelerometerChartProps {
   data: any[]
   isLoading: boolean
@@ -13,6 +14,41 @@ interface AccelerometerChartProps {
   chartKey?: string
   rms?: number // Pass the RMS value for this axis
 }
+
+export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
+  // Step function transformation: duplicate each value except the last, shifting timestamp forward
+  const stepData = data.length < 2 ? data : data.flatMap((d, i) => {
+    if (i === data.length - 1) return [d]
+    return [d, { ...d, timestamp: data[i + 1].timestamp }]
+  })
+
+  const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: stepData.length - 1 })
+  const [selectedValue, setSelectedValue] = useState<any>(null)
+
+  // Zoom in/out handlers
+  const zoomStep = Math.max(2, Math.floor((zoomData.endIndex - zoomData.startIndex) * 0.2))
+  const canZoomIn = (zoomData.endIndex - zoomData.startIndex) > 10
+  const canZoomOut = (zoomData.startIndex > 0 || zoomData.endIndex < stepData.length - 1)
+  const handleZoomIn = () => {
+    if (!canZoomIn) return
+    setZoomData(prev => {
+      const mid = Math.floor((prev.startIndex + prev.endIndex) / 2)
+      const range = Math.floor((prev.endIndex - prev.startIndex) / 2)
+      return {
+        startIndex: Math.max(0, mid - Math.floor(range / 2)),
+        endIndex: Math.min(stepData.length - 1, mid + Math.floor(range / 2))
+      }
+    })
+  }
+  const handleZoomOut = () => {
+    setZoomData(prev => ({
+      startIndex: Math.max(0, prev.startIndex - zoomStep),
+      endIndex: Math.min(stepData.length - 1, prev.endIndex + zoomStep)
+    }))
+  }
+  const handleResetZoom = () => {
+    setZoomData({ startIndex: 0, endIndex: stepData.length - 1 })
+  }
 
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: data.length - 1 })
   const [selectedValue, setSelectedValue] = useState<any>(null)
@@ -136,8 +172,8 @@ interface AccelerometerChartProps {
             activeDot={{ r: 3, fill: color }}
           />
           {/* RMS horizontal line overlay */}
-          {typeof (arguments[0]?.rms) === 'number' && (
-            <ReferenceLine y={arguments[0].rms} stroke="#6366f1" strokeDasharray="6 2" label={{ value: `RMS: ${arguments[0].rms.toFixed(4)} g`, position: 'right', fill: '#6366f1', fontSize: 10 }} />
+          {typeof rms === 'number' && (
+            <ReferenceLine y={rms} stroke="#6366f1" strokeDasharray="6 2" label={{ value: `RMS: ${rms.toFixed(4)} g`, position: 'right', fill: '#6366f1', fontSize: 10 }} />
           )}
           <Brush 
             dataKey="timestamp" 
@@ -162,4 +198,5 @@ interface AccelerometerChartProps {
       </div>
     </div>
   )
+}
 }
