@@ -110,7 +110,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
         <button onClick={handleResetZoom} className="px-2 py-1 text-xs border rounded">Reset</button>
       </div>
       <ResponsiveContainer width="100%" height="90%">
-        <LineChart data={stepData.slice(zoomData.startIndex, zoomData.endIndex + 1)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <LineChart data={stepData.slice(zoomData.startIndex, zoomData.endIndex + 1)} margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis 
             dataKey="timestamp" 
@@ -124,7 +124,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
             domain={['dataMin - 0.1', 'dataMax + 0.1']}
             stroke="#64748b"
             fontSize={10}
-            label={{ value: `${title} (g)`, angle: -90, position: "insideLeft", style: { fontSize: '10px' } }}
+            label={{ value: `${title} (g)`, angle: -90, position: "insideLeft", offset: 20, style: { fontSize: '10px' } }}
             tickFormatter={(value) => typeof value === 'number' ? value.toFixed(3) : value}
           />
           <Tooltip content={<CustomTooltip />} />
