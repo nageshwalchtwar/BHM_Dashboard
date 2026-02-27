@@ -1,3 +1,34 @@
+/**
+ * Calculate RMS values for each 1-second window (100 samples per window)
+ * Returns an array of { timestamp, accel_x_rms, accel_y_rms, accel_z_rms }
+ * @param data CSVSensorData[] (should be sorted by timestamp ascending)
+ * @param samplesPerSecond number (default 100)
+ */
+export function getPerSecondRMSValues(
+  data: CSVSensorData[],
+  samplesPerSecond: number = 100
+): Array<{ timestamp: number, accel_x_rms: number, accel_y_rms: number, accel_z_rms: number }> {
+  if (!data.length) return [];
+  // Sort by timestamp ascending (oldest first)
+  const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
+  const result = [];
+  for (let i = 0; i < sorted.length; i += samplesPerSecond) {
+    const window = sorted.slice(i, i + samplesPerSecond);
+    if (window.length === 0) continue;
+    const accel_x = window.map(d => d.accel_x ?? 0);
+    const accel_y = window.map(d => d.accel_y ?? 0);
+    const accel_z = window.map(d => d.accel_z ?? 0);
+    // Use the timestamp of the last sample in the window
+    const timestamp = window[window.length - 1].timestamp;
+    result.push({
+      timestamp,
+      accel_x_rms: calculateRMS(accel_x),
+      accel_y_rms: calculateRMS(accel_y),
+      accel_z_rms: calculateRMS(accel_z)
+    });
+  }
+  return result;
+}
 // Calculate RMS for a numeric array
 function calculateRMS(values: number[]): number {
   if (!values.length) return 0;
