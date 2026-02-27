@@ -199,4 +199,3 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     </div>
   )
 }
-}
