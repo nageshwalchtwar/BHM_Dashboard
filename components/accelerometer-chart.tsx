@@ -15,8 +15,8 @@ interface AccelerometerChartProps {
 }
 
 export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
-  // Defensive: If data is missing or not an array, treat as empty
-  const safeData = Array.isArray(data) ? data : [];
+  // Defensive: If data is missing or not an array, treat as empty and filter out invalid timestamps
+  const safeData = Array.isArray(data) ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp)) : [];
   // Step function transformation: duplicate each value except the last, shifting timestamp forward
   const stepData = safeData.length < 2 ? safeData : safeData.flatMap((d, i) => {
     if (i === safeData.length - 1) return [d]
@@ -63,7 +63,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   }
 
   // Defensive: If no data or axis field is missing, show a friendly message
-  if (!Array.isArray(data) || data.length === 0 || !stepData.some(d => typeof d[axis] === 'number')) {
+  if (!Array.isArray(data) || safeData.length === 0 || !stepData.some(d => typeof d[axis] === 'number')) {
     return (
       <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
         <span className="text-gray-500">No data available for this plot.</span>
@@ -72,6 +72,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   }
 
   const formatXAxis = (tickItem: any) => {
+    if (typeof tickItem !== 'number' || isNaN(tickItem)) return '';
     const date = new Date(tickItem)
     // Show only MM:SS for better readability
     return date.toLocaleTimeString('en-US', { 
@@ -85,15 +86,18 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     if (active && payload && payload.length) {
       const dataPoint = payload[0].payload // Get the full data point
       const actualValue = dataPoint[axis] || payload[0].value // Use the actual field value
-      setSelectedValue({
-        value: actualValue,
-        timestamp: dataPoint.timestamp,
-        rawTimestamp: dataPoint.rawTimestamp
-      })
+      // Defensive: Only set selectedValue if timestamp is valid
+      if (typeof dataPoint.timestamp === 'number' && !isNaN(dataPoint.timestamp)) {
+        setSelectedValue({
+          value: actualValue,
+          timestamp: dataPoint.timestamp,
+          rawTimestamp: dataPoint.rawTimestamp
+        })
+      }
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
-            CSV Time: {dataPoint.rawTimestamp || new Date(label).toLocaleTimeString('en-US', { hour12: false })}
+            CSV Time: {dataPoint.rawTimestamp || (typeof label === 'number' && !isNaN(label) ? new Date(label).toLocaleTimeString('en-US', { hour12: false }) : 'N/A')}
           </p>
           <p className="text-sm font-semibold" style={{ color }}>
             {title}: {typeof actualValue === 'number' ? actualValue.toFixed(4) : 'N/A'} g
