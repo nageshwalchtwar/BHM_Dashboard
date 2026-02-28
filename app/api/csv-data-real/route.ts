@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, getRecentData, getLatestRMSValues } from "@/lib/csv-handler"
+import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond } from "@/lib/csv-handler"
 import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
@@ -45,8 +45,9 @@ export async function GET(request: NextRequest) {
   const minutes = parseInt(searchParams.get("minutes") || "1") // Default to 1 minute
   const deviceId = searchParams.get("device") // Optional device parameter
   const samplesPerSecond = searchParams.get("samplesPerSecond") // Optional sampling rate
-  
-  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}`)
+  const downsampleRMS = searchParams.get("downsampleRMS") === "1" // Enable RMS downsampling if set
+
+  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}, downsampleRMS: ${downsampleRMS}`)
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from Google Drive...')
@@ -89,32 +90,41 @@ export async function GET(request: NextRequest) {
     
     // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
-    
+
     // Get recent data based on requested timeframe (max 10 minutes)
     const filteredData = getRecentData(allData, Math.min(minutes, 10), samplesPerSecond)
     const timeframeDescription = `${minutes} minute(s)`
-    
-    console.log(`📈 Returning ${filteredData.length} REAL data points from last ${minutes} minute(s)`)
-    console.log(`📊 Data time range: ${filteredData.length > 0 ? new Date(filteredData[filteredData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(filteredData[0].timestamp).toLocaleString() : 'No data'}`)
-    
 
+    let responseData = filteredData;
+    let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
 
-    // Calculate latest 1-second RMS values for accel_x, accel_y, accel_z
-    const rms = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40)
+    if (downsampleRMS) {
+      // Downsample to 1 RMS value per second for each axis
+      responseData = downsampleToRMSPerSecond(filteredData);
+      // Optionally, recalculate RMS for the last second window of the downsampled data
+      responseRMS = responseData.length > 0 ? {
+        accel_x_rms: responseData[0].accel_x_rms,
+        accel_y_rms: responseData[0].accel_y_rms,
+        accel_z_rms: responseData[0].accel_z_rms,
+      } : { accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0 };
+    }
+
+    console.log(`📈 Returning ${responseData.length} REAL data points from last ${minutes} minute(s) (downsampleRMS=${downsampleRMS})`)
+    console.log(`📊 Data time range: ${responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(responseData[0].timestamp).toLocaleTimeString() : 'No data'}`)
 
     return NextResponse.json({
       success: true,
-      data: filteredData,
-      rms,
+      data: responseData,
+      rms: responseRMS,
       metadata: {
         source: dataSource,
         filename: filename,
         totalPoints: allData.length,
-        recentPoints: filteredData.length,
+        recentPoints: responseData.length,
         timeframe: timeframeDescription,
         samplingRate: samplesPerSecond || 'raw',
         lastUpdate: new Date().toISOString(),
-        latestDataTime: filteredData[0] ? new Date(filteredData[0].timestamp).toLocaleString() : null,
+        latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toLocaleString() : null,
         isRealData: true,
         device: device ? {
           id: device.id,

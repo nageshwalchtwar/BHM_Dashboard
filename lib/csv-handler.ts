@@ -1,3 +1,45 @@
+/**
+ * Downsample data to 1 RMS value per second for each axis (using 100 samples/sec as base rate)
+ * @param data CSVSensorData[] (should be sorted by timestamp descending)
+ * @returns Array of { timestamp, accel_x_rms, accel_y_rms, accel_z_rms }
+ */
+export function downsampleToRMSPerSecond(data: CSVSensorData[]): Array<{ timestamp: number, accel_x_rms: number, accel_y_rms: number, accel_z_rms: number }> {
+  if (!data.length) return [];
+  // Sort by timestamp ascending for windowing
+  const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
+  const result: Array<{ timestamp: number, accel_x_rms: number, accel_y_rms: number, accel_z_rms: number }> = [];
+  let window: CSVSensorData[] = [];
+  let windowStart = sorted[0].timestamp;
+  for (let i = 0; i < sorted.length; i++) {
+    const point = sorted[i];
+    if (point.timestamp - windowStart < 1000) {
+      window.push(point);
+    } else {
+      // Calculate RMS for the window
+      if (window.length > 0) {
+        result.push({
+          timestamp: windowStart,
+          accel_x_rms: calculateRMS(window.map(d => d.accel_x ?? 0)),
+          accel_y_rms: calculateRMS(window.map(d => d.accel_y ?? 0)),
+          accel_z_rms: calculateRMS(window.map(d => d.accel_z ?? 0)),
+        });
+      }
+      // Start new window
+      window = [point];
+      windowStart = point.timestamp;
+    }
+  }
+  // Final window
+  if (window.length > 0) {
+    result.push({
+      timestamp: windowStart,
+      accel_x_rms: calculateRMS(window.map(d => d.accel_x ?? 0)),
+      accel_y_rms: calculateRMS(window.map(d => d.accel_y ?? 0)),
+      accel_z_rms: calculateRMS(window.map(d => d.accel_z ?? 0)),
+    });
+  }
+  return result;
+}
 // Calculate RMS for a numeric array
 function calculateRMS(values: number[]): number {
   if (!values.length) return 0;

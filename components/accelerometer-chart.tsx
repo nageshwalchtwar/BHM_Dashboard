@@ -18,11 +18,29 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
 
   // Defensive: If data is missing or not an array, treat as empty and filter out invalid timestamps
   const safeData = Array.isArray(data) ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp)) : [];
-  // Step function transformation: duplicate each value except the last, shifting timestamp forward
-  const stepData = safeData.length < 2 ? safeData : safeData.flatMap((d, i) => {
-    if (i === safeData.length - 1) return [d]
-    return [d, { ...d, timestamp: safeData[i + 1].timestamp }]
-  })
+
+  // Detect if data is in RMS-per-second format (downsampled)
+  const isRMSDownsampled = safeData.length > 0 && (
+    safeData[0].accel_x_rms !== undefined || safeData[0].accel_y_rms !== undefined || safeData[0].accel_z_rms !== undefined
+  );
+
+  // If downsampled, use the RMS value for the selected axis
+  const axisRMSKey = axis === 'ax_adxl' || axis === 'accel_x' ? 'accel_x_rms'
+    : axis === 'ay_adxl' || axis === 'accel_y' ? 'accel_y_rms'
+    : axis === 'az_adxl' || axis === 'accel_z' ? 'accel_z_rms'
+    : undefined;
+
+  // For downsampled RMS data, plot the RMS value as the main line
+  const plotData = isRMSDownsampled && axisRMSKey
+    ? safeData.map(d => ({ ...d, value: d[axisRMSKey] }))
+    : safeData;
+
+  // Step function transformation for non-downsampled data
+  const stepData = (!isRMSDownsampled && safeData.length < 2) ? safeData :
+    (!isRMSDownsampled ? safeData.flatMap((d, i) => {
+      if (i === safeData.length - 1) return [d]
+      return [d, { ...d, timestamp: safeData[i + 1].timestamp }]
+    }) : plotData);
 
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: stepData.length - 1 })
   const [selectedValue, setSelectedValue] = useState<any>(null)
@@ -145,15 +163,16 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
           />
           <Tooltip content={<CustomTooltip />} />
           <Line
-            type="stepAfter"
-            dataKey={axis}
+            type={isRMSDownsampled ? "monotone" : "stepAfter"}
+            dataKey={isRMSDownsampled && axisRMSKey ? "value" : axis}
             stroke={color}
-            strokeWidth={1.5}
+            strokeWidth={2}
             dot={false}
             activeDot={{ r: 3, fill: color }}
+            name={isRMSDownsampled ? `${title} RMS` : title}
           />
-          {/* RMS horizontal line overlay */}
-          {typeof rms === 'number' && (
+          {/* RMS horizontal line overlay (for non-downsampled) */}
+          {!isRMSDownsampled && typeof rms === 'number' && (
             <ReferenceLine y={rms} stroke="#6366f1" strokeDasharray="6 2" label={{ value: `RMS: ${rms.toFixed(4)} g`, position: 'right', fill: '#6366f1', fontSize: 10 }} />
           )}
           <Brush 
