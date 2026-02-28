@@ -135,7 +135,9 @@ export default function BHMDashboard() {
       if (samplesPerSecond !== 'raw') {
         apiUrl += `&samplesPerSecond=${samplesPerSecond}`
       }
-      
+      // Always request RMS downsampling to prevent frontend overload
+      apiUrl += `&downsampleRMS=1`
+
       const response = await fetch(apiUrl)
       const result = await response.json()
       
