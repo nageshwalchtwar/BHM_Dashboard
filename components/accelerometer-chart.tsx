@@ -15,10 +15,12 @@ interface AccelerometerChartProps {
 }
 
 export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
+  // Defensive: If data is missing or not an array, treat as empty
+  const safeData = Array.isArray(data) ? data : [];
   // Step function transformation: duplicate each value except the last, shifting timestamp forward
-  const stepData = data.length < 2 ? data : data.flatMap((d, i) => {
-    if (i === data.length - 1) return [d]
-    return [d, { ...d, timestamp: data[i + 1].timestamp }]
+  const stepData = safeData.length < 2 ? safeData : safeData.flatMap((d, i) => {
+    if (i === safeData.length - 1) return [d]
+    return [d, { ...d, timestamp: safeData[i + 1].timestamp }]
   })
 
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: stepData.length - 1 })
@@ -56,6 +58,15 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
           <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: color }}></div>
           <span className="text-gray-600">Loading {title} data...</span>
         </div>
+      </div>
+    )
+  }
+
+  // Defensive: If no data or axis field is missing, show a friendly message
+  if (!Array.isArray(data) || data.length === 0 || !stepData.some(d => typeof d[axis] === 'number')) {
+    return (
+      <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
+        <span className="text-gray-500">No data available for this plot.</span>
       </div>
     )
   }
