@@ -107,16 +107,16 @@ export function FFTChart({ data, isLoading }: FFTChartProps) {
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-pink-600 rounded-full animate-pulse"></div>
-          <span className="text-slate-600">Computing FFT...</span>
+          <span className="text-slate-600">Loading FFT data...</span>
         </div>
       </div>
     )
   }
 
-  if (fftData.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
-        <span className="text-slate-600">Insufficient data for FFT (need at least 2 samples from last minute)</span>
+        <span className="text-slate-600">No FFT data available</span>
       </div>
     )
   }

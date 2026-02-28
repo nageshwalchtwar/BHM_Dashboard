@@ -20,6 +20,14 @@ export function TemperatureChart({ data, isLoading, chartKey }: TemperatureChart
     )
   }
 
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
+        <span className="text-slate-600">No temperature data available</span>
+      </div>
+    )
+  }
+
   const formatXAxis = (tickItem: any) => {
     const date = new Date(tickItem)
     // Show only MM:SS for better readability

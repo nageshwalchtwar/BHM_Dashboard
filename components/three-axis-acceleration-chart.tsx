@@ -22,7 +22,7 @@ export function ThreeAxisAccelerationChart({ data, isLoading }: ThreeAxisAcceler
     )
   }
 
-  if (data.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-lg">
         <span className="text-slate-600">No acceleration data available</span>
