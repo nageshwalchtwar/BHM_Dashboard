@@ -88,7 +88,7 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
     // Convert to standard sensor data format
     try {
       // Try to find timestamp column (case-insensitive)
-      let timestamp = Date.now()
+      let timestamp: number = Date.now()
       let rawTimestamp = '' // Declare at the proper scope level
       
       // Use timestamp from CSV directly - handle different formats
@@ -97,22 +97,17 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
       if (timestampValue && timestampValue !== '') {
         // Store the raw timestamp string for display
         rawTimestamp = timestampValue.toString().trim()
-        
         // For sorting and filtering, create a simple numeric timestamp
         // If it's time-only format like "01:29:07", combine with today's date
-        let timestamp: number
         if (rawTimestamp.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
           // Time-only format - create timestamp with today's date
           const today = new Date()
           const [hours, minutes, secondsPart] = rawTimestamp.split(':')
           const seconds = parseFloat(secondsPart || '0')
-          
           const timeDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
                                    parseInt(hours), parseInt(minutes), Math.floor(seconds), 
                                    Math.round((seconds % 1) * 1000))
           timestamp = timeDate.getTime()
-          
-          // console.log(`⏰ Time-only timestamp: ${rawTimestamp} -> ${timeDate.toLocaleString()}`)
         } else {
           // Try to parse as regular date/time
           const parsed = new Date(rawTimestamp)
@@ -121,14 +116,12 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
           } else {
             // Fallback: use current time with incrementing milliseconds
             timestamp = Date.now() + (data.length * 1000)
-            // console.warn(`⚠️ Could not parse timestamp: ${rawTimestamp}, using fallback`)
           }
         }
       } else {
         // No timestamp found - use incremental time and generate raw timestamp
         timestamp = Date.now() + (data.length * 1000)
         rawTimestamp = new Date(timestamp).toLocaleTimeString()
-        // console.warn('⚠️ No timestamp found in row, using generated timestamp')
       }
       
       // Parse values with exact column name matching first, then fallback to lowercase
