@@ -15,6 +15,7 @@ interface AccelerometerChartProps {
 }
 
 export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
+
   // Defensive: If data is missing or not an array, treat as empty and filter out invalid timestamps
   const safeData = Array.isArray(data) ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp)) : [];
   // Step function transformation: duplicate each value except the last, shifting timestamp forward
@@ -51,6 +52,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     setZoomData({ startIndex: 0, endIndex: stepData.length - 1 })
   }
 
+  // Only render chart if not loading and there is data
   if (isLoading) {
     return (
       <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
@@ -62,7 +64,6 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     )
   }
 
-  // Defensive: If no data or axis field is missing, show a friendly message
   if (!Array.isArray(data) || safeData.length === 0 || !stepData.some(d => typeof d[axis] === 'number')) {
     return (
       <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
