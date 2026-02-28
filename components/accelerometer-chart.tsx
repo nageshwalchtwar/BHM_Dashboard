@@ -1,7 +1,7 @@
 "use client"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from "recharts"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useLayoutEffect } from "react"
 
 
 interface AccelerometerChartProps {
@@ -14,7 +14,21 @@ interface AccelerometerChartProps {
   rms?: number // Pass the RMS value for this axis
 }
 
-export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+
+  // Measure container size after mount and on resize
+  useLayoutEffect(() => {
+    function updateSize() {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setContainerSize({ width: rect.width, height: rect.height });
+      }
+    }
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   // Defensive: If data is missing or not an array, treat as empty and filter out invalid timestamps
   const safeData = Array.isArray(data) ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp)) : [];
@@ -71,9 +85,10 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   }
 
   // Only render chart if not loading and there is data
+
   if (isLoading) {
     return (
-      <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
+      <div ref={containerRef} className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: color }}></div>
           <span className="text-gray-600">Loading {title} data...</span>
@@ -82,9 +97,18 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     )
   }
 
+  // Defensive: Only render chart if container has valid size
+  if (containerSize.width < 10 || containerSize.height < 10) {
+    return (
+      <div ref={containerRef} className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
+        <span className="text-gray-400">Chart area not ready...</span>
+      </div>
+    );
+  }
+
   if (!Array.isArray(data) || safeData.length === 0 || !stepData.some(d => typeof d[axis] === 'number')) {
     return (
-      <div className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
+      <div ref={containerRef} className="h-[350px] flex items-center justify-center bg-gray-50 rounded-lg">
         <span className="text-gray-500">No data available for this plot.</span>
       </div>
     )
@@ -136,7 +160,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   const oldest = visibleData.length > 0 ? visibleData[0] : null
 
   return (
-    <div className="h-[380px] w-full">
+    <div ref={containerRef} className="h-[380px] w-full">
       {/* Zoom controls */}
       <div className="flex gap-2 mb-1 justify-end">
         <button onClick={handleZoomIn} disabled={!canZoomIn} className="px-2 py-1 text-xs border rounded disabled:opacity-50">Zoom In</button>
