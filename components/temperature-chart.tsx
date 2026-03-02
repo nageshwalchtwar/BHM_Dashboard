@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts"
 
 interface TemperatureChartProps {
@@ -8,7 +9,7 @@ interface TemperatureChartProps {
   chartKey?: string
 }
 
-export function TemperatureChart({ data, isLoading, chartKey }: TemperatureChartProps) {
+export const TemperatureChart = React.memo(function TemperatureChart({ data, isLoading, chartKey }: TemperatureChartProps) {
   const safeData = Array.isArray(data)
     ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp) && typeof d.temperature_c === 'number' && !isNaN(d.temperature_c))
     : []
@@ -51,8 +52,8 @@ export function TemperatureChart({ data, isLoading, chartKey }: TemperatureChart
     return null
   }
 
-  // Downsample if too many points
-  const MAX_PTS = 1500
+  // Client-side safety cap (server already caps at 500)
+  const MAX_PTS = 500
   const chartData = safeData.length > MAX_PTS
     ? safeData.filter((_, i) => i % Math.ceil(safeData.length / MAX_PTS) === 0)
     : safeData
@@ -78,4 +79,4 @@ export function TemperatureChart({ data, isLoading, chartKey }: TemperatureChart
       </div>
     </div>
   )
-}
+})

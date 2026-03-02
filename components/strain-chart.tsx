@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
 interface StrainChartProps {
@@ -8,7 +9,7 @@ interface StrainChartProps {
   chartKey?: string
 }
 
-export function StrainChart({ data, isLoading, chartKey }: StrainChartProps) {
+export const StrainChart = React.memo(function StrainChart({ data, isLoading, chartKey }: StrainChartProps) {
   const safeData = Array.isArray(data)
     ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp) && typeof d.stroke_mm === 'number' && !isNaN(d.stroke_mm))
     : []
@@ -51,8 +52,8 @@ export function StrainChart({ data, isLoading, chartKey }: StrainChartProps) {
     return null
   }
 
-  // Downsample if too many points
-  const MAX_PTS = 1500
+  // Client-side safety cap (server already caps at 500)
+  const MAX_PTS = 500
   const chartData = safeData.length > MAX_PTS
     ? safeData.filter((_, i) => i % Math.ceil(safeData.length / MAX_PTS) === 0)
     : safeData
@@ -76,4 +77,4 @@ export function StrainChart({ data, isLoading, chartKey }: StrainChartProps) {
       </div>
     </div>
   )
-}
+})

@@ -95,13 +95,13 @@ export async function GET(request: NextRequest) {
     const filteredData = getRecentData(allData, Math.min(minutes, 10), samplesPerSecond)
     const timeframeDescription = `${minutes} minute(s)`
 
-    let responseData = filteredData;
+    // Calculate RMS BEFORE capping data (uses only last 1 second of data)
     let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
 
+    let responseData = filteredData;
+
     if (downsampleRMS) {
-      // Downsample to 1 RMS value per second for each axis
       responseData = downsampleToRMSPerSecond(filteredData);
-      // Optionally, recalculate RMS for the last second window of the downsampled data
       responseRMS = responseData.length > 0 ? {
         accel_x_rms: responseData[0].accel_x_rms,
         accel_y_rms: responseData[0].accel_y_rms,
@@ -109,7 +109,14 @@ export async function GET(request: NextRequest) {
       } : { accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0 };
     }
 
-    console.log(`📈 Returning ${responseData.length} REAL data points from last ${minutes} minute(s) (downsampleRMS=${downsampleRMS})`)
+    // SERVER-SIDE CAP: Limit data points to prevent client-side crashes
+    const MAX_CLIENT_POINTS = 500;
+    if (responseData.length > MAX_CLIENT_POINTS) {
+      const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
+      responseData = responseData.filter((_: any, i: number) => i % step === 0);
+    }
+
+    console.log(`📈 Returning ${responseData.length} REAL data points from last ${minutes} minute(s) (downsampleRMS=${downsampleRMS}, capped=${filteredData.length > MAX_CLIENT_POINTS})`)
     console.log(`📊 Data time range: ${responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(responseData[0].timestamp).toLocaleTimeString() : 'No data'}`)
 
     return NextResponse.json({

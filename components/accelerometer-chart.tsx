@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts"
 
 interface AccelerometerChartProps {
@@ -12,14 +13,14 @@ interface AccelerometerChartProps {
   rms?: number
 }
 
-export function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
+export const AccelerometerChart = React.memo(function AccelerometerChart({ data, isLoading, axis, title, color, chartKey, rms }: AccelerometerChartProps) {
   // Filter valid data points
   const safeData = Array.isArray(data)
     ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp) && typeof d[axis] === 'number' && !isNaN(d[axis]))
     : []
 
-  // Downsample to max 1500 points for performance
-  const MAX_PTS = 1500
+  // Client-side safety cap (server already caps at 500)
+  const MAX_PTS = 500
   const chartData = safeData.length > MAX_PTS
     ? safeData.filter((_, i) => i % Math.ceil(safeData.length / MAX_PTS) === 0)
     : safeData
@@ -95,4 +96,4 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
       </div>
     </div>
   )
-}
+})

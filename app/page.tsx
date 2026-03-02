@@ -35,6 +35,7 @@ import { TemperatureChart } from "@/components/temperature-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
 import { DeviceSelector } from "@/components/device-selector"
+import { ChartErrorBoundary } from "@/components/chart-error-boundary"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -84,6 +85,7 @@ export default function BHMDashboard() {
   
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [activeTab, setActiveTab] = useState('temperature')
 
   // Authentication check
   useEffect(() => {
@@ -610,7 +612,7 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Compact */}
         <div className="bg-white border border-gray-200 rounded-lg">
-          <Tabs defaultValue="temperature" className="w-full">
+          <Tabs defaultValue="temperature" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-200 px-4 py-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
                 <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temperature</TabsTrigger>
@@ -629,7 +631,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Temperature</h3>
                 <p className="text-xs text-gray-500 mb-3">Temperature measurements in Celsius</p>
                 <div className="h-[400px]">
-                  <TemperatureChart key={`temp-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} />
+                  <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
+                    {activeTab === 'temperature' && <TemperatureChart data={sensorData} isLoading={loading} />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -639,7 +643,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">LVDT</h3>
                 <p className="text-xs text-gray-500 mb-3">LVDT displacement measurements in millimeters</p>
                 <div className="h-[400px]">
-                  <StrainChart key={`strain-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} />
+                  <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                    {activeTab === 'stroke' && <StrainChart data={sensorData} isLoading={loading} />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -649,7 +655,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" rms={rms ? rms.accel_x_rms : undefined} />
+                  <ChartErrorBoundary fallbackMessage="ADXL X chart failed to render">
+                    {activeTab === 'adxl-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" rms={rms ? rms.accel_x_rms : undefined} />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -659,7 +667,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" rms={rms ? rms.accel_y_rms : undefined} />
+                  <ChartErrorBoundary fallbackMessage="ADXL Y chart failed to render">
+                    {activeTab === 'adxl-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" rms={rms ? rms.accel_y_rms : undefined} />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -669,7 +679,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`adxl-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" rms={rms ? rms.accel_z_rms : undefined} />
+                  <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
+                    {activeTab === 'adxl-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" rms={rms ? rms.accel_z_rms : undefined} />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -679,7 +691,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 X-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`wt901-x-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />
+                  <ChartErrorBoundary fallbackMessage="WT901 X chart failed to render">
+                    {activeTab === 'wt901-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -689,7 +703,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Y-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`wt901-y-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />
+                  <ChartErrorBoundary fallbackMessage="WT901 Y chart failed to render">
+                    {activeTab === 'wt901-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
@@ -699,7 +715,9 @@ export default function BHMDashboard() {
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Z-Axis Acceleration</h3>
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
-                  <AccelerometerChart key={`wt901-z-${selectedDevice}-${timeRange}-${samplesPerSecond}`} data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />
+                  <ChartErrorBoundary fallbackMessage="WT901 Z chart failed to render">
+                    {activeTab === 'wt901-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />}
+                  </ChartErrorBoundary>
                 </div>
               </div>
             </TabsContent>
