@@ -17,7 +17,6 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [zoomData, setZoomData] = useState({ startIndex: 0, endIndex: 0 })
-  const [selectedValue, setSelectedValue] = useState<any>(null)
 
   // Measure container size after mount and on resize
   useLayoutEffect(() => {
@@ -35,19 +34,17 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
   // Defensive: filter out invalid timestamps
   const safeData = Array.isArray(data) ? data.filter(d => typeof d.timestamp === 'number' && !isNaN(d.timestamp)) : []
 
-  // Build step data for plotting
-  const stepData = safeData.length < 2
-    ? safeData
-    : safeData.flatMap((d, i) => {
-        if (i === safeData.length - 1) return [d]
-        return [d, { ...d, timestamp: safeData[i + 1].timestamp }]
-      })
+  // Limit data points to prevent browser crash (max 2000 points for chart)
+  const MAX_CHART_POINTS = 2000
+  const chartSafeData = safeData.length > MAX_CHART_POINTS
+    ? safeData.filter((_, i) => i % Math.ceil(safeData.length / MAX_CHART_POINTS) === 0)
+    : safeData
 
   // Check if there is valid data for the requested axis
-  const hasAxisData = stepData.some(d => typeof d[axis] === 'number' && !isNaN(d[axis]))
+  const hasAxisData = chartSafeData.some(d => typeof d[axis] === 'number' && !isNaN(d[axis]))
 
   // Zoom handlers
-  const effectiveEnd = stepData.length - 1
+  const effectiveEnd = chartSafeData.length - 1
   const zoomStep = Math.max(2, Math.floor((zoomData.endIndex - zoomData.startIndex) * 0.2))
   const canZoomIn = (zoomData.endIndex - zoomData.startIndex) > 10
   const canZoomOut = (zoomData.startIndex > 0 || zoomData.endIndex < effectiveEnd)
@@ -114,9 +111,6 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     if (active && payload && payload.length) {
       const dp = payload[0].payload
       const val = dp[axis] ?? payload[0].value
-      if (typeof dp.timestamp === 'number' && !isNaN(dp.timestamp)) {
-        setSelectedValue({ value: val, timestamp: dp.timestamp, rawTimestamp: dp.rawTimestamp })
-      }
       return (
         <div className="bg-white p-3 border border-slate-200 rounded-lg shadow-lg">
           <p className="text-sm text-slate-600 mb-1">
@@ -131,11 +125,11 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
     return null
   }
 
-  const slicedData = stepData.slice(
+  const slicedData = chartSafeData.slice(
     Math.max(0, zoomData.startIndex),
-    Math.min(stepData.length, zoomData.endIndex + 1)
+    Math.min(chartSafeData.length, zoomData.endIndex + 1)
   )
-  const chartData = slicedData.length > 0 ? slicedData : stepData
+  const chartData = slicedData.length > 0 ? slicedData : chartSafeData
   const latest = chartData[chartData.length - 1]
   const oldest = chartData[0]
 
@@ -201,8 +195,7 @@ export function AccelerometerChart({ data, isLoading, axis, title, color, chartK
           {latest ? `${latest[axis]?.toFixed(4)} g @ ${latest.rawTimestamp || new Date(latest.timestamp).toLocaleTimeString('en-US', { hour12: false })}` : 'N/A'}
         </div>
         <div>
-          <span className="font-semibold">Selected:</span>{' '}
-          {selectedValue ? `${selectedValue.value?.toFixed(4)} g @ ${selectedValue.rawTimestamp || new Date(selectedValue.timestamp).toLocaleTimeString('en-US', { hour12: false })}` : 'Click/hover chart'}
+          <span className="font-semibold">Points:</span> {chartData.length}
         </div>
       </div>
     </div>
