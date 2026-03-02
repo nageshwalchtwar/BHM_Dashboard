@@ -135,8 +135,6 @@ export default function BHMDashboard() {
       if (samplesPerSecond !== 'raw') {
         apiUrl += `&samplesPerSecond=${samplesPerSecond}`
       }
-      // Always request RMS downsampling to prevent frontend overload
-      apiUrl += `&downsampleRMS=1`
 
       const response = await fetch(apiUrl)
       const result = await response.json()
@@ -195,12 +193,15 @@ export default function BHMDashboard() {
   const getLatestValues = () => {
     if (sensorData.length === 0) return null
     const latest = sensorData[0]
-    const acceleration = Math.sqrt(latest.accel_x**2 + latest.accel_y**2 + latest.accel_z**2)
+    const ax = typeof latest.accel_x === 'number' ? latest.accel_x : 0
+    const ay = typeof latest.accel_y === 'number' ? latest.accel_y : 0
+    const az = typeof latest.accel_z === 'number' ? latest.accel_z : 0
+    const acceleration = Math.sqrt(ax * ax + ay * ay + az * az)
     return {
-      vibration: acceleration?.toFixed(2) || 'N/A',  // Use acceleration as vibration
-      temperature: latest.temperature_c?.toFixed(1) || 'N/A',
-      strain: latest.stroke_mm?.toFixed(2) || 'N/A',  // Use stroke_mm as strain
-      acceleration: acceleration?.toFixed(3) || 'N/A'
+      vibration: isNaN(acceleration) ? 'N/A' : acceleration.toFixed(2),
+      temperature: typeof latest.temperature_c === 'number' && !isNaN(latest.temperature_c) ? latest.temperature_c.toFixed(1) : 'N/A',
+      strain: typeof latest.stroke_mm === 'number' && !isNaN(latest.stroke_mm) ? latest.stroke_mm.toFixed(2) : 'N/A',
+      acceleration: isNaN(acceleration) ? 'N/A' : acceleration.toFixed(3)
     }
   }
 
