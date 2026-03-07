@@ -119,7 +119,8 @@ export async function GET(request: NextRequest) {
     }
 
     // SERVER-SIDE CAP: Limit data points to prevent client-side crashes
-    const MAX_CLIENT_POINTS = 500;
+    // If a date range is provided, allow high resolution up to 3000 pts for zooming. Else 800.
+    const MAX_CLIENT_POINTS = startDate && endDate ? 3000 : 800;
     if (responseData.length > MAX_CLIENT_POINTS) {
       const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
       responseData = responseData.filter((_: any, i: number) => i % step === 0);

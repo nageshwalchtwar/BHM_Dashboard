@@ -95,7 +95,7 @@ export default function BHMDashboard() {
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
-  const [activeTab, setActiveTab] = useState('temperature')
+  const [activeTab, setActiveTab] = useState('adxl-x')
 
   // Authentication check
   useEffect(() => {
@@ -543,7 +543,7 @@ export default function BHMDashboard() {
 
         {/* Compact Stats Grid */}
         {latestValues && (
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {/* Data Points */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -594,29 +594,7 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            {/* Temperature */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Temp</p>
-                  <p className="text-lg font-bold text-gray-900">{latestValues.temperature}°C</p>
-                  <p className="text-xs text-gray-400">Current</p>
-                </div>
-                <Thermometer className="h-5 w-5 text-red-500" />
-              </div>
-            </div>
 
-            {/* LVDT */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">LVDT</p>
-                  <p className="text-lg font-bold text-gray-900">{latestValues.strain}mm</p>
-                  <p className="text-xs text-gray-400">Stroke</p>
-                </div>
-                <Activity className="h-5 w-5 text-green-500" />
-              </div>
-            </div>
 
             {/* Acceleration (Peak) */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
@@ -654,11 +632,9 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Compact */}
         <div className="bg-white border border-gray-200 rounded-lg">
-          <Tabs defaultValue="temperature" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="adxl-x" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-200 px-4 py-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
-                <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temperature</TabsTrigger>
-                <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
                 <TabsTrigger value="adxl-x" className="text-xs px-3 py-1.5">ADXL X</TabsTrigger>
                 <TabsTrigger value="adxl-y" className="text-xs px-3 py-1.5">ADXL Y</TabsTrigger>
                 <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
@@ -668,29 +644,7 @@ export default function BHMDashboard() {
               </TabsList>
             </div>
 
-            <TabsContent value="temperature" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Temperature</h3>
-                <p className="text-xs text-gray-500 mb-3">Temperature measurements in Celsius</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
-                    {activeTab === 'temperature' && <TemperatureChart data={sensorData} isLoading={loading} />}
-                  </ChartErrorBoundary>
-                </div>
-              </div>
-            </TabsContent>
 
-            <TabsContent value="stroke" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">LVDT</h3>
-                <p className="text-xs text-gray-500 mb-3">LVDT displacement measurements in millimeters</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
-                    {activeTab === 'stroke' && <StrainChart data={sensorData} isLoading={loading} />}
-                  </ChartErrorBoundary>
-                </div>
-              </div>
-            </TabsContent>
 
             <TabsContent value="adxl-x" className="p-4">
               <div>

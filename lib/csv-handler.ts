@@ -512,12 +512,17 @@ export function getRecentData(data: CSVSensorData[], minutes: number = 1, sample
 
   let filteredData = sortedData;
   if (isDateRange) {
-    const startTimestamp = new Date(startDate as string).getTime();
-    const endTimestamp = new Date(endDate as string).getTime();
+    const startTimestamp = new Date(startDate as string);
+    startTimestamp.setHours(0, 0, 0, 0); // Start of the day
+    const endTimestamp = new Date(endDate as string);
+    endTimestamp.setHours(23, 59, 59, 999); // End of the day
 
-    if (!isNaN(startTimestamp) && !isNaN(endTimestamp)) {
-      console.log(`🕐 Filtering data strictly from ${new Date(startTimestamp).toLocaleString()} to ${new Date(endTimestamp).toLocaleString()}`);
-      filteredData = sortedData.filter(item => item.timestamp >= startTimestamp && item.timestamp <= endTimestamp);
+    const startMs = startTimestamp.getTime();
+    const endMs = endTimestamp.getTime();
+
+    if (!isNaN(startMs) && !isNaN(endMs)) {
+      console.log(`🕐 Filtering data strictly from ${new Date(startMs).toLocaleString()} to ${new Date(endMs).toLocaleString()}`);
+      filteredData = sortedData.filter(item => item.timestamp >= startMs && item.timestamp <= endMs);
     }
   } else {
     // Get the most recent timestamp

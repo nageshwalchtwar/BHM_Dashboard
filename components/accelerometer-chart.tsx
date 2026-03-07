@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Brush } from "recharts"
 
 interface AccelerometerChartProps {
   data: any[]
@@ -85,6 +85,7 @@ export const AccelerometerChart = React.memo(function AccelerometerChart({ data,
             <ReferenceLine y={rms} stroke="#6366f1" strokeDasharray="6 2"
               label={{ value: `RMS: ${rms.toFixed(4)}g`, position: 'right', fill: '#6366f1', fontSize: 10 }} />
           )}
+          <Brush dataKey="timestamp" height={30} stroke="#cbd5e1" tickFormatter={formatXAxis} fill="#f8fafc" />
         </LineChart>
       </div>
       <div className="flex gap-4 text-xs text-gray-600 px-2 pt-1">
