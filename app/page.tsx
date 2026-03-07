@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Activity, 
-  Thermometer, 
-  Zap, 
-  TrendingUp, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  Activity,
+  Thermometer,
+  Zap,
+  TrendingUp,
+  RefreshCw,
+  CheckCircle,
+  AlertTriangle,
   XCircle,
   Database,
   Wifi,
@@ -36,6 +36,8 @@ import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
 import { DeviceSelector } from "@/components/device-selector"
 import { ChartErrorBoundary } from "@/components/chart-error-boundary"
+import { DatePickerWithRange } from "@/components/date-range-picker"
+import { DateRange } from "react-day-picker"
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -71,18 +73,26 @@ export default function BHMDashboard() {
     lastUpdate: ''
   })
   // Store RMS values for display
-  const [rms, setRms] = useState<{ accel_x_rms: number, accel_y_rms: number, accel_z_rms: number } | null>(null)
+  const [rms, setRms] = useState<{
+    accel_x_rms: number,
+    accel_y_rms: number,
+    accel_z_rms: number,
+    wt901_x_rms: number,
+    wt901_y_rms: number,
+    wt901_z_rms: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('connecting')
   const [debugInfo, setDebugInfo] = useState<any>(null)
-  
+
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [samplesPerSecond, setSamplesPerSecond] = useState<string>('40') // Default to 40 samples/sec
-  
+
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [activeTab, setActiveTab] = useState('temperature')
@@ -93,7 +103,7 @@ export default function BHMDashboard() {
       try {
         const response = await fetch('/api/auth/me')
         const result = await response.json()
-        
+
         if (result.success) {
           setIsAuthenticated(true)
           setCurrentUser(result.user)
@@ -106,7 +116,7 @@ export default function BHMDashboard() {
         setMounted(true)
       }
     }
-    
+
     checkAuth()
   }, [router])
 
@@ -120,12 +130,12 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond])
 
-  // Fetch data when timeRange or samplesPerSecond changes (not auto-refresh)
+  // Fetch data when timeRange, dateRange, or samplesPerSecond changes (not auto-refresh)
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [timeRange, samplesPerSecond, mounted])
+  }, [timeRange, dateRange, samplesPerSecond, mounted, selectedDevice])
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
@@ -137,19 +147,22 @@ export default function BHMDashboard() {
       if (samplesPerSecond !== 'raw') {
         apiUrl += `&samplesPerSecond=${samplesPerSecond}`
       }
+      if (dateRange?.from && dateRange?.to) {
+        apiUrl += `&startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
+      }
 
       const response = await fetch(apiUrl)
       const result = await response.json()
-      
+
       if (result.success && result.data) {
         setSensorData(result.data)
         setStats({
           totalDataPoints: result.metadata.totalPoints,
-          latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ? 
-            result.data[0].rawTimestamp : 
+          latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ?
+            result.data[0].rawTimestamp :
             (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data'),
-          dataSource: result.metadata.device ? 
-            `${result.metadata.device.name} (${result.metadata.filename || 'Google Drive'})` : 
+          dataSource: result.metadata.device ?
+            `${result.metadata.device.name} (${result.metadata.filename || 'Google Drive'})` :
             result.metadata.filename || 'Google Drive',
           healthStatus: 'healthy',
           lastUpdate: mounted ? new Date().toLocaleString() : ''
@@ -163,7 +176,7 @@ export default function BHMDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setConnectionStatus('disconnected')
-      setStats(prev => ({...prev, healthStatus: 'error'}))
+      setStats(prev => ({ ...prev, healthStatus: 'error' }))
     } finally {
       setLoading(false)
     }
@@ -173,13 +186,13 @@ export default function BHMDashboard() {
     try {
       setLoading(true)
       console.log('🔧 Running comprehensive Google Drive debug...')
-      
+
       const response = await fetch('/api/debug-drive')
       const result = await response.json()
-      
+
       setDebugInfo(result)
       console.log('Debug results:', result)
-      
+
     } catch (err) {
       console.error('Debug test failed:', err)
       setDebugInfo({
@@ -213,7 +226,7 @@ export default function BHMDashboard() {
     } catch (error) {
       // Ignore logout API errors
     }
-    
+
     // Always redirect to login
     router.push('/login')
   }
@@ -293,7 +306,7 @@ export default function BHMDashboard() {
               </p>
             </div>
           </div>
-          
+
           {/* User Info and Controls */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-4 text-sm">
@@ -307,25 +320,46 @@ export default function BHMDashboard() {
                   <WifiOff className="h-4 w-4 text-red-500" />
                 )}
                 <span className="text-xs text-gray-600">
-                  {connectionStatus === 'connected' ? 'Live' : 
-                   connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
+                  {connectionStatus === 'connected' ? 'Live' :
+                    connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
                 </span>
               </div>
-              
+
+              {/* Custom Date Range */}
+              <div className="flex items-center space-x-2">
+                <DatePickerWithRange
+                  date={dateRange}
+                  onDateChange={(range) => {
+                    setDateRange(range)
+                    if (range?.from && range?.to) {
+                      setSensorData([])
+                      setError(null)
+                    } else if (!range) {
+                      // fallback to minute logic if cleared
+                      setSensorData([])
+                      setError(null)
+                    }
+                  }}
+                  className="hidden md:flex"
+                />
+              </div>
+
               {/* Time Range */}
               <div className="flex items-center space-x-2">
-                <span className="text-xs text-gray-500">Range:</span>
-                <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                  <SelectTrigger className="w-28 h-8">
+                <span className="text-xs text-gray-500">Auto:</span>
+                <Select value={timeRange} onValueChange={handleTimeRangeChange} disabled={!!(dateRange?.from && dateRange?.to)}>
+                  <SelectTrigger className="w-[4.5rem] h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">1min</SelectItem>
-                    <SelectItem value="5">5min</SelectItem>
+                    <SelectItem value="1">1m</SelectItem>
+                    <SelectItem value="5">5m</SelectItem>
+                    <SelectItem value="60">1h</SelectItem>
+                    <SelectItem value="1440">1d</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Samples Per Second */}
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-gray-500">Samples/sec:</span>
@@ -347,10 +381,10 @@ export default function BHMDashboard() {
                 </Select>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <Button 
-                onClick={fetchData} 
+              <Button
+                onClick={fetchData}
                 disabled={loading}
                 size="sm"
                 variant="outline"
@@ -358,9 +392,9 @@ export default function BHMDashboard() {
               >
                 <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
               </Button>
-              
-              <Button 
-                onClick={runDebugTest} 
+
+              <Button
+                onClick={runDebugTest}
                 disabled={loading}
                 size="sm"
                 variant="ghost"
@@ -372,7 +406,7 @@ export default function BHMDashboard() {
               {/* Admin-only buttons */}
               {currentUser?.role === 'admin' && (
                 <>
-                  <Button 
+                  <Button
                     onClick={handleUserManagement}
                     size="sm"
                     variant="ghost"
@@ -381,8 +415,8 @@ export default function BHMDashboard() {
                     <Users className="h-3 w-3" />
                     <span className="text-xs">Users</span>
                   </Button>
-                  
-                  <Button 
+
+                  <Button
                     onClick={handleAdminClick}
                     size="sm"
                     variant="ghost"
@@ -391,8 +425,8 @@ export default function BHMDashboard() {
                     <Settings className="h-3 w-3" />
                     <span className="text-xs">Devices</span>
                   </Button>
-                  
-                  <Button 
+
+                  <Button
                     onClick={handleEmailReports}
                     size="sm"
                     variant="ghost"
@@ -405,7 +439,7 @@ export default function BHMDashboard() {
               )}
 
               {/* Account Management */}
-              <Button 
+              <Button
                 onClick={handleAccountManagement}
                 size="sm"
                 variant="ghost"
@@ -416,7 +450,7 @@ export default function BHMDashboard() {
               </Button>
 
               {/* Dark Mode Toggle */}
-              <Button 
+              <Button
                 onClick={toggleDarkMode}
                 size="sm"
                 variant="ghost"
@@ -424,10 +458,10 @@ export default function BHMDashboard() {
               >
                 {isDarkMode ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
               </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
+
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleLogout}
                 className="h-8 flex items-center space-x-1"
               >
@@ -440,7 +474,7 @@ export default function BHMDashboard() {
 
         {/* Device Selector - Compact */}
         <div className="bg-white border border-gray-200 rounded-lg p-3">
-          <DeviceSelector 
+          <DeviceSelector
             selectedDevice={selectedDevice}
             onDeviceChange={handleDeviceChange}
             onAdminClick={handleAdminClick}
@@ -472,7 +506,7 @@ export default function BHMDashboard() {
                 <div>
                   <strong>Tests:</strong> {debugInfo.summary?.passedTests || 0}/{debugInfo.summary?.totalTests || 0} passed
                 </div>
-                
+
                 {debugInfo.tests && (
                   <details className="mt-2">
                     <summary className="cursor-pointer text-sm font-medium">View Test Details</summary>
@@ -496,7 +530,7 @@ export default function BHMDashboard() {
                     </div>
                   </details>
                 )}
-                
+
                 {debugInfo.summary?.recommendation && (
                   <div className="mt-2">
                     <strong>Recommendation:</strong> {debugInfo.summary.recommendation}
@@ -521,15 +555,15 @@ export default function BHMDashboard() {
                 <Database className="h-5 w-5 text-blue-500" />
               </div>
             </div>
-            
+
             {/* System Status */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
                   <p className="text-lg font-bold text-green-600">
-                    {stats?.healthStatus === 'healthy' ? 'Healthy' : 
-                     stats?.healthStatus === 'warning' ? 'Warning' : 'Error'}
+                    {stats?.healthStatus === 'healthy' ? 'Healthy' :
+                      stats?.healthStatus === 'warning' ? 'Warning' : 'Error'}
                   </p>
                   <p className="text-xs text-gray-400">{mounted && stats?.lastUpdate ? new Date(stats.lastUpdate).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 </div>
@@ -542,16 +576,16 @@ export default function BHMDashboard() {
                 )}
               </div>
             </div>
-            
+
             {/* Latest Reading */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Latest</p>
                   <p className="text-lg font-bold text-gray-900">
-                    {stats?.latestTimestamp !== 'No data' ? 
-                      (typeof stats?.latestTimestamp === 'string' && stats.latestTimestamp.includes(':') ? 
-                        stats.latestTimestamp : 
+                    {stats?.latestTimestamp !== 'No data' ?
+                      (typeof stats?.latestTimestamp === 'string' && stats.latestTimestamp.includes(':') ?
+                        stats.latestTimestamp :
                         'N/A') : 'N/A'}
                   </p>
                   <p className="text-xs text-gray-400">Timestamp</p>
@@ -559,7 +593,7 @@ export default function BHMDashboard() {
                 <TrendingUp className="h-5 w-5 text-purple-500" />
               </div>
             </div>
-            
+
             {/* Temperature */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -571,7 +605,7 @@ export default function BHMDashboard() {
                 <Thermometer className="h-5 w-5 text-red-500" />
               </div>
             </div>
-            
+
             {/* LVDT */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -583,7 +617,7 @@ export default function BHMDashboard() {
                 <Activity className="h-5 w-5 text-green-500" />
               </div>
             </div>
-            
+
             {/* Acceleration (Peak) */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
@@ -596,15 +630,23 @@ export default function BHMDashboard() {
               </div>
             </div>
             {/* RMS Acceleration (1s window) */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">RMS (1s)</p>
+            <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2 md:col-span-2 flex gap-4 overflow-hidden">
+              <div className="flex flex-col gap-1 w-1/2">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">ADXL RMS (1s)</p>
                 <div className="flex flex-col text-xs">
-                  <span className="font-bold text-blue-700">X: {rms ? rms.accel_x_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-yellow-700">Y: {rms ? rms.accel_y_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-purple-700">Z: {rms ? rms.accel_z_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-red-700">X: {rms ? rms.accel_x_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-green-700">Y: {rms ? rms.accel_y_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-blue-700">Z: {rms ? rms.accel_z_rms.toFixed(4) : 'N/A'} g</span>
                 </div>
-                <p className="text-xs text-gray-400">RMS (last 1s, {samplesPerSecond} sps)</p>
+              </div>
+
+              <div className="flex flex-col gap-1 w-1/2 border-l border-gray-100 pl-4">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">WT901 RMS (1s)</p>
+                <div className="flex flex-col text-xs">
+                  <span className="font-bold text-amber-600">X: {rms ? rms.wt901_x_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-purple-600">Y: {rms ? rms.wt901_y_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-cyan-600">Z: {rms ? rms.wt901_z_rms.toFixed(4) : 'N/A'} g</span>
+                </div>
               </div>
             </div>
           </div>
@@ -692,7 +734,7 @@ export default function BHMDashboard() {
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer X-axis measurements</p>
                 <div className="h-[400px]">
                   <ChartErrorBoundary fallbackMessage="WT901 X chart failed to render">
-                    {activeTab === 'wt901-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" />}
+                    {activeTab === 'wt901-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" rms={rms ? rms.wt901_x_rms : undefined} />}
                   </ChartErrorBoundary>
                 </div>
               </div>
@@ -704,7 +746,7 @@ export default function BHMDashboard() {
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Y-axis measurements</p>
                 <div className="h-[400px]">
                   <ChartErrorBoundary fallbackMessage="WT901 Y chart failed to render">
-                    {activeTab === 'wt901-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" />}
+                    {activeTab === 'wt901-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" rms={rms ? rms.wt901_y_rms : undefined} />}
                   </ChartErrorBoundary>
                 </div>
               </div>
@@ -716,7 +758,7 @@ export default function BHMDashboard() {
                 <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Z-axis measurements</p>
                 <div className="h-[400px]">
                   <ChartErrorBoundary fallbackMessage="WT901 Z chart failed to render">
-                    {activeTab === 'wt901-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" />}
+                    {activeTab === 'wt901-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" rms={rms ? rms.wt901_z_rms : undefined} />}
                   </ChartErrorBoundary>
                 </div>
               </div>

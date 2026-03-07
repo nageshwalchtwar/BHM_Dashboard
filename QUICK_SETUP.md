@@ -13,6 +13,7 @@ Your dashboard is now ready to use authenticated Google Drive API access! Here's
 2. **Your Credentials Are Ready**: Your `.env.local` file already has:
    ```env
    GOOGLE_DRIVE_FOLDER_ID=17ju54uc22YcUCzyAjijIg1J2m-B3M1Ai
+   RAILWAY_GOOGLE_DRIVE_FOLDER_URL=https://drive.google.com/drive/folders/1qSeiQoOrQ4oEoIM-_K3yYzI3-xkfqhLL
    GOOGLE_ACCOUNT_EMAIL=sagarkatakwar.22@stvincentngp.edu.in
    GOOGLE_ACCOUNT_PASSWORD=sagkat@6565
    ```
@@ -41,6 +42,14 @@ Your dashboard is now ready to use authenticated Google Drive API access! Here's
 1. Follow the detailed guide in `GOOGLE_SETUP_GUIDE.md`
 2. Get OAuth client ID, secret, and refresh token
 3. Add to `.env.local`
+
+### Railway Deployment (Using Full Folder URL)
+1. Instead of extracting the ID manually, you can provide the full URL in Railway Variables.
+2. Under "Variables" in Railway, add:
+   ```env
+   RAILWAY_GOOGLE_DRIVE_FOLDER_URL=https://drive.google.com/drive/folders/1qSeiQoOrQ4oEoIM-_K3yYzI3-xkfqhLL
+   ```
+3. The dashboard will automatically parse and connect safely to the designated folder.
 
 ## 🧪 Test Your Setup
 

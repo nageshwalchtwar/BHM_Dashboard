@@ -4,22 +4,22 @@ import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // Get the latest CSV file using Google Drive API with device support
-async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{filename: string, content: string, device?: any} | null> {
+async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{ filename: string, content: string, device?: any } | null> {
   try {
     // Get folder ID for the specified device (or default)
     const folderId = getFolderIdForDevice(deviceId);
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
-    
+
     console.log('🔐 Getting latest CSV with Google Drive API...')
     console.log('📂 Using device:', device?.name || 'Unknown')
     console.log('📂 Using folder ID:', folderId)
     console.log('🔑 API Key available:', !!process.env.GOOGLE_DRIVE_API_KEY)
-    
+
     // Use only the Simple Google Drive API (most reliable)
     try {
       console.log('🚀 Attempting Simple Google Drive API...')
       const result = await getCSVFromGoogleDrive(folderId)
-      
+
       if (result && result.content && result.content.length > 100) {
         console.log(`✅ SUCCESS: Got real CSV data via Simple Google Drive API (${result.content.length} chars)`)
         console.log(`📄 First 200 chars: ${result.content.substring(0, 200)}...`)
@@ -33,7 +33,7 @@ async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{filen
 
     console.log('❌ No CSV data could be retrieved')
     return null
-    
+
   } catch (error) {
     console.error('❌ Error getting latest CSV:', error)
     return null
@@ -46,15 +46,17 @@ export async function GET(request: NextRequest) {
   const deviceId = searchParams.get("device") // Optional device parameter
   const samplesPerSecond = searchParams.get("samplesPerSecond") // Optional sampling rate
   const downsampleRMS = searchParams.get("downsampleRMS") === "1" // Enable RMS downsampling if set
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
 
-  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}, downsampleRMS: ${downsampleRMS}`)
+  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}, downsampleRMS: ${downsampleRMS}, Date Range: ${startDate} to ${endDate}`)
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from Google Drive...')
-    
+
     // Try to get real CSV data from Google Drive for specific device
-    const result = await getLatestRealCSV(minutes, deviceId)
-    
+    const result = await getLatestRealCSV(minutes, deviceId || undefined)
+
     let allData: any[] = []
     let dataSource = ''
     let filename = ''
@@ -66,11 +68,11 @@ export async function GET(request: NextRequest) {
       device = result.device
       dataSource = `Google Drive (${device?.name || 'Real Data'})`
       console.log('📂 Using device folder:', device?.folderUrl)
-      
+
       // Parse the CSV content to sensor data format
       allData = parseCSVToSensorData(result.content)
       console.log(`📈 Parsed ${allData.length} data points from real CSV`)
-      
+
       if (allData.length === 0) {
         console.log('⚠️ Warning: No data points parsed from CSV')
       }
@@ -87,18 +89,19 @@ export async function GET(request: NextRequest) {
         }
       }, { status: 404 })
     }
-    
+
     // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
 
-    // Get recent data based on requested timeframe (max 10 minutes)
-    const filteredData = getRecentData(allData, Math.min(minutes, 10), samplesPerSecond)
-    const timeframeDescription = `${minutes} minute(s)`
+    // Get recent data based on requested timeframe (max 10 minutes when using minutes logic)
+    const effectiveMinutes = (startDate && endDate) ? minutes : Math.min(minutes, 10);
+    const filteredData = getRecentData(allData, effectiveMinutes, samplesPerSecond, startDate || undefined, endDate || undefined)
+    const timeframeDescription = (startDate && endDate) ? `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}` : `${minutes} minute(s)`
 
     // Calculate RMS BEFORE capping data (uses only last 1 second of data)
     let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
 
-    let responseData = filteredData;
+    let responseData: any = filteredData;
 
     if (downsampleRMS) {
       responseData = downsampleToRMSPerSecond(filteredData);
@@ -106,7 +109,13 @@ export async function GET(request: NextRequest) {
         accel_x_rms: responseData[0].accel_x_rms,
         accel_y_rms: responseData[0].accel_y_rms,
         accel_z_rms: responseData[0].accel_z_rms,
-      } : { accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0 };
+        wt901_x_rms: responseData[0].wt901_x_rms,
+        wt901_y_rms: responseData[0].wt901_y_rms,
+        wt901_z_rms: responseData[0].wt901_z_rms,
+      } : {
+        accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0,
+        wt901_x_rms: 0, wt901_y_rms: 0, wt901_z_rms: 0
+      };
     }
 
     // SERVER-SIDE CAP: Limit data points to prevent client-side crashes
@@ -141,7 +150,7 @@ export async function GET(request: NextRequest) {
         } : null
       }
     })
-    
+
   } catch (error) {
     console.error('❌ CSV data error:', error)
     return NextResponse.json({
@@ -157,7 +166,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { csvContent } = body
-    
+
     if (!csvContent) {
       return NextResponse.json({
         success: false,
@@ -167,7 +176,7 @@ export async function POST(request: Request) {
 
     console.log('📊 Processing provided CSV content...')
     const data = parseCSVToSensorData(csvContent)
-    
+
     return NextResponse.json({
       success: true,
       data: data,
@@ -178,7 +187,7 @@ export async function POST(request: Request) {
         lastUpdate: new Date().toISOString()
       }
     })
-    
+
   } catch (error) {
     return NextResponse.json({
       success: false,

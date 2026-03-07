@@ -1,5 +1,6 @@
 // Simplified Google Drive API access using direct API calls
 // This provides multiple authentication methods including service accounts
+import { extractFolderIdFromUrl } from './device-config';
 
 export class SimpleGoogleDriveAPI {
   constructor(
@@ -218,7 +219,15 @@ export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{f
   try {
     // Try different API configurations
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    const folderId = customFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    
+    // Extract ID if Railway env variable is a full URL
+    if (folderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(folderId);
+      if (extracted) {
+        folderId = extracted;
+      }
+    }
     
     const api = new SimpleGoogleDriveAPI(folderId, apiKey);
     return await api.getLatestCSV();
