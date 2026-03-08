@@ -23,6 +23,7 @@ interface PlotlyTimeSeriesChartProps {
   unit?: string
   rms?: number
   referenceLines?: { y: number; color: string; label: string }[]
+  timeRange?: string // minutes as string: "1", "60", "1440", "10080"
 }
 
 export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
@@ -35,6 +36,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   unit = "",
   rms,
   referenceLines,
+  timeRange,
 }: PlotlyTimeSeriesChartProps) {
   const [isClient, setIsClient] = useState(false)
 
@@ -59,6 +61,11 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const timestamps = sorted.map((d) => new Date(d.timestamp))
     const values = sorted.map((d) => d[dataKey])
 
+    // Dynamic time format based on range
+    const mins = parseInt(timeRange || "1", 10)
+    const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
+    const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
+
     const traces: any[] = [
       {
         x: timestamps,
@@ -69,7 +76,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         line: { color, width: 1.5 },
         hovertemplate:
           `<b>${title}</b><br>` +
-          `Time: %{x|%H:%M:%S.%L}<br>` +
+          `Time: %{x|${hoverFmt}}<br>` +
           `Value: %{y:.4f} ${unit}<br>` +
           "<extra></extra>",
       },
@@ -113,7 +120,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       xaxis: {
         title: { text: "Time", font: { size: 11 } },
         type: "date",
-        tickformat: "%H:%M:%S",
+        tickformat: tickFmt,
         showgrid: true,
         gridcolor: "#f1f5f9",
         showspikes: true,
@@ -154,7 +161,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     }
 
     return { plotData: traces, plotLayout: layout }
-  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines])
+  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange])
 
   const config = useMemo(
     () => ({

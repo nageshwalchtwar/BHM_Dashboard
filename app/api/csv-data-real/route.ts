@@ -4,7 +4,7 @@ import { getCSVFromGoogleDrive, getMultipleCSVsFromGoogleDrive } from '@/lib/sim
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // Get the latest CSV file using Google Drive API with device support
-async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{ filename: string, content: string, device?: any } | null> {
+async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{ filename: string, content: string, modifiedTime?: string, device?: any } | null> {
   try {
     // Get folder ID for the specified device (or default)
     const folderId = getFolderIdForDevice(deviceId);
@@ -55,6 +55,17 @@ export async function GET(request: NextRequest) {
     let dataSource = ''
     let filenames: string[] = []
 
+    // Helper: extract date from filename (e.g., "data_2026-03-08.csv" → "2026-03-08")
+    // or from modifiedTime (ISO string from Google Drive)
+    const extractFileDate = (filename: string, modifiedTime?: string): string | undefined => {
+      // Try filename first (e.g., "2026-03-08" pattern)
+      const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) return dateMatch[1];
+      // Fall back to modifiedTime from Google Drive
+      if (modifiedTime) return modifiedTime.split('T')[0];
+      return undefined;
+    };
+
     // For longer ranges (>60 min = 1 hour), try fetching multiple CSV files
     if (minutes > 60) {
       const maxFiles = minutes > 1440 ? 7 : 2; // week=7 files, day=2 files
@@ -64,9 +75,11 @@ export async function GET(request: NextRequest) {
       if (multiResult && multiResult.contents.length > 0) {
         filenames = multiResult.filenames;
         dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
-        // Parse and merge all CSV files
-        for (const content of multiResult.contents) {
-          const parsed = parseCSVToSensorData(content);
+        // Parse and merge all CSV files, passing each file's date for correct timestamps
+        for (let i = 0; i < multiResult.contents.length; i++) {
+          const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
+          console.log(`📅 Parsing file ${multiResult.filenames[i]} with date: ${fileDate || 'unknown'}`);
+          const parsed = parseCSVToSensorData(multiResult.contents[i], fileDate);
           allData.push(...parsed);
         }
         console.log(`📈 Merged ${allData.length} data points from ${multiResult.contents.length} files`);
@@ -79,8 +92,9 @@ export async function GET(request: NextRequest) {
       if (result && result.content) {
         filenames = [result.filename];
         dataSource = `Google Drive (${device?.name || 'Real Data'})`;
-        allData = parseCSVToSensorData(result.content);
-        console.log(`📈 Parsed ${allData.length} data points from ${result.filename}`);
+        const fileDate = extractFileDate(result.filename, result.modifiedTime);
+        allData = parseCSVToSensorData(result.content, fileDate);
+        console.log(`📈 Parsed ${allData.length} data points from ${result.filename} (date: ${fileDate || 'today'})`);
       }
     }
 

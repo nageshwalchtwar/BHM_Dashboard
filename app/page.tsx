@@ -164,7 +164,7 @@ export default function BHMDashboard() {
           totalDataPoints: result.metadata.totalPoints,
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ?
             result.data[0].rawTimestamp :
-            (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleTimeString('en-US', { hour12: false }) : 'No data'),
+            (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleString('en-US', { hour12: false }) : 'No data'),
           dataSource: result.metadata.device ?
             `${result.metadata.device.name} (${result.metadata.filename || 'Google Drive'})` :
             result.metadata.filename || 'Google Drive',
@@ -645,6 +645,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Temperature (°C)"
                       color="#ea580c"
                       unit="°C"
+                      timeRange={timeRange}
                       referenceLines={[
                         { y: 35, color: "#ef4444", label: "Critical (35°C)" },
                         { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
@@ -667,6 +668,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Stroke (mm)"
                       color="#7c3aed"
                       unit="mm"
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -686,6 +688,7 @@ export default function BHMDashboard() {
                       color="#ef4444"
                       unit="g"
                       rms={rms ? rms.accel_x_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -705,6 +708,7 @@ export default function BHMDashboard() {
                       color="#22c55e"
                       unit="g"
                       rms={rms ? rms.accel_y_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -724,6 +728,7 @@ export default function BHMDashboard() {
                       color="#3b82f6"
                       unit="g"
                       rms={rms ? rms.accel_z_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -743,6 +748,7 @@ export default function BHMDashboard() {
                       color="#f59e0b"
                       unit="g"
                       rms={rms ? rms.wt901_x_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -762,6 +768,7 @@ export default function BHMDashboard() {
                       color="#8b5cf6"
                       unit="g"
                       rms={rms ? rms.wt901_y_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -781,6 +788,7 @@ export default function BHMDashboard() {
                       color="#06b6d4"
                       unit="g"
                       rms={rms ? rms.wt901_z_rms : undefined}
+                      timeRange={timeRange}
                     />
                   )}
                 </ChartErrorBoundary>

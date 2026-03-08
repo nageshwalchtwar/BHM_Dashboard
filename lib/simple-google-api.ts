@@ -247,7 +247,7 @@ export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{f
 export async function getMultipleCSVsFromGoogleDrive(
   maxFiles: number = 7,
   customFolderId?: string
-): Promise<{filenames: string[], contents: string[]} | null> {
+): Promise<{filenames: string[], contents: string[], modifiedTimes: string[]} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
     if (!apiKey) {
@@ -275,6 +275,7 @@ export async function getMultipleCSVsFromGoogleDrive(
 
     const filenames: string[] = [];
     const contents: string[] = [];
+    const modifiedTimes: string[] = [];
 
     for (const file of recentFiles) {
       try {
@@ -282,7 +283,8 @@ export async function getMultipleCSVsFromGoogleDrive(
         if (content && content.length > 100) {
           filenames.push(file.name);
           contents.push(content);
-          console.log(`✅ Fetched ${file.name} (${content.length} chars)`);
+          modifiedTimes.push(file.modifiedTime);
+          console.log(`✅ Fetched ${file.name} (${content.length} chars, modified: ${file.modifiedTime})`);
         }
       } catch (err) {
         console.log(`⚠️ Failed to fetch ${file.name}:`, err);
@@ -290,7 +292,7 @@ export async function getMultipleCSVsFromGoogleDrive(
     }
 
     if (contents.length === 0) return null;
-    return { filenames, contents };
+    return { filenames, contents, modifiedTimes };
   } catch (error) {
     console.log('❌ getMultipleCSVsFromGoogleDrive error:', error);
     return null;
