@@ -311,8 +311,29 @@ export default function BHMDashboard() {
   // Don't render anything until authentication is checked
   if (!mounted || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-6">
+          {/* BHM Letters */}
+          <div className="bhm-glow">
+            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>B</span>
+            <span className="bhm-letter text-7xl font-black tracking-wider text-blue-400" style={{fontFamily: 'system-ui'}}>H</span>
+            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>M</span>
+          </div>
+          {/* Subtitle */}
+          <p className="bhm-subtitle text-sm tracking-[0.3em] uppercase text-blue-300/70 font-medium">
+            Bridge Health Monitor
+          </p>
+          {/* Wave bars */}
+          <div className="flex items-end gap-1 h-8 mt-2">
+            {[0, 0.15, 0.3, 0.45, 0.6, 0.45, 0.3, 0.15, 0].map((delay, i) => (
+              <div
+                key={i}
+                className="w-1 bg-blue-400/60 rounded-full bhm-wave-bar"
+                style={{ height: '100%', animationDelay: `${delay}s` }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -321,6 +342,38 @@ export default function BHMDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+      {/* BHM Loading Overlay */}
+      {loading && sensorData.length === 0 && (
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6">
+            {/* BHM Letters */}
+            <div className="bhm-glow">
+              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>B</span>
+              <span className="bhm-letter text-8xl font-black tracking-wider text-blue-400" style={{fontFamily: 'system-ui'}}>H</span>
+              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>M</span>
+            </div>
+            {/* Subtitle */}
+            <p className="bhm-subtitle text-sm tracking-[0.3em] uppercase text-blue-300/70 font-medium">
+              Bridge Health Monitor
+            </p>
+            {/* Wave bars */}
+            <div className="flex items-end gap-1.5 h-10 mt-4">
+              {[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.4, 0.3, 0.2, 0.1, 0].map((delay, i) => (
+                <div
+                  key={i}
+                  className="w-1.5 bg-gradient-to-t from-blue-500 to-blue-300 rounded-full bhm-wave-bar"
+                  style={{ height: '100%', animationDelay: `${delay}s` }}
+                />
+              ))}
+            </div>
+            {/* Progress bar */}
+            <div className="w-48 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-blue-300 rounded-full bhm-progress-bar" />
+            </div>
+            <p className="text-xs text-blue-400/50 mt-1">Loading sensor data...</p>
+          </div>
+        </div>
+      )}
       <div className="container mx-auto p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between py-2 border-b border-gray-200">
