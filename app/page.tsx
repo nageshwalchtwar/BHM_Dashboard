@@ -89,9 +89,12 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [timeRange, setTimeRange] = useState<string>('1') // minutes: 1, 60, 1440, 10080
+  const [timeRange, setTimeRange] = useState<string>('1') // minutes: 1, 60, 1440, 10080, or 'custom'
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
   const [isRMSData, setIsRMSData] = useState(false)
+  const [customStartDate, setCustomStartDate] = useState<string>('')
+  const [customEndDate, setCustomEndDate] = useState<string>('')
+  const [showCustomRange, setShowCustomRange] = useState(false)
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -134,7 +137,7 @@ export default function BHMDashboard() {
 
   // Fetch data when timeRange changes
   useEffect(() => {
-    if (mounted) {
+    if (mounted && timeRange !== 'custom') {
       fetchData()
     }
   }, [timeRange, mounted, selectedDevice])
@@ -150,9 +153,12 @@ export default function BHMDashboard() {
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
+      let apiUrl = `/api/csv-data-real?minutes=${timeRange === 'custom' ? '10080' : timeRange}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
+      }
+      if (timeRange === 'custom' && customStartDate && customEndDate) {
+        apiUrl += `&startDate=${customStartDate}&endDate=${customEndDate}`
       }
 
       const response = await fetch(apiUrl)
@@ -238,8 +244,31 @@ export default function BHMDashboard() {
 
   const handleTimeRangeChange = (newTimeRange: string) => {
     setTimeRange(newTimeRange)
+    setShowCustomRange(false)
     setSensorData([])
     setError(null)
+  }
+
+  const handleCustomRangeToggle = () => {
+    setShowCustomRange(!showCustomRange)
+    if (!showCustomRange) {
+      setTimeRange('custom')
+      // Default to last 7 days
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 7)
+      setCustomStartDate(start.toISOString().split('T')[0])
+      setCustomEndDate(end.toISOString().split('T')[0])
+    }
+  }
+
+  const handleCustomRangeApply = () => {
+    if (customStartDate && customEndDate) {
+      setTimeRange('custom')
+      setSensorData([])
+      setError(null)
+      fetchData()
+    }
   }
 
   const handleDeviceChange = (deviceId: string | undefined) => {
@@ -344,6 +373,16 @@ export default function BHMDashboard() {
                     {label}
                   </button>
                 ))}
+                <button
+                  onClick={handleCustomRangeToggle}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    timeRange === 'custom'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Range
+                </button>
               </div>
 
               {/* Auto Refresh */}
@@ -464,6 +503,39 @@ export default function BHMDashboard() {
           />
         </div>
 
+        {/* Custom Date Range Picker */}
+        {showCustomRange && (
+          <div className="bg-white border border-blue-200 rounded-lg p-3 flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Date Range:</span>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <span className="text-sm text-gray-500">to</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <Button
+              onClick={handleCustomRangeApply}
+              size="sm"
+              className="h-8 px-4"
+              disabled={!customStartDate || !customEndDate || loading}
+            >
+              {loading ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Apply'}
+            </Button>
+            {customStartDate && customEndDate && (
+              <span className="text-xs text-gray-500">
+                {Math.round((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000 + 1)} day(s)
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Connection Error Alert - Compact */}
         {error && (
           <Alert variant="destructive" className="border-red-200 bg-red-50">
@@ -532,7 +604,7 @@ export default function BHMDashboard() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
-                  <p className="text-xs text-gray-400">Last {parseInt(timeRange) >= 10080 ? '1 week' : parseInt(timeRange) >= 1440 ? '1 day' : parseInt(timeRange) >= 60 ? '1 hour' : `${timeRange} min`}</p>
+                  <p className="text-xs text-gray-400">Last {timeRange === 'custom' ? `${customStartDate} to ${customEndDate}` : parseInt(timeRange) >= 10080 ? '1 week' : parseInt(timeRange) >= 1440 ? '1 day' : parseInt(timeRange) >= 60 ? '1 hour' : `${timeRange} min`}</p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
               </div>

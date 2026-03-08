@@ -44,8 +44,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const minutes = parseInt(searchParams.get("minutes") || "1")
   const deviceId = searchParams.get("device")
+  const startDate = searchParams.get("startDate") // ISO date string for custom range
+  const endDate = searchParams.get("endDate")     // ISO date string for custom range
 
-  console.log(`📊 API Request: minutes=${minutes}, device=${deviceId || 'default'}`)
+  const isCustomRange = !!(startDate && endDate)
+  console.log(`📊 API Request: minutes=${minutes}, device=${deviceId || 'default'}${isCustomRange ? `, range: ${startDate} to ${endDate}` : ''}`)
 
   try {
     const folderId = getFolderIdForDevice(deviceId || undefined);
@@ -66,16 +69,24 @@ export async function GET(request: NextRequest) {
       return undefined;
     };
 
-    // For longer ranges (>60 min = 1 hour), try fetching multiple CSV files
-    if (minutes > 60) {
-      const maxFiles = minutes > 1440 ? 7 : 2; // week=7 files, day=2 files
-      console.log(`📂 Fetching up to ${maxFiles} CSV files for ${minutes}-min range...`)
+    // Determine how many files to fetch based on requested range
+    // Each file = ~1 day of merged data
+    const shouldFetchMultiple = isCustomRange || minutes >= 1440
+    const maxFiles = isCustomRange
+      ? 30 // Custom range: up to 30 files
+      : minutes >= 10080
+        ? 7  // 1 week: 7 files
+        : minutes >= 1440
+          ? 2  // 1 day: 2 files (today + yesterday for overlap)
+          : 1  // 1 min / 1 hour: single file
+
+    if (shouldFetchMultiple) {
+      console.log(`📂 Fetching up to ${maxFiles} CSV files for ${isCustomRange ? 'custom range' : `${minutes}-min range`}...`)
       const multiResult = await getMultipleCSVsFromGoogleDrive(maxFiles, folderId);
 
       if (multiResult && multiResult.contents.length > 0) {
         filenames = multiResult.filenames;
         dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
-        // Parse and merge all CSV files, passing each file's date for correct timestamps
         for (let i = 0; i < multiResult.contents.length; i++) {
           const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
           console.log(`📅 Parsing file ${multiResult.filenames[i]} with date: ${fileDate || 'unknown'}`);
@@ -106,22 +117,39 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Sort by timestamp (newest first) and deduplicate by timestamp
+    // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
-    const seen = new Set<number>();
-    allData = allData.filter((d: any) => {
-      if (seen.has(d.timestamp)) return false;
-      seen.add(d.timestamp);
-      return true;
-    });
 
-    // Filter to requested time window
-    const now = allData[0].timestamp; // Latest data timestamp
-    const cutoffMs = now - (minutes * 60 * 1000);
-    let filteredData = allData.filter((d: any) => d.timestamp >= cutoffMs);
-    const timeframeDescription = minutes >= 10080 ? '1 week' : minutes >= 1440 ? '1 day' : minutes >= 60 ? '1 hour' : `${minutes} min`;
+    // Log actual data time span for debugging
+    const dataStart = new Date(allData[allData.length - 1].timestamp)
+    const dataEnd = new Date(allData[0].timestamp)
+    const spanMinutes = Math.round((dataEnd.getTime() - dataStart.getTime()) / 60000)
+    console.log(`📊 Data span: ${dataStart.toISOString()} → ${dataEnd.toISOString()} (${spanMinutes} min, ${allData.length} points)`)
 
-    console.log(`⏱️ Time filter: ${filteredData.length} points in last ${timeframeDescription}`);
+    // Apply time filtering based on mode
+    let filteredData: any[]
+    let timeframeDescription: string
+
+    if (isCustomRange) {
+      // Custom date range: filter between startDate and endDate
+      const rangeStart = new Date(startDate!).getTime()
+      const rangeEnd = new Date(endDate!).getTime() + 86400000 // Include the end date fully
+      filteredData = allData.filter((d: any) => d.timestamp >= rangeStart && d.timestamp <= rangeEnd)
+      timeframeDescription = `${startDate} to ${endDate}`
+    } else if (minutes >= 1440) {
+      // For 1 Day / 1 Week: return ALL data from fetched files (no time cutoff)
+      // The number of files fetched already represents the time range
+      filteredData = allData
+      timeframeDescription = minutes >= 10080 ? '1 week' : '1 day'
+    } else {
+      // For 1 Min / 1 Hour: apply time cutoff from the latest data point
+      const now = allData[0].timestamp
+      const cutoffMs = now - (minutes * 60 * 1000)
+      filteredData = allData.filter((d: any) => d.timestamp >= cutoffMs)
+      timeframeDescription = minutes >= 60 ? '1 hour' : `${minutes} min`
+    }
+
+    console.log(`⏱️ Time filter (${timeframeDescription}): ${allData.length} total → ${filteredData.length} filtered`)
 
     // Calculate latest RMS for the header display
     const responseRMS = getLatestRMSValues(filteredData, 100);
@@ -136,9 +164,10 @@ export async function GET(request: NextRequest) {
     if (responseData.length > MAX_CLIENT_POINTS) {
       const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
       responseData = responseData.filter((_: any, i: number) => i % step === 0);
+      console.log(`📉 Capped to ${responseData.length} points (step: ${step})`)
     }
 
-    console.log(`📈 Returning ${responseData.length} RMS points for last ${timeframeDescription}`)
+    console.log(`📈 Returning ${responseData.length} RMS points for ${timeframeDescription}`)
 
     return NextResponse.json({
       success: true,
@@ -150,11 +179,13 @@ export async function GET(request: NextRequest) {
         filename: filenames.join(', '),
         totalPoints: allData.length,
         rawPoints: filteredData.length,
-        recentPoints: responseData.length,
+        rmsPoints: responseData.length,
         timeframe: timeframeDescription,
+        dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes },
         isRMSData,
         lastUpdate: new Date().toISOString(),
-        latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toLocaleString() : null,
+        latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toISOString() : null,
+        oldestDataTime: responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toISOString() : null,
         isRealData: true,
         device: device ? {
           id: device.id,

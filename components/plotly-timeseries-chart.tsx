@@ -62,7 +62,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const values = sorted.map((d) => d[dataKey])
 
     // Dynamic time format based on range
-    const mins = parseInt(timeRange || "1", 10)
+    const mins = parseInt(timeRange || "1", 10) || 10080 // 'custom' parses to NaN → treat as multi-day
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
