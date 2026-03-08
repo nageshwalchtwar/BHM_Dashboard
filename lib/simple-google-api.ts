@@ -171,7 +171,7 @@ export class SimpleGoogleDriveAPI {
   }
 
   // Get latest CSV file using all available methods
-  async getLatestCSV(): Promise<{filename: string, content: string} | null> {
+  async getLatestCSV(): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
     try {
       console.log('🎯 Getting latest CSV using Simple Google Drive API...');
       
@@ -181,14 +181,15 @@ export class SimpleGoogleDriveAPI {
         
         if (files && files.length > 0) {
           const latestFile = files[0]; // Already sorted by modifiedTime desc
-          console.log(`📄 Latest file via API key: ${latestFile.name}`);
+          console.log(`📄 Latest file via API key: ${latestFile.name} (modified: ${latestFile.modifiedTime})`);
           
           const content = await this.downloadFileWithAPIKey(latestFile.id);
           
           if (content && content.includes('Device,Timestamp')) {
             return {
               filename: latestFile.name,
-              content: content
+              content: content,
+              modifiedTime: latestFile.modifiedTime,
             };
           }
         }
@@ -215,7 +216,7 @@ export class SimpleGoogleDriveAPI {
 }
 
 // Quick helper function to try getting CSV content using any available method
-export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string} | null> {
+export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
     let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';

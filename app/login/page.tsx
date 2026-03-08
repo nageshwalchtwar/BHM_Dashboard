@@ -106,7 +106,7 @@ export default function LoginPage() {
             BHM Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Bridge Health Monitoring System
+            Bridge Health Monitoring Dashboard
           </p>
         </div>
 
@@ -115,7 +115,7 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-semibold text-center">Sign In</CardTitle>
             <CardDescription className="text-center">
-              Choose your preferred sign in method
+              Choose your preferred sign in method for secure access to the dashboard
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -138,7 +138,7 @@ export default function LoginPage() {
               ) : (
                 <GoogleIcon />
               )}
-              <span className="ml-2">Continue with Google</span>
+              <span className="ml-2">Log in with Google Account</span>
             </Button>
 
             {/* Divider */}
@@ -148,7 +148,7 @@ export default function LoginPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-2 text-muted-foreground">
-                  Or continue with email
+                  Or continue with email here
                 </span>
               </div>
             </div>
@@ -156,7 +156,7 @@ export default function LoginPage() {
             {/* Email/Password Form */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Put the Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -211,7 +211,7 @@ export default function LoginPage() {
                 href="/register" 
                 className="text-blue-600 hover:text-blue-500 font-medium hover:underline"
               >
-                Create one here
+                Create one by clicking here here
               </Link>
             </div>
           </CardContent>
@@ -219,8 +219,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>© 2026 Bridge Health Monitoring System</p>
-          <p>Real-time structural health monitoring</p>
+          <p>© 2026 Bridge Health Monitoring System by SPCRC and I2R Team</p>
         </div>
       </div>
     </div>

@@ -106,6 +106,11 @@ export async function GET(request: Request) {
       const timeBasedVariation = Math.sin(timestamp.getTime() / 15000) * 0.1; // Slower variation
       const minuteBasedVariation = Math.cos(timestamp.getMinutes() * 0.1) * 0.05;
       const randomNoise = (Math.random() - 0.5) * 0.02;
+
+      // brocking into the 4 parts for the data processing and rms sampling
+
+      // const baseX = value(timeBasedVariation + minuteBasedVariation + randomNoise)
+
       
       const baseX = 23.875 + timeBasedVariation + minuteBasedVariation + randomNoise;
       const baseY = 0.1780546875 + (timeBasedVariation * 0.1) + (minuteBasedVariation * 0.05) + (randomNoise * 0.01);

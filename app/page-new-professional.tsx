@@ -375,9 +375,9 @@ export default function BHMDashboard() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-blue-800">Bridge Health Monitoring System</h3>
+                <h3 className="font-semibold text-blue-800">Bridge Health Monitoring Dashboard</h3>
                 <p className="text-sm text-blue-600">
-                  Real-time monitoring with automatic data synchronization from Google Drive
+                  Real-time bridge monitoring dashboard developed by SPCRC and I2R. Data sourced from Google Drive CSV files uploaded by field devices. Designed for structural health monitoring and early warning of potential issues.
                 </p>
               </div>
               <Badge variant="secondary" className="bg-green-100 text-green-800">

@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Bridge Health Dashboard',
-  description: 'Bridge Health Dashboard, SPCRC',
+  description: 'Bridge Health Dashboard, SPCRC and I2R',
   generator: 'Nagesh and BHM Team',
 }
 

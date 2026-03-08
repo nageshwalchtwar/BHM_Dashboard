@@ -156,8 +156,11 @@ export interface CSVSensorData extends SensorData {
 
 /**
  * Parse CSV content and convert to sensor data format
+ * @param csvContent The raw CSV string
+ * @param fileDate Optional date string (ISO) for the file — used to assign the correct date
+ *                 to time-only timestamps like "12:30:45.123"
  */
-export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
+export function parseCSVToSensorData(csvContent: string, fileDate?: string): CSVSensorData[] {
   const lines = csvContent.trim().split('\n')
   if (lines.length < 2) return [] // Need at least header + 1 data row
 
@@ -197,13 +200,13 @@ export function parseCSVToSensorData(csvContent: string): CSVSensorData[] {
         // Store the raw timestamp string for display
         rawTimestamp = timestampValue.toString().trim()
         // For sorting and filtering, create a simple numeric timestamp
-        // If it's time-only format like "01:29:07", combine with today's date
+        // If it's time-only format like "01:29:07", combine with file date or today's date
         if (rawTimestamp.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
-          // Time-only format - create timestamp with today's date
-          const today = new Date()
+          // Time-only format - use the file's date if available, else today
+          const dateRef = fileDate ? new Date(fileDate) : new Date()
           const [hours, minutes, secondsPart] = rawTimestamp.split(':')
           const seconds = parseFloat(secondsPart || '0')
-          const timeDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(),
+          const timeDate = new Date(dateRef.getFullYear(), dateRef.getMonth(), dateRef.getDate(),
             parseInt(hours), parseInt(minutes), Math.floor(seconds),
             Math.round((seconds % 1) * 1000))
           timestamp = timeDate.getTime()
