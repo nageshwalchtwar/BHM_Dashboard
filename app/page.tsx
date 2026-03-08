@@ -170,7 +170,7 @@ export default function BHMDashboard() {
           totalDataPoints: result.metadata.totalPoints,
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ?
             result.data[0].rawTimestamp :
-            (result.data.length > 0 ? new Date(result.data[0].timestamp).toLocaleString('en-US', { hour12: false }) : 'No data'),
+            (result.data.length > 0 ? new Date(result.data[0].timestamp).toISOString().slice(11, 23) : 'No data'),
           dataSource: result.metadata.device ?
             `${result.metadata.device.name} (${result.metadata.filename || 'Google Drive'})` :
             result.metadata.filename || 'Google Drive',
@@ -343,8 +343,8 @@ export default function BHMDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* BHM Loading Overlay */}
-      {loading && sensorData.length === 0 && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900/95 via-blue-950/95 to-slate-900/95 backdrop-blur-sm flex items-center justify-center transition-opacity">
           <div className="flex flex-col items-center gap-6">
             {/* BHM Letters */}
             <div className="bhm-glow">
@@ -370,7 +370,7 @@ export default function BHMDashboard() {
             <div className="w-48 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
               <div className="h-full bg-gradient-to-r from-blue-500 to-blue-300 rounded-full bhm-progress-bar" />
             </div>
-            <p className="text-xs text-blue-400/50 mt-1">Loading sensor data...</p>
+            <p className="text-xs text-blue-400/50 mt-1">Syncing sensor data...</p>
           </div>
         </div>
       )}

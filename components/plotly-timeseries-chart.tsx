@@ -58,7 +58,9 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     // Sort by timestamp ascending for Plotly
     const sorted = [...safeData].sort((a, b) => a.timestamp - b.timestamp)
 
-    const timestamps = sorted.map((d) => new Date(d.timestamp))
+    // Convert to timezone-naive ISO strings so Plotly displays the raw time
+    // without applying the browser's local timezone offset
+    const timestamps = sorted.map((d) => new Date(d.timestamp).toISOString().slice(0, -1))
     const values = sorted.map((d) => d[dataKey])
 
     // Dynamic time format based on range

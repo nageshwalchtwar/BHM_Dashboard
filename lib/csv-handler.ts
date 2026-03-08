@@ -203,12 +203,14 @@ export function parseCSVToSensorData(csvContent: string, fileDate?: string): CSV
         // If it's time-only format like "01:29:07", combine with file date or today's date
         if (rawTimestamp.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
           // Time-only format - use the file's date if available, else today
+          // Use Date.UTC to store time values without server-timezone bias
           const dateRef = fileDate ? new Date(fileDate) : new Date()
           const [hours, minutes, secondsPart] = rawTimestamp.split(':')
           const seconds = parseFloat(secondsPart || '0')
-          const timeDate = new Date(dateRef.getFullYear(), dateRef.getMonth(), dateRef.getDate(),
+          const timeDate = new Date(Date.UTC(
+            dateRef.getUTCFullYear(), dateRef.getUTCMonth(), dateRef.getUTCDate(),
             parseInt(hours), parseInt(minutes), Math.floor(seconds),
-            Math.round((seconds % 1) * 1000))
+            Math.round((seconds % 1) * 1000)))
           timestamp = timeDate.getTime()
         } else {
           // Try to parse as regular date/time
