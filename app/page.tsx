@@ -28,12 +28,14 @@ import {
   UserCog,
   Moon,
   Sun,
-  Mail
+  Mail,
+  Calendar
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
 import { StrainChart } from "@/components/strain-chart"
 import { AccelerometerChart } from "@/components/accelerometer-chart"
+import { PlotlyTimeSeriesChart } from "@/components/plotly-timeseries-chart"
 import { DeviceSelector } from "@/components/device-selector"
 import { ChartErrorBoundary } from "@/components/chart-error-boundary"
 import { DatePickerWithRange } from "@/components/date-range-picker"
@@ -92,6 +94,8 @@ export default function BHMDashboard() {
   const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [samplesPerSecond, setSamplesPerSecond] = useState<string>('40') // Default to 40 samples/sec
+  const [dataMode, setDataMode] = useState<'live' | 'fullday' | 'range'>('live')
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off') // Auto-refresh interval
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -130,25 +134,39 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond])
 
-  // Fetch data when timeRange, dateRange, or samplesPerSecond changes (not auto-refresh)
+  // Fetch data when timeRange, samplesPerSecond, dataMode or dateRange changes
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [timeRange, dateRange, samplesPerSecond, mounted, selectedDevice])
+  }, [timeRange, samplesPerSecond, dataMode, dateRange, mounted, selectedDevice])
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (autoRefreshInterval === 'off' || !mounted) return
+    const ms = parseInt(autoRefreshInterval) * 1000
+    const interval = setInterval(fetchData, ms)
+    return () => clearInterval(interval)
+  }, [autoRefreshInterval, mounted, timeRange, samplesPerSecond, dataMode, dateRange])
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
+      let apiUrl = `/api/csv-data-real?minutes=${timeRange}&dataMode=${dataMode}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
       }
       if (samplesPerSecond !== 'raw') {
         apiUrl += `&samplesPerSecond=${samplesPerSecond}`
       }
-      if (dateRange?.from && dateRange?.to) {
-        apiUrl += `&startDate=${dateRange.from.toISOString()}&endDate=${dateRange.to.toISOString()}`
+      // Add date parameters for date modes
+      if (dataMode === 'fullday' && dateRange?.from) {
+        apiUrl += `&startDate=${dateRange.from.toISOString().split('T')[0]}`
+      } else if (dataMode === 'range' && dateRange?.from) {
+        apiUrl += `&startDate=${dateRange.from.toISOString().split('T')[0]}`
+        if (dateRange.to) {
+          apiUrl += `&endDate=${dateRange.to.toISOString().split('T')[0]}`
+        }
       }
 
       const response = await fetch(apiUrl)
@@ -233,8 +251,24 @@ export default function BHMDashboard() {
 
   const handleTimeRangeChange = (newTimeRange: string) => {
     setTimeRange(newTimeRange)
+    setDataMode('live')
     setSensorData([]) // Clear current data immediately
     setError(null)
+  }
+
+  const handleDataModeChange = (mode: string) => {
+    setDataMode(mode as 'live' | 'fullday' | 'range')
+    setSensorData([])
+    setError(null)
+  }
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range)
+    if (range?.from && !range?.to) {
+      setDataMode('fullday')
+    } else if (range?.from && range?.to) {
+      setDataMode('range')
+    }
   }
 
   const handleSamplesChange = (newSamples: string) => {
@@ -308,10 +342,10 @@ export default function BHMDashboard() {
           </div>
 
           {/* User Info and Controls */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-4 text-sm">
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 text-sm">
               {/* Connection Status */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 {connectionStatus === 'connected' ? (
                   <Wifi className="h-4 w-4 text-green-500" />
                 ) : connectionStatus === 'connecting' ? (
@@ -325,46 +359,70 @@ export default function BHMDashboard() {
                 </span>
               </div>
 
-              {/* Custom Date Range */}
-              <div className="flex items-center space-x-2">
-                <DatePickerWithRange
-                  date={dateRange}
-                  onDateChange={(range) => {
-                    setDateRange(range)
-                    if (range?.from && range?.to) {
-                      setSensorData([])
-                      setError(null)
-                    } else if (!range) {
-                      // fallback to minute logic if cleared
-                      setSensorData([])
-                      setError(null)
-                    }
-                  }}
-                  className="hidden md:flex"
-                />
-              </div>
-
-              {/* Time Range */}
-              <div className="flex items-center space-x-2">
-                <span className="text-xs text-gray-500">Auto:</span>
-                <Select value={timeRange} onValueChange={handleTimeRangeChange} disabled={!!(dateRange?.from && dateRange?.to)}>
-                  <SelectTrigger className="w-[4.5rem] h-8 text-xs">
+              {/* Date Range Picker */}
+              <DatePickerWithRange
+                date={dateRange}
+                onDateChange={handleDateRangeChange}
+                className="hidden md:flex"
+              />
+              
+              {/* Data Mode */}
+              <div className="flex items-center space-x-1">
+                <Select value={dataMode} onValueChange={handleDataModeChange}>
+                  <SelectTrigger className="w-28 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">1m</SelectItem>
-                    <SelectItem value="5">5m</SelectItem>
-                    <SelectItem value="60">1h</SelectItem>
-                    <SelectItem value="1440">1d</SelectItem>
+                    <SelectItem value="live">Live</SelectItem>
+                    <SelectItem value="fullday">Full Day</SelectItem>
+                    <SelectItem value="range">Date Range</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Time Range (shown in live mode) */}
+              {dataMode === 'live' && (
+                <div className="flex items-center space-x-1">
+                  <Select value={timeRange} onValueChange={handleTimeRangeChange}>
+                    <SelectTrigger className="w-24 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 min</SelectItem>
+                      <SelectItem value="5">5 min</SelectItem>
+                      <SelectItem value="10">10 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="360">6 hours</SelectItem>
+                      <SelectItem value="720">12 hours</SelectItem>
+                      <SelectItem value="1440">24 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Auto Refresh */}
+              <div className="flex items-center space-x-1">
+                <span className="text-xs text-gray-500">Auto:</span>
+                <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
+                  <SelectTrigger className="w-20 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Off</SelectItem>
+                    <SelectItem value="10">10s</SelectItem>
+                    <SelectItem value="30">30s</SelectItem>
+                    <SelectItem value="60">1m</SelectItem>
+                    <SelectItem value="300">5m</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Samples Per Second */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 <span className="text-xs text-gray-500">Samples/sec:</span>
                 <Select value={samplesPerSecond} onValueChange={handleSamplesChange}>
-                  <SelectTrigger className="w-24 h-8">
+                  <SelectTrigger className="w-20 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -550,7 +608,7 @@ export default function BHMDashboard() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
-                  <p className="text-xs text-gray-400">Last {timeRange}min</p>
+                  <p className="text-xs text-gray-400">{dataMode === 'live' ? `Last ${timeRange}min` : dataMode === 'fullday' ? 'Full Day' : 'Date Range'}</p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
               </div>
@@ -630,11 +688,13 @@ export default function BHMDashboard() {
           </div>
         )}
 
-        {/* Charts Section - Compact */}
+        {/* Charts Section - Interactive Plotly */}
         <div className="bg-white border border-gray-200 rounded-lg">
           <Tabs defaultValue="adxl-x" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-200 px-4 py-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
+                <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temp</TabsTrigger>
+                <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
                 <TabsTrigger value="adxl-x" className="text-xs px-3 py-1.5">ADXL X</TabsTrigger>
                 <TabsTrigger value="adxl-y" className="text-xs px-3 py-1.5">ADXL Y</TabsTrigger>
                 <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
@@ -644,77 +704,157 @@ export default function BHMDashboard() {
               </TabsList>
             </div>
 
+            <TabsContent value="temperature" className="p-4">
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
+                  {activeTab === 'temperature' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="temperature_c"
+                      title="Temperature"
+                      yAxisLabel="Temperature (°C)"
+                      color="#ea580c"
+                      unit="°C"
+                      referenceLines={[
+                        { y: 35, color: "#ef4444", label: "Critical (35°C)" },
+                        { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
+                      ]}
+                    />
+                  )}
+                </ChartErrorBoundary>
+              </div>
+            </TabsContent>
 
+            <TabsContent value="stroke" className="p-4">
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                  {activeTab === 'stroke' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="stroke_mm"
+                      title="LVDT Displacement"
+                      yAxisLabel="Stroke (mm)"
+                      color="#7c3aed"
+                      unit="mm"
+                    />
+                  )}
+                </ChartErrorBoundary>
+              </div>
+            </TabsContent>
 
             <TabsContent value="adxl-x" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL X-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer X-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="ADXL X chart failed to render">
-                    {activeTab === 'adxl-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_adxl" title="ADXL X-Axis" color="#ef4444" rms={rms ? rms.accel_x_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="ADXL X chart failed to render">
+                  {activeTab === 'adxl-x' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="ax_adxl"
+                      title="ADXL X-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#ef4444"
+                      unit="g"
+                      rms={rms ? rms.accel_x_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
 
             <TabsContent value="adxl-y" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Y-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Y-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="ADXL Y chart failed to render">
-                    {activeTab === 'adxl-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_adxl" title="ADXL Y-Axis" color="#22c55e" rms={rms ? rms.accel_y_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="ADXL Y chart failed to render">
+                  {activeTab === 'adxl-y' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="ay_adxl"
+                      title="ADXL Y-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#22c55e"
+                      unit="g"
+                      rms={rms ? rms.accel_y_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
 
             <TabsContent value="adxl-z" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">ADXL Z-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">ADXL accelerometer Z-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
-                    {activeTab === 'adxl-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_adxl" title="ADXL Z-Axis" color="#3b82f6" rms={rms ? rms.accel_z_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
+                  {activeTab === 'adxl-z' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="az_adxl"
+                      title="ADXL Z-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#3b82f6"
+                      unit="g"
+                      rms={rms ? rms.accel_z_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
 
             <TabsContent value="wt901-x" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 X-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer X-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="WT901 X chart failed to render">
-                    {activeTab === 'wt901-x' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ax_wt901" title="WT901 X-Axis" color="#f59e0b" rms={rms ? rms.wt901_x_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="WT901 X chart failed to render">
+                  {activeTab === 'wt901-x' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="ax_wt901"
+                      title="WT901 X-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#f59e0b"
+                      unit="g"
+                      rms={rms ? rms.wt901_x_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
 
             <TabsContent value="wt901-y" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Y-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Y-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="WT901 Y chart failed to render">
-                    {activeTab === 'wt901-y' && <AccelerometerChart data={sensorData} isLoading={loading} axis="ay_wt901" title="WT901 Y-Axis" color="#8b5cf6" rms={rms ? rms.wt901_y_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="WT901 Y chart failed to render">
+                  {activeTab === 'wt901-y' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="ay_wt901"
+                      title="WT901 Y-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#8b5cf6"
+                      unit="g"
+                      rms={rms ? rms.wt901_y_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
 
             <TabsContent value="wt901-z" className="p-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">WT901 Z-Axis Acceleration</h3>
-                <p className="text-xs text-gray-500 mb-3">WT901 accelerometer Z-axis measurements</p>
-                <div className="h-[400px]">
-                  <ChartErrorBoundary fallbackMessage="WT901 Z chart failed to render">
-                    {activeTab === 'wt901-z' && <AccelerometerChart data={sensorData} isLoading={loading} axis="az_wt901" title="WT901 Z-Axis" color="#06b6d4" rms={rms ? rms.wt901_z_rms : undefined} />}
-                  </ChartErrorBoundary>
-                </div>
+              <div className="h-[500px]">
+                <ChartErrorBoundary fallbackMessage="WT901 Z chart failed to render">
+                  {activeTab === 'wt901-z' && (
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="az_wt901"
+                      title="WT901 Z-Axis Acceleration"
+                      yAxisLabel="Acceleration (g)"
+                      color="#06b6d4"
+                      unit="g"
+                      rms={rms ? rms.wt901_z_rms : undefined}
+                    />
+                  )}
+                </ChartErrorBoundary>
               </div>
             </TabsContent>
           </Tabs>

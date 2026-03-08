@@ -46,10 +46,11 @@ export async function GET(request: NextRequest) {
   const deviceId = searchParams.get("device") // Optional device parameter
   const samplesPerSecond = searchParams.get("samplesPerSecond") // Optional sampling rate
   const downsampleRMS = searchParams.get("downsampleRMS") === "1" // Enable RMS downsampling if set
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
+  const startDate = searchParams.get("startDate") // Optional start date (ISO string)
+  const endDate = searchParams.get("endDate") // Optional end date (ISO string)
+  const dataMode = searchParams.get("dataMode") || "live" // "live", "fullday", "range"
 
-  console.log(`📊 API Request: Getting data for last ${minutes} minute(s) from device: ${deviceId || 'default'}, samples/sec: ${samplesPerSecond || 'raw'}, downsampleRMS: ${downsampleRMS}, Date Range: ${startDate} to ${endDate}`)
+  console.log(`📊 API Request: mode=${dataMode}, minutes=${minutes}, device=${deviceId || 'default'}, samples/sec=${samplesPerSecond || 'raw'}, startDate=${startDate}, endDate=${endDate}`)
 
   try {
     console.log('🎯 Fetching latest REAL CSV data from Google Drive...')
@@ -93,10 +94,44 @@ export async function GET(request: NextRequest) {
     // Sort by timestamp (newest first)
     allData.sort((a, b) => b.timestamp - a.timestamp)
 
-    // Get recent data based on requested timeframe (max 10 minutes when using minutes logic)
-    const effectiveMinutes = (startDate && endDate) ? minutes : Math.min(minutes, 10);
-    const filteredData = getRecentData(allData, effectiveMinutes, samplesPerSecond, startDate || undefined, endDate || undefined)
-    const timeframeDescription = (startDate && endDate) ? `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}` : `${minutes} minute(s)`
+    // Filter data based on mode
+    let filteredData: any[];
+    let timeframeDescription: string;
+
+    if (dataMode === "range" && startDate && endDate) {
+      // Date range mode: filter by start/end dates
+      const startMs = new Date(startDate).getTime()
+      const endMs = new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1) // End of the end date
+      filteredData = allData.filter((d: any) => d.timestamp >= startMs && d.timestamp <= endMs)
+      timeframeDescription = `${startDate} to ${endDate}`
+      console.log(`📅 Date range filter: ${new Date(startMs).toISOString()} to ${new Date(endMs).toISOString()} → ${filteredData.length} points`)
+    } else if (dataMode === "fullday" && startDate) {
+      // Full day mode: show all data for a specific day
+      const dayStart = new Date(startDate)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(startDate)
+      dayEnd.setHours(23, 59, 59, 999)
+      filteredData = allData.filter((d: any) => d.timestamp >= dayStart.getTime() && d.timestamp <= dayEnd.getTime())
+      timeframeDescription = `Full day: ${startDate}`
+      console.log(`📅 Full day filter: ${dayStart.toISOString()} to ${dayEnd.toISOString()} → ${filteredData.length} points`)
+    } else {
+      // Live mode: use minutes-based filtering (max 1440 = 24h)
+      filteredData = getRecentData(allData, Math.min(minutes, 1440), samplesPerSecond)
+      timeframeDescription = `${minutes} minute(s)`
+    }
+
+    // Apply sample rate filtering for date modes too
+    if ((dataMode === "range" || dataMode === "fullday") && samplesPerSecond && samplesPerSecond !== "raw") {
+      const targetSps = parseInt(samplesPerSecond)
+      if (filteredData.length > 0) {
+        const totalSeconds = (filteredData[0].timestamp - filteredData[filteredData.length - 1].timestamp) / 1000
+        const targetPoints = Math.ceil(totalSeconds * targetSps)
+        if (filteredData.length > targetPoints) {
+          const step = Math.ceil(filteredData.length / targetPoints)
+          filteredData = filteredData.filter((_: any, i: number) => i % step === 0)
+        }
+      }
+    }
 
     // Calculate RMS BEFORE capping data (uses only last 1 second of data)
     let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
