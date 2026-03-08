@@ -217,11 +217,9 @@ export class SimpleGoogleDriveAPI {
 // Quick helper function to try getting CSV content using any available method
 export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string} | null> {
   try {
-    // Try different API configurations
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
     let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     
-    // Extract ID if Railway env variable is a full URL
     if (folderId.includes('http')) {
       const extracted = extractFolderIdFromUrl(folderId);
       if (extracted) {
@@ -234,6 +232,66 @@ export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{f
     
   } catch (error) {
     console.log('❌ getCSVFromGoogleDrive error:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch multiple recent CSV files from Google Drive and merge their contents.
+ * Used for longer time ranges (day/week) that span multiple files.
+ * @param maxFiles Maximum number of recent files to fetch
+ * @param customFolderId Optional folder ID override
+ * @returns Merged CSV content with filename info, or null on failure
+ */
+export async function getMultipleCSVsFromGoogleDrive(
+  maxFiles: number = 7,
+  customFolderId?: string
+): Promise<{filenames: string[], contents: string[]} | null> {
+  try {
+    const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey) {
+      console.log('❌ No API key for multi-file fetch');
+      return null;
+    }
+
+    let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    if (folderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(folderId);
+      if (extracted) folderId = extracted;
+    }
+
+    const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+    const files = await api.listFilesWithAPIKey();
+
+    if (!files || files.length === 0) {
+      console.log('❌ No files found for multi-CSV fetch');
+      return null;
+    }
+
+    // Take only the most recent N files
+    const recentFiles = files.slice(0, maxFiles);
+    console.log(`📂 Fetching ${recentFiles.length} recent CSV files...`);
+
+    const filenames: string[] = [];
+    const contents: string[] = [];
+
+    for (const file of recentFiles) {
+      try {
+        const content = await api.downloadFileWithAPIKey(file.id);
+        if (content && content.length > 100) {
+          filenames.push(file.name);
+          contents.push(content);
+          console.log(`✅ Fetched ${file.name} (${content.length} chars)`);
+        }
+      } catch (err) {
+        console.log(`⚠️ Failed to fetch ${file.name}:`, err);
+      }
+    }
+
+    if (contents.length === 0) return null;
+    return { filenames, contents };
+  } catch (error) {
+    console.log('❌ getMultipleCSVsFromGoogleDrive error:', error);
     return null;
   }
 }

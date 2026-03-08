@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond } from "@/lib/csv-handler"
-import { getCSVFromGoogleDrive } from '@/lib/simple-google-api'
+import { getCSVFromGoogleDrive, getMultipleCSVsFromGoogleDrive } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // Get the latest CSV file using Google Drive API with device support
@@ -42,128 +42,89 @@ async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{ file
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const minutes = parseInt(searchParams.get("minutes") || "1") // Default to 1 minute
-  const deviceId = searchParams.get("device") // Optional device parameter
-  const samplesPerSecond = searchParams.get("samplesPerSecond") // Optional sampling rate
-  const downsampleRMS = searchParams.get("downsampleRMS") === "1" // Enable RMS downsampling if set
-  const startDate = searchParams.get("startDate") // Optional start date (ISO string)
-  const endDate = searchParams.get("endDate") // Optional end date (ISO string)
-  const dataMode = searchParams.get("dataMode") || "live" // "live", "fullday", "range"
+  const minutes = parseInt(searchParams.get("minutes") || "1")
+  const deviceId = searchParams.get("device")
 
-  console.log(`📊 API Request: mode=${dataMode}, minutes=${minutes}, device=${deviceId || 'default'}, samples/sec=${samplesPerSecond || 'raw'}, startDate=${startDate}, endDate=${endDate}`)
+  console.log(`📊 API Request: minutes=${minutes}, device=${deviceId || 'default'}`)
 
   try {
-    console.log('🎯 Fetching latest REAL CSV data from Google Drive...')
-
-    // Try to get real CSV data from Google Drive for specific device
-    const result = await getLatestRealCSV(minutes, deviceId || undefined)
+    const folderId = getFolderIdForDevice(deviceId || undefined);
+    const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
 
     let allData: any[] = []
     let dataSource = ''
-    let filename = ''
-    let device = null
+    let filenames: string[] = []
 
-    if (result && result.content) {
-      console.log('🎉 Got real CSV data!')
-      filename = result.filename
-      device = result.device
-      dataSource = `Google Drive (${device?.name || 'Real Data'})`
-      console.log('📂 Using device folder:', device?.folderUrl)
+    // For longer ranges (>60 min = 1 hour), try fetching multiple CSV files
+    if (minutes > 60) {
+      const maxFiles = minutes > 1440 ? 7 : 2; // week=7 files, day=2 files
+      console.log(`📂 Fetching up to ${maxFiles} CSV files for ${minutes}-min range...`)
+      const multiResult = await getMultipleCSVsFromGoogleDrive(maxFiles, folderId);
 
-      // Parse the CSV content to sensor data format
-      allData = parseCSVToSensorData(result.content)
-      console.log(`📈 Parsed ${allData.length} data points from real CSV`)
-
-      if (allData.length === 0) {
-        console.log('⚠️ Warning: No data points parsed from CSV')
+      if (multiResult && multiResult.contents.length > 0) {
+        filenames = multiResult.filenames;
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
+        // Parse and merge all CSV files
+        for (const content of multiResult.contents) {
+          const parsed = parseCSVToSensorData(content);
+          allData.push(...parsed);
+        }
+        console.log(`📈 Merged ${allData.length} data points from ${multiResult.contents.length} files`);
       }
-    } else {
-      console.log('❌ No real CSV data available - refusing to return fake data')
+    }
+
+    // Fallback or short range: fetch single latest CSV
+    if (allData.length === 0) {
+      const result = await getLatestRealCSV(minutes, deviceId || undefined);
+      if (result && result.content) {
+        filenames = [result.filename];
+        dataSource = `Google Drive (${device?.name || 'Real Data'})`;
+        allData = parseCSVToSensorData(result.content);
+        console.log(`📈 Parsed ${allData.length} data points from ${result.filename}`);
+      }
+    }
+
+    if (allData.length === 0) {
       return NextResponse.json({
         success: false,
         error: "No real CSV data available from Google Drive",
-        message: `Could not access the latest CSV file from Google Drive for device: ${deviceId || 'default'}`,
-        device: deviceId ? { id: deviceId, status: 'not found' } : null,
-        debug: {
-          currentTime: new Date().toISOString(),
-          requestedDevice: deviceId || 'default'
-        }
+        message: `Could not access CSV files from Google Drive for device: ${deviceId || 'default'}`,
       }, { status: 404 })
     }
 
-    // Sort by timestamp (newest first)
+    // Sort by timestamp (newest first) and deduplicate by timestamp
     allData.sort((a, b) => b.timestamp - a.timestamp)
+    const seen = new Set<number>();
+    allData = allData.filter((d: any) => {
+      if (seen.has(d.timestamp)) return false;
+      seen.add(d.timestamp);
+      return true;
+    });
 
-    // Filter data based on mode
-    let filteredData: any[];
-    let timeframeDescription: string;
+    // Filter to requested time window
+    const now = allData[0].timestamp; // Latest data timestamp
+    const cutoffMs = now - (minutes * 60 * 1000);
+    let filteredData = allData.filter((d: any) => d.timestamp >= cutoffMs);
+    const timeframeDescription = minutes >= 10080 ? '1 week' : minutes >= 1440 ? '1 day' : minutes >= 60 ? '1 hour' : `${minutes} min`;
 
-    if (dataMode === "range" && startDate && endDate) {
-      // Date range mode: filter by start/end dates
-      const startMs = new Date(startDate).getTime()
-      const endMs = new Date(endDate).getTime() + (24 * 60 * 60 * 1000 - 1) // End of the end date
-      filteredData = allData.filter((d: any) => d.timestamp >= startMs && d.timestamp <= endMs)
-      timeframeDescription = `${startDate} to ${endDate}`
-      console.log(`📅 Date range filter: ${new Date(startMs).toISOString()} to ${new Date(endMs).toISOString()} → ${filteredData.length} points`)
-    } else if (dataMode === "fullday" && startDate) {
-      // Full day mode: show all data for a specific day
-      const dayStart = new Date(startDate)
-      dayStart.setHours(0, 0, 0, 0)
-      const dayEnd = new Date(startDate)
-      dayEnd.setHours(23, 59, 59, 999)
-      filteredData = allData.filter((d: any) => d.timestamp >= dayStart.getTime() && d.timestamp <= dayEnd.getTime())
-      timeframeDescription = `Full day: ${startDate}`
-      console.log(`📅 Full day filter: ${dayStart.toISOString()} to ${dayEnd.toISOString()} → ${filteredData.length} points`)
-    } else {
-      // Live mode: use minutes-based filtering (max 1440 = 24h)
-      filteredData = getRecentData(allData, Math.min(minutes, 1440), samplesPerSecond)
-      timeframeDescription = `${minutes} minute(s)`
-    }
+    console.log(`⏱️ Time filter: ${filteredData.length} points in last ${timeframeDescription}`);
 
-    // Note: For date modes (fullday/range), we skip sample rate filtering here
-    // because downsampleToRMSPerSecond will compute proper RMS on the full raw data
-    // (100 samples/sec → 1 RMS value/sec). Thinning before RMS would reduce accuracy.
-    if (dataMode === "live" && samplesPerSecond && samplesPerSecond !== "raw") {
-      // Only apply sample rate filtering in live mode
-      const targetSps = parseInt(samplesPerSecond)
-      if (filteredData.length > 0) {
-        const totalSeconds = (filteredData[0].timestamp - filteredData[filteredData.length - 1].timestamp) / 1000
-        const targetPoints = Math.ceil(totalSeconds * targetSps)
-        if (filteredData.length > targetPoints) {
-          const step = Math.ceil(filteredData.length / targetPoints)
-          filteredData = filteredData.filter((_: any, i: number) => i % step === 0)
-        }
-      }
-    }
+    // Calculate latest RMS for the header display
+    const responseRMS = getLatestRMSValues(filteredData, 100);
 
-    // Calculate RMS for the header display (uses last 1 second of raw data)
-    let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
+    // Always apply 1-second RMS windowing (100 samples → 1 RMS value per second)
+    let responseData = downsampleToRMSPerSecond(filteredData);
+    const isRMSData = true;
+    console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} RMS points (1-sec windows)`);
 
-    let responseData: any = filteredData;
-    let isRMSData = false;
-
-    // For fullday/range modes, automatically downsample to 1-second RMS windows
-    // This compresses ~100 samples/sec → 1 RMS value/sec in the CSV processing layer
-    if (dataMode === "fullday" || dataMode === "range") {
-      responseData = downsampleToRMSPerSecond(filteredData);
-      isRMSData = true;
-      console.log(`📊 RMS downsampled: ${filteredData.length} raw points → ${responseData.length} RMS points (1-second windows)`)
-    } else if (downsampleRMS) {
-      // Explicit downsampleRMS param for live mode
-      responseData = downsampleToRMSPerSecond(filteredData);
-      isRMSData = true;
-    }
-
-    // SERVER-SIDE CAP: Limit data points to prevent client-side crashes
-    // If a date range is provided, allow high resolution up to 3000 pts for zooming. Else 800.
-    const MAX_CLIENT_POINTS = startDate && endDate ? 3000 : 800;
+    // Cap data points to prevent client crashes
+    const MAX_CLIENT_POINTS = 5000;
     if (responseData.length > MAX_CLIENT_POINTS) {
       const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
       responseData = responseData.filter((_: any, i: number) => i % step === 0);
     }
 
-    console.log(`📈 Returning ${responseData.length} data points (mode=${dataMode}, isRMS=${isRMSData}, rawPoints=${filteredData.length}, capped=${responseData.length > MAX_CLIENT_POINTS})`)
-    console.log(`📊 Data time range: ${responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(responseData[0].timestamp).toLocaleTimeString() : 'No data'}`)
+    console.log(`📈 Returning ${responseData.length} RMS points for last ${timeframeDescription}`)
 
     return NextResponse.json({
       success: true,
@@ -172,12 +133,11 @@ export async function GET(request: NextRequest) {
       isRMSData,
       metadata: {
         source: dataSource,
-        filename: filename,
+        filename: filenames.join(', '),
         totalPoints: allData.length,
         rawPoints: filteredData.length,
         recentPoints: responseData.length,
         timeframe: timeframeDescription,
-        samplingRate: samplesPerSecond || 'raw',
         isRMSData,
         lastUpdate: new Date().toISOString(),
         latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toLocaleString() : null,

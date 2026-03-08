@@ -28,8 +28,7 @@ import {
   UserCog,
   Moon,
   Sun,
-  Mail,
-  Calendar
+  Mail
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
 import { TemperatureChart } from "@/components/temperature-chart"
@@ -38,8 +37,7 @@ import { AccelerometerChart } from "@/components/accelerometer-chart"
 import { PlotlyTimeSeriesChart } from "@/components/plotly-timeseries-chart"
 import { DeviceSelector } from "@/components/device-selector"
 import { ChartErrorBoundary } from "@/components/chart-error-boundary"
-import { DatePickerWithRange } from "@/components/date-range-picker"
-import { DateRange } from "react-day-picker"
+
 
 interface SensorData {
   timestamp: string  // Changed from number to string to match CSV format
@@ -91,12 +89,9 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [timeRange, setTimeRange] = useState<string>('1') // Default to 1 minute
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-  const [samplesPerSecond, setSamplesPerSecond] = useState<string>('40') // Default to 40 samples/sec
-  const [dataMode, setDataMode] = useState<'live' | 'fullday' | 'range'>('live')
-  const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off') // Auto-refresh interval
-  const [isRMSData, setIsRMSData] = useState(false) // Whether data is RMS-downsampled (1-sec windows)
+  const [timeRange, setTimeRange] = useState<string>('1') // minutes: 1, 60, 1440, 10080
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
+  const [isRMSData, setIsRMSData] = useState(false)
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -129,18 +124,20 @@ export default function BHMDashboard() {
   // useEffect(() => {
   //   fetchData()
   //   
+  // Old auto-refresh (disabled)
+  // useEffect(() => {
   //   if (autoRefresh) {
-  //     const interval = setInterval(fetchData, 300000) // 5 minutes
+  //     const interval = setInterval(fetchData, 300000)
   //     return () => clearInterval(interval)
   //   }
-  // }, [autoRefresh, timeRange, selectedDevice, samplesPerSecond])
+  // }, [autoRefresh, timeRange, selectedDevice])
 
-  // Fetch data when timeRange, samplesPerSecond, dataMode or dateRange changes
+  // Fetch data when timeRange changes
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [timeRange, samplesPerSecond, dataMode, dateRange, mounted, selectedDevice])
+  }, [timeRange, mounted, selectedDevice])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -148,26 +145,14 @@ export default function BHMDashboard() {
     const ms = parseInt(autoRefreshInterval) * 1000
     const interval = setInterval(fetchData, ms)
     return () => clearInterval(interval)
-  }, [autoRefreshInterval, mounted, timeRange, samplesPerSecond, dataMode, dateRange])
+  }, [autoRefreshInterval, mounted, timeRange])
 
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?minutes=${timeRange}&dataMode=${dataMode}`
+      let apiUrl = `/api/csv-data-real?minutes=${timeRange}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
-      }
-      if (samplesPerSecond !== 'raw') {
-        apiUrl += `&samplesPerSecond=${samplesPerSecond}`
-      }
-      // Add date parameters for date modes
-      if (dataMode === 'fullday' && dateRange?.from) {
-        apiUrl += `&startDate=${dateRange.from.toISOString().split('T')[0]}`
-      } else if (dataMode === 'range' && dateRange?.from) {
-        apiUrl += `&startDate=${dateRange.from.toISOString().split('T')[0]}`
-        if (dateRange.to) {
-          apiUrl += `&endDate=${dateRange.to.toISOString().split('T')[0]}`
-        }
       }
 
       const response = await fetch(apiUrl)
@@ -253,29 +238,7 @@ export default function BHMDashboard() {
 
   const handleTimeRangeChange = (newTimeRange: string) => {
     setTimeRange(newTimeRange)
-    setDataMode('live')
-    setSensorData([]) // Clear current data immediately
-    setError(null)
-  }
-
-  const handleDataModeChange = (mode: string) => {
-    setDataMode(mode as 'live' | 'fullday' | 'range')
     setSensorData([])
-    setError(null)
-  }
-
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range)
-    if (range?.from && !range?.to) {
-      setDataMode('fullday')
-    } else if (range?.from && range?.to) {
-      setDataMode('range')
-    }
-  }
-
-  const handleSamplesChange = (newSamples: string) => {
-    setSamplesPerSecond(newSamples)
-    setSensorData([]) // Clear current data immediately
     setError(null)
   }
 
@@ -361,47 +324,27 @@ export default function BHMDashboard() {
                 </span>
               </div>
 
-              {/* Date Range Picker */}
-              <DatePickerWithRange
-                date={dateRange}
-                onDateChange={handleDateRangeChange}
-                className="hidden md:flex"
-              />
-              
-              {/* Data Mode */}
-              <div className="flex items-center space-x-1">
-                <Select value={dataMode} onValueChange={handleDataModeChange}>
-                  <SelectTrigger className="w-28 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="live">Live</SelectItem>
-                    <SelectItem value="fullday">Full Day</SelectItem>
-                    <SelectItem value="range">Date Range</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Time Range Buttons */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+                {[
+                  { value: '1', label: '1 Min' },
+                  { value: '60', label: '1 Hour' },
+                  { value: '1440', label: '1 Day' },
+                  { value: '10080', label: '1 Week' },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleTimeRangeChange(value)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      timeRange === value
+                        ? 'bg-white text-blue-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-
-              {/* Time Range (shown in live mode) */}
-              {dataMode === 'live' && (
-                <div className="flex items-center space-x-1">
-                  <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-                    <SelectTrigger className="w-24 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 min</SelectItem>
-                      <SelectItem value="5">5 min</SelectItem>
-                      <SelectItem value="10">10 min</SelectItem>
-                      <SelectItem value="30">30 min</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                      <SelectItem value="360">6 hours</SelectItem>
-                      <SelectItem value="720">12 hours</SelectItem>
-                      <SelectItem value="1440">24 hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               {/* Auto Refresh */}
               <div className="flex items-center space-x-1">
@@ -416,27 +359,6 @@ export default function BHMDashboard() {
                     <SelectItem value="30">30s</SelectItem>
                     <SelectItem value="60">1m</SelectItem>
                     <SelectItem value="300">5m</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Samples Per Second */}
-              <div className="flex items-center space-x-1">
-                <span className="text-xs text-gray-500">Samples/sec:</span>
-                <Select value={samplesPerSecond} onValueChange={handleSamplesChange}>
-                  <SelectTrigger className="w-20 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="raw">Raw</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="40">40</SelectItem>
-                    <SelectItem value="30">30</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="1">1</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -610,7 +532,7 @@ export default function BHMDashboard() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
-                  <p className="text-xs text-gray-400">{dataMode === 'live' ? `Last ${timeRange}min` : dataMode === 'fullday' ? 'Full Day' : 'Date Range'}</p>
+                  <p className="text-xs text-gray-400">Last {parseInt(timeRange) >= 10080 ? '1 week' : parseInt(timeRange) >= 1440 ? '1 day' : parseInt(timeRange) >= 60 ? '1 hour' : `${timeRange} min`}</p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
               </div>
