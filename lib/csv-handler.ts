@@ -1,66 +1,84 @@
 /**
- * Downsample data to 1 RMS value per second for each axis (using 100 samples/sec as base rate)
- * @param data CSVSensorData[] (should be sorted by timestamp descending)
- * @returns Array of { timestamp, accel_x_rms, accel_y_rms, accel_z_rms }
+ * Downsample data to 1 RMS value per second for each acceleration axis,
+ * and mean for temperature/stroke. Uses 1-second windows (100 samples → 1 value).
+ * Returns data with the same field names as CSVSensorData so charts work unchanged.
+ * @param data CSVSensorData[] (any sort order)
+ * @returns CSVSensorData[] with 1 data point per second
  */
-export function downsampleToRMSPerSecond(data: CSVSensorData[]): Array<{
-  timestamp: number,
-  accel_x_rms: number,
-  accel_y_rms: number,
-  accel_z_rms: number,
-  wt901_x_rms: number,
-  wt901_y_rms: number,
-  wt901_z_rms: number
-}> {
+export function downsampleToRMSPerSecond(data: CSVSensorData[]): CSVSensorData[] {
   if (!data.length) return [];
   // Sort by timestamp ascending for windowing
   const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
-  const result: Array<{
-    timestamp: number,
-    accel_x_rms: number,
-    accel_y_rms: number,
-    accel_z_rms: number,
-    wt901_x_rms: number,
-    wt901_y_rms: number,
-    wt901_z_rms: number
-  }> = [];
+  const result: CSVSensorData[] = [];
+
   let window: CSVSensorData[] = [];
   let windowStart = sorted[0].timestamp;
+
+  const flushWindow = () => {
+    if (window.length === 0) return;
+    // RMS for acceleration axes
+    const accel_x_rms = calculateRMS(window.map(d => d.accel_x ?? 0));
+    const accel_y_rms = calculateRMS(window.map(d => d.accel_y ?? 0));
+    const accel_z_rms = calculateRMS(window.map(d => d.accel_z ?? 0));
+    const ax_wt901_rms = calculateRMS(window.map(d => d.ax_wt901 ?? 0));
+    const ay_wt901_rms = calculateRMS(window.map(d => d.ay_wt901 ?? 0));
+    const az_wt901_rms = calculateRMS(window.map(d => d.az_wt901 ?? 0));
+    const ax_adxl_rms = calculateRMS(window.map(d => d.ax_adxl ?? 0));
+    const ay_adxl_rms = calculateRMS(window.map(d => d.ay_adxl ?? 0));
+    const az_adxl_rms = calculateRMS(window.map(d => d.az_adxl ?? 0));
+    // Mean for temperature and stroke (RMS doesn't make sense for these)
+    const temp_mean = calculateMean(window.map(d => d.temperature_c ?? 0));
+    const stroke_mean = calculateMean(window.map(d => d.stroke_mm ?? 0));
+
+    result.push({
+      timestamp: windowStart,
+      rawTimestamp: window[0].rawTimestamp,
+      // Acceleration fields store RMS values
+      accel_x: accel_x_rms,
+      accel_y: accel_y_rms,
+      accel_z: accel_z_rms,
+      ax_wt901: ax_wt901_rms,
+      ay_wt901: ay_wt901_rms,
+      az_wt901: az_wt901_rms,
+      ax_adxl: ax_adxl_rms,
+      ay_adxl: ay_adxl_rms,
+      az_adxl: az_adxl_rms,
+      // Compatibility aliases
+      x: accel_x_rms,
+      y: accel_y_rms,
+      z: accel_z_rms,
+      vibration: accel_x_rms,
+      acceleration: accel_y_rms,
+      // Temperature and stroke use mean
+      temperature_c: temp_mean,
+      temperature: temp_mean,
+      stroke_mm: stroke_mean,
+      strain: stroke_mean,
+      // Metadata
+      id: window[0].id,
+      created_at: window[0].created_at,
+    } as CSVSensorData);
+  };
+
   for (let i = 0; i < sorted.length; i++) {
     const point = sorted[i];
     if (point.timestamp - windowStart < 1000) {
       window.push(point);
     } else {
-      // Calculate RMS for the window
-      if (window.length > 0) {
-        result.push({
-          timestamp: windowStart,
-          accel_x_rms: calculateRMS(window.map(d => d.accel_x ?? 0)),
-          accel_y_rms: calculateRMS(window.map(d => d.accel_y ?? 0)),
-          accel_z_rms: calculateRMS(window.map(d => d.accel_z ?? 0)),
-          wt901_x_rms: calculateRMS(window.map(d => d.ax_wt901 ?? 0)),
-          wt901_y_rms: calculateRMS(window.map(d => d.ay_wt901 ?? 0)),
-          wt901_z_rms: calculateRMS(window.map(d => d.az_wt901 ?? 0)),
-        });
-      }
-      // Start new window
+      flushWindow();
       window = [point];
       windowStart = point.timestamp;
     }
   }
   // Final window
-  if (window.length > 0) {
-    result.push({
-      timestamp: windowStart,
-      accel_x_rms: calculateRMS(window.map(d => d.accel_x ?? 0)),
-      accel_y_rms: calculateRMS(window.map(d => d.accel_y ?? 0)),
-      accel_z_rms: calculateRMS(window.map(d => d.accel_z ?? 0)),
-      wt901_x_rms: calculateRMS(window.map(d => d.ax_wt901 ?? 0)),
-      wt901_y_rms: calculateRMS(window.map(d => d.ay_wt901 ?? 0)),
-      wt901_z_rms: calculateRMS(window.map(d => d.az_wt901 ?? 0)),
-    });
-  }
+  flushWindow();
+
   return result;
+}
+
+function calculateMean(values: number[]): number {
+  if (!values.length) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 // Calculate RMS for a numeric array
 function calculateRMS(values: number[]): number {

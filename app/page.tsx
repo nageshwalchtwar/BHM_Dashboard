@@ -96,6 +96,7 @@ export default function BHMDashboard() {
   const [samplesPerSecond, setSamplesPerSecond] = useState<string>('40') // Default to 40 samples/sec
   const [dataMode, setDataMode] = useState<'live' | 'fullday' | 'range'>('live')
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off') // Auto-refresh interval
+  const [isRMSData, setIsRMSData] = useState(false) // Whether data is RMS-downsampled (1-sec windows)
 
   // UI state
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -186,6 +187,7 @@ export default function BHMDashboard() {
           lastUpdate: mounted ? new Date().toLocaleString() : ''
         })
         setRms(result.rms || null)
+        setIsRMSData(result.isRMSData || false)
         setError(null)
         setConnectionStatus('connected')
       } else {
@@ -691,7 +693,7 @@ export default function BHMDashboard() {
         {/* Charts Section - Interactive Plotly */}
         <div className="bg-white border border-gray-200 rounded-lg">
           <Tabs defaultValue="adxl-x" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="border-b border-gray-200 px-4 py-2">
+            <div className="border-b border-gray-200 px-4 py-2 flex items-center gap-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
                 <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temp</TabsTrigger>
                 <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
@@ -702,6 +704,11 @@ export default function BHMDashboard() {
                 <TabsTrigger value="wt901-y" className="text-xs px-3 py-1.5">WT901 Y</TabsTrigger>
                 <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
               </TabsList>
+              {isRMSData && (
+                <span className="ml-auto text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+                  RMS (1-sec window)
+                </span>
+              )}
             </div>
 
             <TabsContent value="temperature" className="p-4">

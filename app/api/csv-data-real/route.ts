@@ -120,8 +120,11 @@ export async function GET(request: NextRequest) {
       timeframeDescription = `${minutes} minute(s)`
     }
 
-    // Apply sample rate filtering for date modes too
-    if ((dataMode === "range" || dataMode === "fullday") && samplesPerSecond && samplesPerSecond !== "raw") {
+    // Note: For date modes (fullday/range), we skip sample rate filtering here
+    // because downsampleToRMSPerSecond will compute proper RMS on the full raw data
+    // (100 samples/sec → 1 RMS value/sec). Thinning before RMS would reduce accuracy.
+    if (dataMode === "live" && samplesPerSecond && samplesPerSecond !== "raw") {
+      // Only apply sample rate filtering in live mode
       const targetSps = parseInt(samplesPerSecond)
       if (filteredData.length > 0) {
         const totalSeconds = (filteredData[0].timestamp - filteredData[filteredData.length - 1].timestamp) / 1000
@@ -133,24 +136,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate RMS BEFORE capping data (uses only last 1 second of data)
+    // Calculate RMS for the header display (uses last 1 second of raw data)
     let responseRMS = getLatestRMSValues(filteredData, samplesPerSecond ? parseInt(samplesPerSecond) : 40);
 
     let responseData: any = filteredData;
+    let isRMSData = false;
 
-    if (downsampleRMS) {
+    // For fullday/range modes, automatically downsample to 1-second RMS windows
+    // This compresses ~100 samples/sec → 1 RMS value/sec in the CSV processing layer
+    if (dataMode === "fullday" || dataMode === "range") {
       responseData = downsampleToRMSPerSecond(filteredData);
-      responseRMS = responseData.length > 0 ? {
-        accel_x_rms: responseData[0].accel_x_rms,
-        accel_y_rms: responseData[0].accel_y_rms,
-        accel_z_rms: responseData[0].accel_z_rms,
-        wt901_x_rms: responseData[0].wt901_x_rms,
-        wt901_y_rms: responseData[0].wt901_y_rms,
-        wt901_z_rms: responseData[0].wt901_z_rms,
-      } : {
-        accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0,
-        wt901_x_rms: 0, wt901_y_rms: 0, wt901_z_rms: 0
-      };
+      isRMSData = true;
+      console.log(`📊 RMS downsampled: ${filteredData.length} raw points → ${responseData.length} RMS points (1-second windows)`)
+    } else if (downsampleRMS) {
+      // Explicit downsampleRMS param for live mode
+      responseData = downsampleToRMSPerSecond(filteredData);
+      isRMSData = true;
     }
 
     // SERVER-SIDE CAP: Limit data points to prevent client-side crashes
@@ -161,20 +162,23 @@ export async function GET(request: NextRequest) {
       responseData = responseData.filter((_: any, i: number) => i % step === 0);
     }
 
-    console.log(`📈 Returning ${responseData.length} REAL data points from last ${minutes} minute(s) (downsampleRMS=${downsampleRMS}, capped=${filteredData.length > MAX_CLIENT_POINTS})`)
+    console.log(`📈 Returning ${responseData.length} data points (mode=${dataMode}, isRMS=${isRMSData}, rawPoints=${filteredData.length}, capped=${responseData.length > MAX_CLIENT_POINTS})`)
     console.log(`📊 Data time range: ${responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toLocaleString() + ' to ' + new Date(responseData[0].timestamp).toLocaleTimeString() : 'No data'}`)
 
     return NextResponse.json({
       success: true,
       data: responseData,
       rms: responseRMS,
+      isRMSData,
       metadata: {
         source: dataSource,
         filename: filename,
         totalPoints: allData.length,
+        rawPoints: filteredData.length,
         recentPoints: responseData.length,
         timeframe: timeframeDescription,
         samplingRate: samplesPerSecond || 'raw',
+        isRMSData,
         lastUpdate: new Date().toISOString(),
         latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toLocaleString() : null,
         isRealData: true,
