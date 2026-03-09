@@ -1,11 +1,11 @@
 /**
- * Downsample data to 1 RMS value per second for each acceleration axis,
- * and mean for temperature/stroke. Uses 1-second windows (100 samples → 1 value).
- * Returns data with the same field names as CSVSensorData so charts work unchanged.
+ * Downsample data to RMS values per window for each acceleration axis,
+ * and mean for temperature/stroke.
  * @param data CSVSensorData[] (any sort order)
- * @returns CSVSensorData[] with 1 data point per second
+ * @param windowMs Window size in milliseconds (default 1000 = 1 second)
+ * @returns CSVSensorData[] with 1 data point per window
  */
-export function downsampleToRMSPerSecond(data: CSVSensorData[]): CSVSensorData[] {
+export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number = 1000): CSVSensorData[] {
   if (!data.length) return [];
   // Sort by timestamp ascending for windowing
   const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
@@ -16,44 +16,50 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[]): CSVSensorData[]
 
   const flushWindow = () => {
     if (window.length === 0) return;
-    // RMS for acceleration axes
-    const accel_x_rms = calculateRMS(window.map(d => d.accel_x ?? 0));
-    const accel_y_rms = calculateRMS(window.map(d => d.accel_y ?? 0));
-    const accel_z_rms = calculateRMS(window.map(d => d.accel_z ?? 0));
-    const ax_wt901_rms = calculateRMS(window.map(d => d.ax_wt901 ?? 0));
-    const ay_wt901_rms = calculateRMS(window.map(d => d.ay_wt901 ?? 0));
-    const az_wt901_rms = calculateRMS(window.map(d => d.az_wt901 ?? 0));
+    // RMS for ADXL accelerometer axes
     const ax_adxl_rms = calculateRMS(window.map(d => d.ax_adxl ?? 0));
     const ay_adxl_rms = calculateRMS(window.map(d => d.ay_adxl ?? 0));
     const az_adxl_rms = calculateRMS(window.map(d => d.az_adxl ?? 0));
-    // Mean for temperature and stroke (RMS doesn't make sense for these)
-    const temp_mean = calculateMean(window.map(d => d.temperature_c ?? 0));
-    const stroke_mean = calculateMean(window.map(d => d.stroke_mm ?? 0));
+    // RMS for WT901 accelerometer axes
+    const ax_wt901_rms = calculateRMS(window.map(d => d.ax_wt901 ?? 0));
+    const ay_wt901_rms = calculateRMS(window.map(d => d.ay_wt901 ?? 0));
+    const az_wt901_rms = calculateRMS(window.map(d => d.az_wt901 ?? 0));
+    const accel_x_rms = calculateRMS(window.map(d => d.accel_x ?? 0));
+    const accel_y_rms = calculateRMS(window.map(d => d.accel_y ?? 0));
+    const accel_z_rms = calculateRMS(window.map(d => d.accel_z ?? 0));
+    // LVDT/stroke: 1-second average (mean)
+    const stroke_avg = calculateMean(window.map(d => d.stroke_mm ?? 0));
+    // Temperature: raw value (last sample in window, no averaging)
+    const lastSample = window[window.length - 1];
+    const temp_raw = lastSample.temperature_c ?? lastSample.temperature ?? 0;
 
     result.push({
       timestamp: windowStart,
       rawTimestamp: window[0].rawTimestamp,
-      // Acceleration fields store RMS values
-      accel_x: accel_x_rms,
-      accel_y: accel_y_rms,
-      accel_z: accel_z_rms,
-      ax_wt901: ax_wt901_rms,
-      ay_wt901: ay_wt901_rms,
-      az_wt901: az_wt901_rms,
+      // ADXL: RMS
       ax_adxl: ax_adxl_rms,
       ay_adxl: ay_adxl_rms,
       az_adxl: az_adxl_rms,
+      // WT901: RMS
+      ax_wt901: ax_wt901_rms,
+      ay_wt901: ay_wt901_rms,
+      az_wt901: az_wt901_rms,
+      // Generic accel: RMS
+      accel_x: accel_x_rms,
+      accel_y: accel_y_rms,
+      accel_z: accel_z_rms,
       // Compatibility aliases
       x: accel_x_rms,
       y: accel_y_rms,
       z: accel_z_rms,
       vibration: accel_x_rms,
       acceleration: accel_y_rms,
-      // Temperature and stroke use mean
-      temperature_c: temp_mean,
-      temperature: temp_mean,
-      stroke_mm: stroke_mean,
-      strain: stroke_mean,
+      // LVDT: average
+      stroke_mm: stroke_avg,
+      strain: stroke_avg,
+      // Temperature: raw (last sample)
+      temperature_c: temp_raw,
+      temperature: temp_raw,
       // Metadata
       id: window[0].id,
       created_at: window[0].created_at,
@@ -62,7 +68,7 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[]): CSVSensorData[]
 
   for (let i = 0; i < sorted.length; i++) {
     const point = sorted[i];
-    if (point.timestamp - windowStart < 1000) {
+    if (point.timestamp - windowStart < windowMs) {
       window.push(point);
     } else {
       flushWindow();

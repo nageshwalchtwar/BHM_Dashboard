@@ -70,19 +70,30 @@ export async function GET(request: NextRequest) {
     };
 
     // Determine how many files to fetch based on requested range
-    // Each file = ~1 day of merged data
-    const shouldFetchMultiple = isCustomRange || minutes >= 1440
+    // Google Sheets files typically contain 10-15 min of 100Hz data each
+    const shouldFetchMultiple = isCustomRange || minutes >= 60
     const maxFiles = isCustomRange
-      ? 30 // Custom range: up to 30 files
+      ? 200 // Custom range: generous limit
       : minutes >= 10080
-        ? 7  // 1 week: 7 files
+        ? 200 // 1 week: all available files
         : minutes >= 1440
-          ? 2  // 1 day: 2 files (today + yesterday for overlap)
-          : 1  // 1 min / 1 hour: single file
+          ? 100 // 1 day: ~96 files for 24h of 15-min sheets
+          : minutes >= 60
+            ? 10  // 1 hour: ~6 files for 60min of 15-min sheets
+            : 1   // 1 min: single latest file
+
+    // Calculate sinceDate to filter files at the Drive API level
+    let sinceDate: string | undefined
+    if (!isCustomRange && minutes >= 60) {
+      const since = new Date(Date.now() - minutes * 60 * 1000)
+      sinceDate = since.toISOString()
+    } else if (isCustomRange && startDate) {
+      sinceDate = new Date(startDate).toISOString()
+    }
 
     if (shouldFetchMultiple) {
-      console.log(`📂 Fetching up to ${maxFiles} CSV files for ${isCustomRange ? 'custom range' : `${minutes}-min range`}...`)
-      const multiResult = await getMultipleCSVsFromGoogleDrive(maxFiles, folderId);
+      console.log(`📂 Fetching up to ${maxFiles} CSV files for ${isCustomRange ? 'custom range' : `${minutes}-min range`}${sinceDate ? ` (since ${sinceDate})` : ''}...`)
+      const multiResult = await getMultipleCSVsFromGoogleDrive(maxFiles, folderId, sinceDate);
 
       if (multiResult && multiResult.contents.length > 0) {
         filenames = multiResult.filenames;
@@ -151,13 +162,20 @@ export async function GET(request: NextRequest) {
 
     console.log(`⏱️ Time filter (${timeframeDescription}): ${allData.length} total → ${filteredData.length} filtered`)
 
-    // Calculate latest RMS for the header display
+    // Calculate latest RMS for the header display (always 1-second window)
     const responseRMS = getLatestRMSValues(filteredData, 100);
 
-    // Always apply 1-second RMS windowing (100 samples → 1 RMS value per second)
-    let responseData = downsampleToRMSPerSecond(filteredData);
+    // Adaptive RMS window: 1s for short ranges, larger for longer ranges
+    // This keeps chart points manageable (~3600 max) regardless of time range
+    const rmsWindowMs = minutes >= 10080
+      ? 60000   // 1 week → 60-second windows (~10080 points)
+      : minutes >= 1440
+        ? 10000  // 1 day → 10-second windows (~8640 points)
+        : 1000   // 1 min / 1 hour → 1-second windows (~3600 points)
+
+    let responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
     const isRMSData = true;
-    console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} RMS points (1-sec windows)`);
+    console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} points (${rmsWindowMs/1000}s windows)`);
 
     // Cap data points to prevent client crashes
     const MAX_CLIENT_POINTS = 5000;

@@ -753,7 +753,7 @@ export default function BHMDashboard() {
               </TabsList>
               {isRMSData && (
                 <span className="ml-auto text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                  RMS (1-sec window)
+                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({timeRange === '10080' ? '60s' : timeRange === '1440' ? '10s' : '1s'} window)
                 </span>
               )}
             </div>

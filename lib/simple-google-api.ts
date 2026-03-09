@@ -24,7 +24,7 @@ export class SimpleGoogleDriveAPI {
   }
 
   // Method 1: Try with API Key (if folder is publicly shared)
-  async listFilesWithAPIKey(): Promise<Array<{id: string, name: string, modifiedTime: string}> | null> {
+  async listFilesWithAPIKey(sinceDate?: string): Promise<Array<{id: string, name: string, modifiedTime: string}> | null> {
     if (!this.apiKey) {
       console.log('❌ No API key provided');
       return null;
@@ -34,7 +34,13 @@ export class SimpleGoogleDriveAPI {
       console.log('🔑 Trying Google Drive API with API key...');
       console.log(`📂 Folder ID: ${this.folderId}`);
       
-      const url = `https://www.googleapis.com/drive/v3/files?q='${this.folderId}'+in+parents&orderBy=modifiedTime desc&key=${this.apiKey}&fields=files(id,name,modifiedTime,size,mimeType)`;
+      // Build query with optional date filter
+      let query = `'${this.folderId}' in parents`;
+      if (sinceDate) {
+        query += ` and modifiedTime > '${sinceDate}'`;
+      }
+      const encodedQuery = encodeURIComponent(query);
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodedQuery}&orderBy=modifiedTime desc&pageSize=200&key=${this.apiKey}&fields=files(id,name,modifiedTime,size,mimeType)`;
       
       const response = await this.fetchWithTimeout(url)
       
@@ -46,7 +52,7 @@ export class SimpleGoogleDriveAPI {
       }
       
       const data = await response.json();
-      console.log(`✅ Found ${data.files?.length || 0} files via API key`);
+      console.log(`✅ Found ${data.files?.length || 0} files via API key${sinceDate ? ` (since ${sinceDate})` : ''}`);
       
       // Log file types for debugging
       if (data.files && data.files.length > 0) {
@@ -246,7 +252,8 @@ export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{f
  */
 export async function getMultipleCSVsFromGoogleDrive(
   maxFiles: number = 7,
-  customFolderId?: string
+  customFolderId?: string,
+  sinceDate?: string
 ): Promise<{filenames: string[], contents: string[], modifiedTimes: string[]} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
@@ -262,7 +269,8 @@ export async function getMultipleCSVsFromGoogleDrive(
     }
 
     const api = new SimpleGoogleDriveAPI(folderId, apiKey);
-    const files = await api.listFilesWithAPIKey();
+    // Pass sinceDate to filter files at the Drive API level
+    const files = await api.listFilesWithAPIKey(sinceDate);
 
     if (!files || files.length === 0) {
       console.log('❌ No files found for multi-CSV fetch');
@@ -271,26 +279,33 @@ export async function getMultipleCSVsFromGoogleDrive(
 
     // Take only the most recent N files
     const recentFiles = files.slice(0, maxFiles);
-    console.log(`📂 Fetching ${recentFiles.length} recent CSV files...`);
+    console.log(`📂 Fetching ${recentFiles.length} of ${files.length} files${sinceDate ? ` (since ${sinceDate})` : ''}...`);
 
     const filenames: string[] = [];
     const contents: string[] = [];
     const modifiedTimes: string[] = [];
 
-    for (const file of recentFiles) {
-      try {
-        const content = await api.downloadFileWithAPIKey(file.id);
-        if (content && content.length > 100) {
-          filenames.push(file.name);
-          contents.push(content);
-          modifiedTimes.push(file.modifiedTime);
-          console.log(`✅ Fetched ${file.name} (${content.length} chars, modified: ${file.modifiedTime})`);
+    // Download files in parallel batches of 5 for speed
+    const BATCH_SIZE = 5;
+    for (let b = 0; b < recentFiles.length; b += BATCH_SIZE) {
+      const batch = recentFiles.slice(b, b + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (file) => {
+          const content = await api.downloadFileWithAPIKey(file.id);
+          return { file, content };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.content && result.value.content.length > 100) {
+          filenames.push(result.value.file.name);
+          contents.push(result.value.content);
+          modifiedTimes.push(result.value.file.modifiedTime);
         }
-      } catch (err) {
-        console.log(`⚠️ Failed to fetch ${file.name}:`, err);
       }
     }
 
+    console.log(`✅ Downloaded ${contents.length} files successfully`);
     if (contents.length === 0) return null;
     return { filenames, contents, modifiedTimes };
   } catch (error) {
