@@ -98,20 +98,17 @@ export async function GET(request: NextRequest) {
 
     // Determine how many files to fetch based on requested range
     // Each file in Drive = 1 full day of merged data.
-    // So: ≤1 day needs just the latest file, 1 week needs ~7, custom based on date span.
-    const shouldFetchMultiple = isCustomRange || minutes >= 10080
-    const maxFiles = isCustomRange
-      ? Math.min(Math.ceil((new Date(endDate!).getTime() - new Date(startDate!).getTime()) / 86400000) + 1, 30)
-      : minutes >= 10080
-        ? 7   // 1 week: ~7 daily files
-        : 1   // 1 min / 1 hour / 1 day: single latest file
+    // 1 Min/1 Hour = latest file, 1 Day = latest file, 1 Week = ~7, Custom = date span
+    const daysNeeded = isCustomRange
+      ? Math.ceil((new Date(endDate!).getTime() - new Date(startDate!).getTime()) / 86400000) + 1
+      : Math.max(1, Math.ceil(minutes / 1440))
+    const shouldFetchMultiple = daysNeeded > 1
+    const maxFiles = Math.min(daysNeeded, 60)
 
-    // Use sinceDate for week & custom to filter at Drive level
+    // Only use sinceDate for custom ranges — Drive modifiedTime != data time for presets
     let sinceDate: string | undefined
     if (isCustomRange && startDate) {
       sinceDate = new Date(startDate).toISOString()
-    } else if (minutes >= 10080) {
-      sinceDate = new Date(Date.now() - minutes * 60 * 1000).toISOString()
     }
 
     if (shouldFetchMultiple) {
@@ -188,13 +185,18 @@ export async function GET(request: NextRequest) {
     // Calculate latest RMS for the header display (always 1-second window)
     const responseRMS = getLatestRMSValues(filteredData, 100);
 
-    // Adaptive RMS window: 1s for short ranges, larger for longer ranges
-    // This keeps chart points manageable (~3600 max) regardless of time range
-    const rmsWindowMs = minutes >= 10080
-      ? 60000   // 1 week → 60-second windows (~10080 points)
-      : minutes >= 1440
-        ? 10000  // 1 day → 10-second windows (~8640 points)
-        : 1000   // 1 min / 1 hour → 1-second windows (~3600 points)
+    // Adaptive RMS window based on actual data span, targeting ~2000-3000 chart points
+    const dataSpanMs = filteredData.length > 1
+      ? Math.abs(filteredData[0].timestamp - filteredData[filteredData.length - 1].timestamp)
+      : minutes * 60 * 1000
+    const dataSpanMinutes = dataSpanMs / 60000
+    const rmsWindowMs = dataSpanMinutes >= 20160  // 14+ days
+      ? 600000  // 10-minute windows
+      : dataSpanMinutes >= 10080  // 7+ days
+        ? 60000   // 60-second windows
+        : dataSpanMinutes >= 1440   // 1+ day
+          ? 10000  // 10-second windows
+          : 1000   // 1-second windows
 
     let responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
     const isRMSData = true;

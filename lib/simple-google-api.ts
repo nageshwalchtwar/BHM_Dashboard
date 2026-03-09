@@ -351,22 +351,16 @@ export async function getMultipleCSVsFromGoogleDrive(
       return null;
     }
 
-    // ── Sample files at even intervals for full time-range coverage ──
-    // If we have 100 files but only want 15, pick every Nth to cover the range
-    // Files are sorted newest-first by Drive API
-    const MAX_DOWNLOADS = Math.min(maxFiles, 20); // Hard cap: never download more than 20
+    // ── Download files: take first N (already sorted newest-first by Drive) ──
+    const MAX_DOWNLOADS = Math.min(maxFiles, 45); // Hard cap: never download more than 45
     let selectedFiles: typeof files;
     if (files.length <= MAX_DOWNLOADS) {
       selectedFiles = files;
     } else {
-      // Pick files at even intervals to cover the full range
-      selectedFiles = [];
-      const step = (files.length - 1) / (MAX_DOWNLOADS - 1);
-      for (let i = 0; i < MAX_DOWNLOADS; i++) {
-        selectedFiles.push(files[Math.round(i * step)]);
-      }
+      // Take the most recent N files (they're already sorted newest-first)
+      selectedFiles = files.slice(0, MAX_DOWNLOADS);
     }
-    console.log(`📂 Selected ${selectedFiles.length} of ${files.length} files (sampling every ${files.length <= MAX_DOWNLOADS ? 1 : Math.round(files.length / MAX_DOWNLOADS)} files)`);
+    console.log(`📂 Selected ${selectedFiles.length} of ${files.length} files for download`);
 
     const filenames: string[] = [];
     const contents: string[] = [];
@@ -375,7 +369,7 @@ export async function getMultipleCSVsFromGoogleDrive(
     // ── Fast parallel download: no retries, 5s timeout, Sheets export only ──
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 300;
-    const OVERALL_DEADLINE = Date.now() + 25_000; // 25s hard deadline
+    const OVERALL_DEADLINE = Date.now() + 50_000; // 50s hard deadline
     let cacheHits = 0;
 
     for (let b = 0; b < selectedFiles.length; b += BATCH_SIZE) {
@@ -413,7 +407,7 @@ export async function getMultipleCSVsFromGoogleDrive(
       }
     }
 
-    console.log(`✅ Got ${contents.length} files (${cacheHits} cached, ${contents.length - cacheHits} fetched) in ${Math.round((Date.now() - (OVERALL_DEADLINE - 25_000)) / 1000)}s`);
+    console.log(`✅ Got ${contents.length} files (${cacheHits} cached, ${contents.length - cacheHits} fetched) in ${Math.round((Date.now() - (OVERALL_DEADLINE - 50_000)) / 1000)}s`);
     if (contents.length === 0) return null;
     return { filenames, contents, modifiedTimes };
   } catch (error) {

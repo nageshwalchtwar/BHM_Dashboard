@@ -95,6 +95,11 @@ export default function BHMDashboard() {
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-x')
 
+  // Compute effective minutes for charts & display (custom range → actual days * 1440)
+  const effectiveMinutes = timeRange === 'custom' && customStartDate && customEndDate
+    ? String((Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1) * 1440)
+    : timeRange
+
   // Authentication check
   useEffect(() => {
     const checkAuth = async () => {
@@ -148,7 +153,13 @@ export default function BHMDashboard() {
   const fetchData = async () => {
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?minutes=${timeRange === 'custom' ? '10080' : timeRange}`
+      // For custom range, compute actual minutes from date span
+      let minutesParam = timeRange
+      if (timeRange === 'custom' && customStartDate && customEndDate) {
+        const days = Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1
+        minutesParam = String(days * 1440)
+      }
+      let apiUrl = `/api/csv-data-real?minutes=${minutesParam}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
       }
@@ -635,7 +646,7 @@ export default function BHMDashboard() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
-                  <p className="text-xs text-gray-400">Last {timeRange === 'custom' ? `${customStartDate} to ${customEndDate}` : parseInt(timeRange) >= 10080 ? '1 week' : parseInt(timeRange) >= 1440 ? '1 day' : parseInt(timeRange) >= 60 ? '1 hour' : `${timeRange} min`}</p>
+                  <p className="text-xs text-gray-400">Last {timeRange === 'custom' ? `${customStartDate} to ${customEndDate}` : parseInt(effectiveMinutes) >= 10080 ? '1 week' : parseInt(effectiveMinutes) >= 1440 ? '1 day' : parseInt(effectiveMinutes) >= 60 ? '1 hour' : `${timeRange} min`}</p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
               </div>
@@ -731,7 +742,7 @@ export default function BHMDashboard() {
               </TabsList>
               {isRMSData && (
                 <span className="ml-auto text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({timeRange === '10080' ? '60s' : timeRange === '1440' ? '10s' : '1s'} window)
+                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({parseInt(effectiveMinutes) >= 20160 ? '600s' : parseInt(effectiveMinutes) >= 10080 ? '60s' : parseInt(effectiveMinutes) >= 1440 ? '10s' : '1s'} window)
                 </span>
               )}
             </div>
@@ -748,7 +759,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Temperature (°C)"
                       color="#ea580c"
                       unit="°C"
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                       referenceLines={[
                         { y: 35, color: "#ef4444", label: "Critical (35°C)" },
                         { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
@@ -771,7 +782,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Stroke (mm)"
                       color="#7c3aed"
                       unit="mm"
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -791,7 +802,7 @@ export default function BHMDashboard() {
                       color="#ef4444"
                       unit="g"
                       rms={rms ? rms.accel_x_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -811,7 +822,7 @@ export default function BHMDashboard() {
                       color="#22c55e"
                       unit="g"
                       rms={rms ? rms.accel_y_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -831,7 +842,7 @@ export default function BHMDashboard() {
                       color="#3b82f6"
                       unit="g"
                       rms={rms ? rms.accel_z_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -851,7 +862,7 @@ export default function BHMDashboard() {
                       color="#f59e0b"
                       unit="g"
                       rms={rms ? rms.wt901_x_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -871,7 +882,7 @@ export default function BHMDashboard() {
                       color="#8b5cf6"
                       unit="g"
                       rms={rms ? rms.wt901_y_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -891,7 +902,7 @@ export default function BHMDashboard() {
                       color="#06b6d4"
                       unit="g"
                       rms={rms ? rms.wt901_z_rms : undefined}
-                      timeRange={timeRange}
+                      timeRange={effectiveMinutes}
                     />
                   )}
                 </ChartErrorBoundary>
