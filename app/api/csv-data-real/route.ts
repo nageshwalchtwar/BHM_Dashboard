@@ -3,6 +3,23 @@ import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRM
 import { getCSVFromGoogleDrive, getMultipleCSVsFromGoogleDrive } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
+// ── Response cache ────────────────────────────────────────────────────────
+// Caches the full JSON response per (device, minutes, range) to avoid
+// re-downloading & re-processing on rapid repeated requests.
+interface ResponseCacheEntry {
+  json: any;
+  cachedAt: number;
+}
+const responseCache = new Map<string, ResponseCacheEntry>();
+
+// TTL per range: shorter for live/1min, longer for historical
+function getCacheTTL(minutes: number): number {
+  if (minutes <= 1) return 15_000;    // 1 min → 15s cache
+  if (minutes <= 60) return 30_000;   // 1 hour → 30s cache
+  if (minutes <= 1440) return 60_000; // 1 day → 60s cache
+  return 120_000;                     // 1 week → 2min cache
+}
+
 // Get the latest CSV file using Google Drive API with device support
 async function getLatestRealCSV(minutes = 60, deviceId?: string): Promise<{ filename: string, content: string, modifiedTime?: string, device?: any } | null> {
   try {
@@ -48,6 +65,16 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("endDate")     // ISO date string for custom range
 
   const isCustomRange = !!(startDate && endDate)
+
+  // ── Check response cache ─────────────────────────────────────────────
+  const cacheKey = `${deviceId || 'default'}:${minutes}:${startDate || ''}:${endDate || ''}`;
+  const cached = responseCache.get(cacheKey);
+  const ttl = getCacheTTL(minutes);
+  if (cached && (Date.now() - cached.cachedAt) < ttl) {
+    console.log(`⚡ Cache hit for ${cacheKey} (age: ${Date.now() - cached.cachedAt}ms)`);
+    return NextResponse.json(cached.json);
+  }
+
   console.log(`📊 API Request: minutes=${minutes}, device=${deviceId || 'default'}${isCustomRange ? `, range: ${startDate} to ${endDate}` : ''}`)
 
   try {
@@ -187,7 +214,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`📈 Returning ${responseData.length} RMS points for ${timeframeDescription}`)
 
-    return NextResponse.json({
+    const responseJson = {
       success: true,
       data: responseData,
       rms: responseRMS,
@@ -212,7 +239,12 @@ export async function GET(request: NextRequest) {
           folderUrl: device.folderUrl
         } : null
       }
-    })
+    }
+
+    // Store in response cache
+    responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
+
+    return NextResponse.json(responseJson)
 
   } catch (error) {
     console.error('❌ CSV data error:', error)

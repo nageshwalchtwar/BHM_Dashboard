@@ -2,6 +2,36 @@
 // This provides multiple authentication methods including service accounts
 import { extractFolderIdFromUrl } from './device-config';
 
+// ── In-memory file content cache ──────────────────────────────────────────
+// Key = fileId, Value = { content, modifiedTime, cachedAt }
+interface FileCacheEntry {
+  content: string;
+  modifiedTime: string;
+  cachedAt: number;
+}
+const fileCache = new Map<string, FileCacheEntry>();
+const FILE_CACHE_MAX_AGE = 10 * 60 * 1000; // 10 minutes — files don't change once written
+const FILE_CACHE_MAX_SIZE = 300;
+
+function getCachedFile(fileId: string, modifiedTime: string): string | null {
+  const entry = fileCache.get(fileId);
+  if (entry && entry.modifiedTime === modifiedTime && (Date.now() - entry.cachedAt) < FILE_CACHE_MAX_AGE) {
+    return entry.content;
+  }
+  return null;
+}
+
+function setCachedFile(fileId: string, modifiedTime: string, content: string) {
+  // Evict oldest entries if cache is too large
+  if (fileCache.size >= FILE_CACHE_MAX_SIZE) {
+    const oldest = [...fileCache.entries()].sort((a, b) => a[1].cachedAt - b[1].cachedAt);
+    for (let i = 0; i < 50 && i < oldest.length; i++) {
+      fileCache.delete(oldest[i][0]);
+    }
+  }
+  fileCache.set(fileId, { content, modifiedTime, cachedAt: Date.now() });
+}
+
 export class SimpleGoogleDriveAPI {
   constructor(
     private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM',
@@ -285,13 +315,23 @@ export async function getMultipleCSVsFromGoogleDrive(
     const contents: string[] = [];
     const modifiedTimes: string[] = [];
 
-    // Download files in parallel batches of 5 for speed
-    const BATCH_SIZE = 5;
+    // Download files in parallel batches, using cache when possible
+    const BATCH_SIZE = 8;
+    let cacheHits = 0;
     for (let b = 0; b < recentFiles.length; b += BATCH_SIZE) {
       const batch = recentFiles.slice(b, b + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (file) => {
+          // Check file cache first
+          const cached = getCachedFile(file.id, file.modifiedTime);
+          if (cached) {
+            cacheHits++;
+            return { file, content: cached };
+          }
           const content = await api.downloadFileWithAPIKey(file.id);
+          if (content && content.length > 100) {
+            setCachedFile(file.id, file.modifiedTime, content);
+          }
           return { file, content };
         })
       );
@@ -305,7 +345,7 @@ export async function getMultipleCSVsFromGoogleDrive(
       }
     }
 
-    console.log(`✅ Downloaded ${contents.length} files successfully`);
+    console.log(`✅ Downloaded ${contents.length} files (${cacheHits} from cache, ${contents.length - cacheHits} fetched)`);
     if (contents.length === 0) return null;
     return { filenames, contents, modifiedTimes };
   } catch (error) {
