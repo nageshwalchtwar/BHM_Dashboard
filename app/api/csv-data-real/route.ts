@@ -97,24 +97,24 @@ export async function GET(request: NextRequest) {
     };
 
     // Determine how many files to fetch based on requested range
-    // Google Sheets files typically contain 10-15 min of 100Hz data each
+    // Each Google Sheet has ~10-15 min of 100Hz data.
+    // The download function caps at 20 files and samples evenly if the folder has more.
+    // So we tell it the ideal count, and it'll do the right thing.
     const shouldFetchMultiple = isCustomRange || minutes >= 60
     const maxFiles = isCustomRange
-      ? 200 // Custom range: generous limit
+      ? 50  // Custom range
       : minutes >= 10080
-        ? 200 // 1 week: all available files
+        ? 50  // 1 week: sample from available files
         : minutes >= 1440
-          ? 100 // 1 day: ~96 files for 24h of 15-min sheets
+          ? 30  // 1 day: sample from available files
           : minutes >= 60
-            ? 10  // 1 hour: ~6 files for 60min of 15-min sheets
-            : 1   // 1 min: single latest file
+            ? 10  // 1 hour: ~6 files needed
+            : 1   // 1 min / live: single latest file
 
-    // Calculate sinceDate to filter files at the Drive API level
+    // Only use sinceDate for custom date range (user-provided dates)
+    // Don't use it for preset ranges — Drive modifiedTime doesn't match data time
     let sinceDate: string | undefined
-    if (!isCustomRange && minutes >= 60) {
-      const since = new Date(Date.now() - minutes * 60 * 1000)
-      sinceDate = since.toISOString()
-    } else if (isCustomRange && startDate) {
+    if (isCustomRange && startDate) {
       sinceDate = new Date(startDate).toISOString()
     }
 

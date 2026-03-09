@@ -162,6 +162,14 @@ export default function BHMDashboard() {
       }
 
       const response = await fetch(apiUrl)
+      
+      // Guard against non-JSON responses (e.g. rate limit text)
+      const contentType = response.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        const text = await response.text()
+        throw new Error(text.slice(0, 100) || `Server returned ${response.status}`)
+      }
+      
       const result = await response.json()
 
       if (result.success && result.data) {

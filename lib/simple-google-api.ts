@@ -98,15 +98,73 @@ export class SimpleGoogleDriveAPI {
   }
 
   // Method 2: Download file content with API Key (Google Sheets as CSV export)
-  async downloadFileWithAPIKey(fileId: string): Promise<string | null> {
+  async downloadFileWithAPIKey(fileId: string, retries = 2): Promise<string | null> {
     if (!this.apiKey) {
       return null;
     }
 
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        if (attempt > 0) {
+          // Exponential backoff: 2s, 4s
+          const delay = 2000 * attempt;
+          console.log(`⏳ Retry ${attempt}/${retries} for ${fileId} after ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+
+        // First try Google Sheets export (most common case)
+        const exportResponse = await this.fetchWithTimeout(
+          `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; BHM-Dashboard/1.0)',
+              'Accept': 'text/csv,application/csv,text/plain,*/*'
+            }
+          }
+        );
+        
+        if (exportResponse && exportResponse.ok) {
+          const content = await exportResponse.text();
+          
+          if (content && content.length > 100 && content.includes('Device')) {
+            return content;
+          }
+        } else if (exportResponse && exportResponse.status === 429) {
+          // Rate limited — retry
+          console.log(`⚠️ Rate limited on export for ${fileId}`);
+          continue;
+        }
+        
+        // Fallback to regular file download for actual CSV files
+        const response = await this.fetchWithTimeout(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`
+        );
+        
+        if (response && response.ok) {
+          const content = await response.text();
+          if (content && content.includes('Device')) {
+            return content;
+          }
+        } else if (response && response.status === 429) {
+          console.log(`⚠️ Rate limited on Drive API for ${fileId}`);
+          continue;
+        }
+        
+        return null;
+        
+      } catch (error) {
+        if (attempt === retries) {
+          console.log('❌ Download error:', error);
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Fast single-attempt download for batch use — no retries, 5s timeout, Sheets export only
+  async downloadFileQuick(fileId: string): Promise<string | null> {
     try {
-      console.log(`🔄 Downloading file: ${fileId}`);
-      
-      // First try Google Sheets export (most common case) - No API key needed for export
       const exportResponse = await this.fetchWithTimeout(
         `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
         {
@@ -114,45 +172,32 @@ export class SimpleGoogleDriveAPI {
             'User-Agent': 'Mozilla/5.0 (compatible; BHM-Dashboard/1.0)',
             'Accept': 'text/csv,application/csv,text/plain,*/*'
           }
-        }
+        },
+        5000 // 5 second timeout
       );
-      
+
       if (exportResponse && exportResponse.ok) {
         const content = await exportResponse.text();
-        console.log(`📄 Export response: ${content.length} chars`);
-        
         if (content && content.length > 100 && content.includes('Device')) {
-          console.log('✅ Successfully exported Google Sheets as CSV');
           return content;
         }
-        
-        // Log first few lines for debugging
-        if (content) {
-          console.log(`📄 Content preview: ${content.substring(0, 200)}...`);
-        }
-      } else {
-        console.log(`❌ Export failed or timed out`);
       }
-      
-      // Fallback to regular file download for actual CSV files
+
+      // Quick fallback to Drive API (only if export failed completely)
       const response = await this.fetchWithTimeout(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
+        {},
+        5000
       );
-      
       if (response && response.ok) {
         const content = await response.text();
         if (content && content.includes('Device')) {
-          console.log('✅ Successfully downloaded file via Drive API');
           return content;
         }
-      } else {
-        console.log(`❌ Drive API download failed or timed out`);
       }
-      
+
       return null;
-      
-    } catch (error) {
-      console.log('❌ Download error:', error);
+    } catch {
       return null;
     }
   }
@@ -299,7 +344,6 @@ export async function getMultipleCSVsFromGoogleDrive(
     }
 
     const api = new SimpleGoogleDriveAPI(folderId, apiKey);
-    // Pass sinceDate to filter files at the Drive API level
     const files = await api.listFilesWithAPIKey(sinceDate);
 
     if (!files || files.length === 0) {
@@ -307,28 +351,52 @@ export async function getMultipleCSVsFromGoogleDrive(
       return null;
     }
 
-    // Take only the most recent N files
-    const recentFiles = files.slice(0, maxFiles);
-    console.log(`📂 Fetching ${recentFiles.length} of ${files.length} files${sinceDate ? ` (since ${sinceDate})` : ''}...`);
+    // ── Sample files at even intervals for full time-range coverage ──
+    // If we have 100 files but only want 15, pick every Nth to cover the range
+    // Files are sorted newest-first by Drive API
+    const MAX_DOWNLOADS = Math.min(maxFiles, 20); // Hard cap: never download more than 20
+    let selectedFiles: typeof files;
+    if (files.length <= MAX_DOWNLOADS) {
+      selectedFiles = files;
+    } else {
+      // Pick files at even intervals to cover the full range
+      selectedFiles = [];
+      const step = (files.length - 1) / (MAX_DOWNLOADS - 1);
+      for (let i = 0; i < MAX_DOWNLOADS; i++) {
+        selectedFiles.push(files[Math.round(i * step)]);
+      }
+    }
+    console.log(`📂 Selected ${selectedFiles.length} of ${files.length} files (sampling every ${files.length <= MAX_DOWNLOADS ? 1 : Math.round(files.length / MAX_DOWNLOADS)} files)`);
 
     const filenames: string[] = [];
     const contents: string[] = [];
     const modifiedTimes: string[] = [];
 
-    // Download files in parallel batches, using cache when possible
-    const BATCH_SIZE = 8;
+    // ── Fast parallel download: no retries, 5s timeout, Sheets export only ──
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 300;
+    const OVERALL_DEADLINE = Date.now() + 25_000; // 25s hard deadline
     let cacheHits = 0;
-    for (let b = 0; b < recentFiles.length; b += BATCH_SIZE) {
-      const batch = recentFiles.slice(b, b + BATCH_SIZE);
+
+    for (let b = 0; b < selectedFiles.length; b += BATCH_SIZE) {
+      // Bail if we're close to the deadline
+      if (Date.now() > OVERALL_DEADLINE) {
+        console.log(`⏰ Hit 25s deadline after ${contents.length} files, stopping`);
+        break;
+      }
+      if (b > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+
+      const batch = selectedFiles.slice(b, b + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (file) => {
-          // Check file cache first
+          // Check cache first
           const cached = getCachedFile(file.id, file.modifiedTime);
           if (cached) {
             cacheHits++;
             return { file, content: cached };
           }
-          const content = await api.downloadFileWithAPIKey(file.id);
+          // Fast download: no retries, just Sheets export with 5s timeout
+          const content = await api.downloadFileQuick(file.id);
           if (content && content.length > 100) {
             setCachedFile(file.id, file.modifiedTime, content);
           }
@@ -345,7 +413,7 @@ export async function getMultipleCSVsFromGoogleDrive(
       }
     }
 
-    console.log(`✅ Downloaded ${contents.length} files (${cacheHits} from cache, ${contents.length - cacheHits} fetched)`);
+    console.log(`✅ Got ${contents.length} files (${cacheHits} cached, ${contents.length - cacheHits} fetched) in ${Math.round((Date.now() - (OVERALL_DEADLINE - 25_000)) / 1000)}s`);
     if (contents.length === 0) return null;
     return { filenames, contents, modifiedTimes };
   } catch (error) {
