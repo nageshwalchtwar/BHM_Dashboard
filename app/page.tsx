@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Activity,
-  Thermometer,
   Zap,
   TrendingUp,
   RefreshCw,
@@ -26,8 +24,6 @@ import {
   Users,
   Settings,
   UserCog,
-  Moon,
-  Sun,
   Mail
 } from "lucide-react"
 import { LatestDataChart } from "@/components/latest-data-chart"
@@ -97,7 +93,6 @@ export default function BHMDashboard() {
   const [showCustomRange, setShowCustomRange] = useState(false)
 
   // UI state
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [activeTab, setActiveTab] = useState('adxl-x')
 
   // Authentication check
@@ -300,21 +295,6 @@ export default function BHMDashboard() {
   const handleEmailReports = () => {
     router.push('/email-reports')
   }
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-    document.documentElement.classList.toggle('dark')
-    localStorage.setItem('bhm_dark_mode', (!isDarkMode).toString())
-  }
-
-  // Load dark mode preference
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('bhm_dark_mode') === 'true'
-    setIsDarkMode(savedDarkMode)
-    if (savedDarkMode) {
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
 
   // Don't render anything until authentication is checked
   if (!mounted || !isAuthenticated) {
@@ -529,16 +509,6 @@ export default function BHMDashboard() {
               >
                 <UserCog className="h-3 w-3" />
                 <span className="text-xs">Account</span>
-              </Button>
-
-              {/* Dark Mode Toggle */}
-              <Button
-                onClick={toggleDarkMode}
-                size="sm"
-                variant="ghost"
-                className="h-8"
-              >
-                {isDarkMode ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
               </Button>
 
               <Button
