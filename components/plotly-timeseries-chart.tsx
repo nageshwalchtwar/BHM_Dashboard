@@ -58,10 +58,32 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     // Sort by timestamp ascending for Plotly
     const sorted = [...safeData].sort((a, b) => a.timestamp - b.timestamp)
 
-    // Convert to timezone-naive ISO strings so Plotly displays the raw time
-    // without applying the browser's local timezone offset
-    const timestamps = sorted.map((d) => new Date(d.timestamp).toISOString().slice(0, -1))
-    const values = sorted.map((d) => d[dataKey])
+    // Build arrays with null gaps where time jumps significantly
+    // This prevents Plotly from drawing spikes across data gaps
+    const timestamps: (string | null)[] = []
+    const values: (number | null)[] = []
+
+    // Detect typical interval from first few points
+    let medianGap = 10000 // default 10s
+    if (sorted.length > 2) {
+      const gaps: number[] = []
+      for (let i = 1; i < Math.min(sorted.length, 50); i++) {
+        gaps.push(sorted[i].timestamp - sorted[i - 1].timestamp)
+      }
+      gaps.sort((a, b) => a - b)
+      medianGap = gaps[Math.floor(gaps.length / 2)]
+    }
+    const gapThreshold = Math.max(medianGap * 3, 30000) // 3x median or 30s minimum
+
+    for (let i = 0; i < sorted.length; i++) {
+      // Insert a null point before this one if there's a big time gap
+      if (i > 0 && (sorted[i].timestamp - sorted[i - 1].timestamp) > gapThreshold) {
+        timestamps.push(null)
+        values.push(null)
+      }
+      timestamps.push(new Date(sorted[i].timestamp).toISOString().slice(0, -1))
+      values.push(sorted[i][dataKey])
+    }
 
     // Dynamic time format based on range
     const mins = parseInt(timeRange || "1", 10) || 10080 // 'custom' parses to NaN → treat as multi-day
@@ -76,6 +98,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         mode: "lines",
         name: title,
         line: { color, width: 1.5 },
+        connectgaps: false,
         hovertemplate:
           `<b>${title}</b><br>` +
           `Time: %{x|${hoverFmt}}<br>` +
@@ -85,9 +108,11 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     ]
 
     // Add RMS reference line
-    if (typeof rms === "number" && timestamps.length > 0) {
+    const firstTs = timestamps.find(t => t !== null)
+    const lastTs = [...timestamps].reverse().find(t => t !== null)
+    if (typeof rms === "number" && firstTs && lastTs) {
       traces.push({
-        x: [timestamps[0], timestamps[timestamps.length - 1]],
+        x: [firstTs, lastTs],
         y: [rms, rms],
         type: "scatter",
         mode: "lines",
@@ -98,10 +123,10 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     }
 
     // Add custom reference lines (e.g., warning/critical for temperature)
-    if (referenceLines && timestamps.length > 0) {
+    if (referenceLines && firstTs && lastTs) {
       referenceLines.forEach((ref) => {
         traces.push({
-          x: [timestamps[0], timestamps[timestamps.length - 1]],
+          x: [firstTs, lastTs],
           y: [ref.y, ref.y],
           type: "scatter",
           mode: "lines",
