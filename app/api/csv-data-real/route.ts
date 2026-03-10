@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, streamParseCSVToRMS } from "@/lib/csv-handler"
-import { getMultipleCSVsFromGoogleDrive, getCSVByDate } from '@/lib/simple-google-api'
+import { parseCSVToSensorData } from "@/lib/csv-handler"
+import { streamCSVByDateAsRMS, sampleWeekAsRMS } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache (2 min) ────────────────────────────────────────────────
@@ -33,47 +33,25 @@ export async function GET(request: NextRequest) {
     let dataSource = ''
     let filenames: string[] = []
 
-    // Helper: extract date from filename or modifiedTime
-    const extractFileDate = (filename: string, modifiedTime?: string): string | undefined => {
-      const m = filename.match(/(\d{4}-\d{2}-\d{2})/);
-      if (m) return m[1];
-      if (modifiedTime) return modifiedTime.split('T')[0];
-      return undefined;
-    };
-
     if (mode === 'date') {
-      // ── 1 Day: Download full CSV → 1-second RMS ─────────────────────────
-      const targetDate = date || '';
-      console.log(`📅 Fetching CSV for date: ${targetDate || 'latest'}`)
-      const result = await getCSVByDate(targetDate, folderId);
-
-      if (result && result.content && result.content.length > 100) {
+      // ── 1 Day: Stream full CSV → 1-second RMS (never buffers the 1+ GB file) ──
+      const result = await streamCSVByDateAsRMS(date || '', folderId, 1000);
+      if (result) {
         filenames = [result.filename];
         dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
-        const fileDate = extractFileDate(result.filename, result.modifiedTime);
-
-        // 1-second RMS windows — processes line by line, no huge intermediate array
-        const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 1000, fileDate);
-        allData = rmsData;
-        console.log(`📈 ${rawRowCount} raw rows → ${rmsData.length} RMS points (1s windows)`);
+        allData = result.rmsData;
+        console.log(`📈 ${result.rawRowCount} raw rows → ${result.rmsData.length} RMS points (1s)`);
       }
     } else {
-      // ── 1 Week: Download up to 7 CSV files → 1-second RMS each ──────────
-      console.log('📂 Fetching up to 7 CSV files for week view...')
-      const multiResult = await getMultipleCSVsFromGoogleDrive(7, folderId);
-
-      if (multiResult && multiResult.contents.length > 0) {
-        filenames = multiResult.filenames;
-        dataSource = `${device?.name || 'Drive'} - ${multiResult.contents.length} files`;
-
-        for (let i = 0; i < multiResult.contents.length; i++) {
-          const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
-          // 10s RMS windows for week — keeps point count manageable across 7 days
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], 10000, fileDate);
-          allData.push(...rmsData);
-          console.log(`  ${multiResult.filenames[i]}: ${rawRowCount} rows → ${rmsData.length} RMS (10s)`);
-        }
-        console.log(`📈 Total: ${allData.length} RMS points from ${multiResult.contents.length} files`);
+      // ── 1 Week: Sample 48 evenly-spaced chunks from each of 7 files ─────────
+      // 48 chunks × 500 KB each covers the full 24h pattern without full download
+      console.log('📂 Sampling week data (48 chunks × 7 days)...');
+      const result = await sampleWeekAsRMS(folderId, 7, 48);
+      if (result) {
+        filenames = result.filenames;
+        dataSource = `${device?.name || 'Drive'} - ${result.filenames.length} files (sampled)`;
+        allData = result.rmsData;
+        console.log(`📈 Week: ${allData.length} sampled RMS points from ${result.filenames.length} files`);
       }
     }
 

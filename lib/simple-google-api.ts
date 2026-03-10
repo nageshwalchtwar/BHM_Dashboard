@@ -660,6 +660,174 @@ export class SimpleGoogleDriveAPI {
       return null;
     }
   }
+
+  /**
+   * Stream a Google Drive file line-by-line and compute RMS windows in real time.
+   * NEVER buffers the full file in memory — O(window_size) during download.
+   * Handles 1+ GB files by piping the HTTP response body through a line parser.
+   *
+   * @param fileId   Google Drive file ID
+   * @param windowMs RMS window in milliseconds (1000 = 1 second)
+   * @param fileDate Optional YYYY-MM-DD for resolving time-only timestamps (HH:MM:SS)
+   */
+  async streamAndComputeRMS(
+    fileId: string,
+    windowMs: number,
+    fileDate?: string,
+  ): Promise<{ rmsData: any[]; rawRowCount: number } | null> {
+    if (!this.apiKey) return null;
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`;
+    let resp: Response;
+    try {
+      resp = await fetch(url); // No timeout — must run to completion for streaming
+    } catch (err) {
+      console.log(`❌ streamAndComputeRMS: fetch error:`, err);
+      return null;
+    }
+    if (!resp.ok || !resp.body) {
+      console.log(`❌ streamAndComputeRMS: HTTP ${resp?.status} for ${fileId}`);
+      return null;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    // Column indices set when header is parsed
+    let headers: string[] | null = null;
+    let tsIdx = -1;
+    let axAIdx = -1, ayAIdx = -1, azAIdx = -1;
+    let axWIdx = -1, ayWIdx = -1, azWIdx = -1;
+    let acxIdx = -1, acyIdx = -1, aczIdx = -1;
+    let strIdx = -1, tmpIdx = -1;
+
+    const dateRef = fileDate ? new Date(fileDate) : new Date();
+    const parseTs = (raw: string): number => {
+      const s = raw.trim();
+      if (s.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
+        const [hh, mm, sp] = s.split(':');
+        const sec = parseFloat(sp || '0');
+        return Date.UTC(dateRef.getUTCFullYear(), dateRef.getUTCMonth(), dateRef.getUTCDate(),
+          parseInt(hh), parseInt(mm), Math.floor(sec), Math.round((sec % 1) * 1000));
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    };
+    const pf = (v: string[], i: number): number => {
+      if (i < 0 || i >= v.length) return 0;
+      const n = parseFloat(v[i]?.trim() || '');
+      return isNaN(n) ? 0 : n;
+    };
+
+    // RMS window state
+    const rmsData: any[] = [];
+    let rawRowCount = 0;
+    let wStart = 0, wFirstRaw = '';
+    let wAxA: number[] = [], wAyA: number[] = [], wAzA: number[] = [];
+    let wAxW: number[] = [], wAyW: number[] = [], wAzW: number[] = [];
+    let wAx: number[] = [], wAy: number[] = [], wAz: number[] = [];
+    let wSt: number[] = [], wTp: number[] = [];
+
+    const rms = (a: number[]) => a.length ? Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length) : 0;
+    const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+
+    const flushWindow = () => {
+      if (!wAx.length && !wAxA.length) return;
+      const axR = rms(wAx) || rms(wAxA), ayR = rms(wAy) || rms(wAyA), azR = rms(wAz) || rms(wAzA);
+      rmsData.push({
+        timestamp: wStart, rawTimestamp: wFirstRaw,
+        ax_adxl: rms(wAxA), ay_adxl: rms(wAyA), az_adxl: rms(wAzA),
+        ax_wt901: rms(wAxW), ay_wt901: rms(wAyW), az_wt901: rms(wAzW),
+        accel_x: axR, accel_y: ayR, accel_z: azR,
+        x: axR, y: ayR, z: azR, vibration: axR, acceleration: ayR,
+        stroke_mm: mean(wSt), strain: mean(wSt),
+        temperature_c: wTp.at(-1) ?? 0, temperature: wTp.at(-1) ?? 0,
+      });
+    };
+    const resetWindow = (ts: number, raw: string) => {
+      wStart = ts; wFirstRaw = raw;
+      wAxA = []; wAyA = []; wAzA = [];
+      wAxW = []; wAyW = []; wAzW = [];
+      wAx = []; wAy = []; wAz = [];
+      wSt = []; wTp = [];
+    };
+
+    const processLine = (line: string) => {
+      if (!line || line.length < 5) return;
+
+      if (headers === null) {
+        // Detect header: has commas and starts with a non-digit
+        if (line.includes(',') && !/^\d/.test(line.trimStart())) {
+          const raw = line.split(',').map(h => h.trim());
+          const h = raw.map(s => s.toLowerCase());
+          const col = (n: string) => h.indexOf(n);
+          tsIdx = Math.max(col('timestamp'), col('time'), col('ts'));
+          axAIdx = col('ax_adxl'); ayAIdx = col('ay_adxl'); azAIdx = col('az_adxl');
+          axWIdx = col('ax_wt901'); ayWIdx = col('ay_wt901'); azWIdx = col('az_wt901');
+          acxIdx = col('accel_x') >= 0 ? col('accel_x') : col('x');
+          acyIdx = col('accel_y') >= 0 ? col('accel_y') : col('y');
+          aczIdx = col('accel_z') >= 0 ? col('accel_z') : col('z');
+          strIdx = col('stroke_mm');
+          tmpIdx = [col('temp_c'), col('temperature_c'), col('temperature')].find(i => i >= 0) ?? -1;
+          headers = raw;
+          console.log(`📋 Header: ${raw.length} cols | ts=${tsIdx} axAdxl=${axAIdx} wt901=${axWIdx}`);
+        }
+        return;
+      }
+
+      if (tsIdx < 0) return;
+      const vals = line.split(',');
+      if (vals.length < headers.length - 1) return;
+      const ts = parseTs(vals[tsIdx]);
+      if (ts === 0) return;
+
+      if (wStart === 0) resetWindow(ts, vals[tsIdx]?.trim() || '');
+
+      if (ts - wStart >= windowMs) {
+        flushWindow();
+        resetWindow(ts, vals[tsIdx]?.trim() || '');
+      }
+
+      rawRowCount++;
+      wAxA.push(pf(vals, axAIdx)); wAyA.push(pf(vals, ayAIdx)); wAzA.push(pf(vals, azAIdx));
+      wAxW.push(pf(vals, axWIdx)); wAyW.push(pf(vals, ayWIdx)); wAzW.push(pf(vals, azWIdx));
+      wAx.push(pf(vals, acxIdx) || pf(vals, axAIdx));
+      wAy.push(pf(vals, acyIdx) || pf(vals, ayAIdx));
+      wAz.push(pf(vals, aczIdx) || pf(vals, azAIdx));
+      wSt.push(pf(vals, strIdx));
+      wTp.push(pf(vals, tmpIdx));
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buf.trim()) processLine(buf.trim());
+          flushWindow(); // flush last window
+          break;
+        }
+        buf += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          processLine(buf.substring(0, nl).trim());
+          buf = buf.substring(nl + 1);
+        }
+      }
+    } catch (err) {
+      console.log(`⚠️ Stream interrupted for ${fileId}:`, err);
+      if (rawRowCount === 0) return null;
+      // Return partial result — still useful
+    } finally {
+      reader.releaseLock();
+    }
+
+    if (rawRowCount === 0) {
+      console.log(`❌ streamAndComputeRMS: no rows parsed from ${fileId}`);
+      return null;
+    }
+    console.log(`✅ Streamed ${rawRowCount} rows → ${rmsData.length} RMS points (${windowMs}ms windows)`);
+    return { rmsData, rawRowCount };
+  }
 }
 
 /** Check if a single line looks like a CSV header row */
@@ -1138,6 +1306,177 @@ export async function getDriveSubfolders(
   } catch {
     return [];
   }
+}
+
+// ── Internal helper: compute one RMS point per byte-range chunk ──────────
+function computeRMSFromChunks(header: string, chunks: string[], fileDate?: string): any[] {
+  const h = header.split(',').map(s => s.trim().toLowerCase());
+  const col = (n: string) => h.indexOf(n);
+  const tsIdx = Math.max(col('timestamp'), col('time'), col('ts'));
+  const axAIdx = col('ax_adxl'), ayAIdx = col('ay_adxl'), azAIdx = col('az_adxl');
+  const axWIdx = col('ax_wt901'), ayWIdx = col('ay_wt901'), azWIdx = col('az_wt901');
+  const acxIdx = col('accel_x') >= 0 ? col('accel_x') : col('x');
+  const acyIdx = col('accel_y') >= 0 ? col('accel_y') : col('y');
+  const aczIdx = col('accel_z') >= 0 ? col('accel_z') : col('z');
+  const strIdx = col('stroke_mm');
+  const tmpIdx = [col('temp_c'), col('temperature_c'), col('temperature')].find(i => i >= 0) ?? -1;
+
+  const dateRef = fileDate ? new Date(fileDate) : new Date();
+  const parseTs = (raw: string): number => {
+    const s = raw.trim();
+    if (s.match(/^\d{1,2}:\d{2}:\d{2}/)) {
+      const [hh, mm, sp] = s.split(':');
+      return Date.UTC(dateRef.getUTCFullYear(), dateRef.getUTCMonth(), dateRef.getUTCDate(),
+        parseInt(hh), parseInt(mm), parseInt(sp || '0'));
+    }
+    const d = new Date(s); return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+  const pf = (v: string[], i: number): number => {
+    if (i < 0 || i >= v.length) return 0;
+    const n = parseFloat(v[i]?.trim() || ''); return isNaN(n) ? 0 : n;
+  };
+  const rms = (a: number[]) => a.length ? Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length) : 0;
+  const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+
+  const result: any[] = [];
+  for (const chunk of chunks) {
+    const lines = chunk.split('\n').filter(l => l.length > 5);
+    if (!lines.length) continue;
+    const axA: number[] = [], ayA: number[] = [], azA: number[] = [];
+    const axW: number[] = [], ayW: number[] = [], azW: number[] = [];
+    const acx: number[] = [], acy: number[] = [], acz: number[] = [];
+    const st: number[] = [], tp: number[] = [];
+    let firstTs = 0;
+    for (const line of lines) {
+      const v = line.split(',');
+      if (v.length < h.length - 1) continue;
+      const ts = tsIdx >= 0 ? parseTs(v[tsIdx]) : 0;
+      if (!firstTs && ts) firstTs = ts;
+      axA.push(pf(v, axAIdx)); ayA.push(pf(v, ayAIdx)); azA.push(pf(v, azAIdx));
+      axW.push(pf(v, axWIdx)); ayW.push(pf(v, ayWIdx)); azW.push(pf(v, azWIdx));
+      acx.push(pf(v, acxIdx) || pf(v, axAIdx));
+      acy.push(pf(v, acyIdx) || pf(v, ayAIdx));
+      acz.push(pf(v, aczIdx) || pf(v, azAIdx));
+      st.push(pf(v, strIdx)); tp.push(pf(v, tmpIdx));
+    }
+    if (!firstTs) continue;
+    const axR = rms(acx) || rms(axA), ayR = rms(acy) || rms(ayA), azR = rms(acz) || rms(azA);
+    result.push({
+      timestamp: firstTs, rawTimestamp: '',
+      ax_adxl: rms(axA), ay_adxl: rms(ayA), az_adxl: rms(azA),
+      ax_wt901: rms(axW), ay_wt901: rms(ayW), az_wt901: rms(azW),
+      accel_x: axR, accel_y: ayR, accel_z: azR,
+      x: axR, y: ayR, z: azR, vibration: axR, acceleration: ayR,
+      stroke_mm: mean(st), strain: mean(st),
+      temperature_c: tp.at(-1) ?? 0, temperature: tp.at(-1) ?? 0,
+    });
+  }
+  return result;
+}
+
+/**
+ * Stream a CSV file for a specific date directly to 1-second RMS data.
+ * Uses Node.js streaming — never buffers the full 1+ GB file in memory.
+ * Falls back to the most recent file if the requested date has no match.
+ */
+export async function streamCSVByDateAsRMS(
+  date: string,
+  customFolderId?: string,
+  windowMs: number = 1000,
+): Promise<{ filename: string; modifiedTime?: string; rmsData: any[]; rawRowCount: number } | null> {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey || apiKey.startsWith('your_')) {
+    console.log('❌ streamCSVByDateAsRMS: No valid GOOGLE_DRIVE_API_KEY');
+    return null;
+  }
+  let folderId = customFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID || '';
+  if (folderId.includes('http')) { const e = extractFolderIdFromUrl(folderId); if (e) folderId = e; }
+
+  const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+  const files = await api.listFilesWithAPIKey();
+  if (!files || files.length === 0) {
+    console.log('❌ streamCSVByDateAsRMS: No files found in folder', folderId);
+    return null;
+  }
+
+  // Find exact date match, fall back to most recent file
+  const targetFile = files.find(f => {
+    if (!date) return true;
+    const nm = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+    if (nm && nm[1] === date) return true;
+    if (f.modifiedTime?.startsWith(date)) return true;
+    return false;
+  }) ?? files[0];
+
+  const fileDate = targetFile.name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? targetFile.modifiedTime?.split('T')[0];
+  const fileMB = Math.round(parseInt(targetFile.size || '0') / (1024 * 1024));
+  console.log(`📡 Streaming ${targetFile.name} (${fileMB} MB) → ${windowMs}ms RMS...`);
+  const t0 = Date.now();
+
+  const result = await api.streamAndComputeRMS(targetFile.id, windowMs, fileDate);
+  if (!result) return null;
+
+  console.log(`⏱️ Done in ${Math.round((Date.now() - t0) / 1000)}s`);
+  return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
+}
+
+/**
+ * Sample evenly-spaced byte-range chunks from each of the N most recent files.
+ * Returns representative RMS data from throughout each day — no full download needed.
+ * Best for week view: N files × samplesPerFile points = overview of each day's pattern.
+ */
+export async function sampleWeekAsRMS(
+  customFolderId?: string,
+  numFiles: number = 7,
+  samplesPerFile: number = 48,  // ~30 min intervals across 24h
+): Promise<{ filenames: string[]; rmsData: any[] } | null> {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey || apiKey.startsWith('your_')) return null;
+  let folderId = customFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID || '';
+  if (folderId.includes('http')) { const e = extractFolderIdFromUrl(folderId); if (e) folderId = e; }
+
+  const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+  const files = await api.listFilesWithAPIKey();
+  if (!files || files.length === 0) return null;
+
+  const selected = files.slice(0, numFiles);
+  const filenames: string[] = [];
+  const allRMS: any[] = [];
+
+  // Process files in sequence to avoid overloading the Drive API
+  for (const file of selected) {
+    const fileSize = parseInt(file.size || '0', 10);
+    const fileDate = file.name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? file.modifiedTime?.split('T')[0];
+
+    if (fileSize > 5 * 1024 * 1024) {
+      // Large file: sample evenly-spaced 500 KB chunks (fast, no full download)
+      const sampled = await api.sampleFileByByteRanges(file.id, fileSize, samplesPerFile, 512 * 1024);
+      if (sampled && sampled.chunks.length > 0) {
+        const pts = computeRMSFromChunks(sampled.header, sampled.chunks, fileDate);
+        if (pts.length > 0) {
+          allRMS.push(...pts);
+          filenames.push(file.name);
+          console.log(`  📊 ${file.name}: ${sampled.chunks.length} chunks → ${pts.length} pts`);
+        }
+      }
+    } else {
+      // Small file: full tail download
+      const content = await api.downloadFileTailWithHeader(file.id, fileSize);
+      if (content && content.length > 100) {
+        // Inline mini-RMS using computeRMSFromChunks with one big chunk
+        const nl = content.indexOf('\n');
+        if (nl > 0) {
+          const header = content.substring(0, nl).trim();
+          const pts = computeRMSFromChunks(header, [content.substring(nl + 1)], fileDate);
+          if (pts.length > 0) { allRMS.push(...pts); filenames.push(file.name); }
+        }
+      }
+    }
+  }
+
+  if (allRMS.length === 0) return null;
+  console.log(`✅ sampleWeekAsRMS: ${allRMS.length} pts from ${filenames.length} files`);
+  return { filenames, rmsData: allRMS };
 }
 
 export default SimpleGoogleDriveAPI;
