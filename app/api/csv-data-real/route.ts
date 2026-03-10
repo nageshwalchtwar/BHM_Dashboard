@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond, streamParseCSVToRMS } from "@/lib/csv-handler"
-import { getCSVFromGoogleDrive, getCSVFromGoogleDriveOptimized, getMultipleCSVsFromGoogleDrive, getCSVByDate } from '@/lib/simple-google-api'
+import { getCSVFromGoogleDrive, getCSVFromGoogleDriveOptimized, getMultipleCSVsFromGoogleDrive, getCSVByDate, getCSVBatchTail, getCSVBatchSampled, getMultipleCSVsBatch } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache ────────────────────────────────────────────────────────
@@ -58,45 +58,124 @@ export async function GET(request: NextRequest) {
     };
 
     if (mode === 'week') {
-      // ── 1 Week: Fetch last 7 daily files ──────────────────────────────
-      console.log('📂 Fetching up to 7 CSV files for 1 Week view...')
-      const multiResult = await getMultipleCSVsFromGoogleDrive(7, folderId);
+      // ── 1 Week: Batch-fetch sampled rows from last 7 files ─────────────
+      console.log('📂 Fetching up to 7 CSV files for 1 Week view (batch)...')
+      const batchMulti = await getMultipleCSVsBatch(7, folderId, 400, 20);
 
-      if (multiResult && multiResult.contents.length > 0) {
-        filenames = multiResult.filenames;
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
-        // Use streaming RMS parser per file — avoids huge intermediate arrays
+      if (batchMulti && batchMulti.contents.length > 0) {
+        filenames = batchMulti.filenames;
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${batchMulti.contents.length} files (batch)`;
         const rmsWindowMs = 60000; // 60s windows for week mode
-        for (let i = 0; i < multiResult.contents.length; i++) {
-          const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
-          console.log(`📅 Streaming-RMS parsing file ${multiResult.filenames[i]} with date: ${fileDate || 'unknown'}`);
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], rmsWindowMs, fileDate);
+        for (let i = 0; i < batchMulti.contents.length; i++) {
+          const fileDate = extractFileDate(batchMulti.filenames[i], batchMulti.modifiedTimes[i]);
+          console.log(`📅 Batch-RMS parsing file ${batchMulti.filenames[i]} with date: ${fileDate || 'unknown'}`);
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(batchMulti.contents[i], rmsWindowMs, fileDate);
           allData.push(...rmsData);
           console.log(`   → ${rawRowCount} raw rows → ${rmsData.length} RMS points`);
         }
-        console.log(`📈 Merged ${allData.length} RMS points from ${multiResult.contents.length} files`);
+        console.log(`📈 Merged ${allData.length} RMS points from ${batchMulti.contents.length} files`);
         isPreRMS = true;
       }
-    } else if (mode === 'date' && date) {
-      // ── Select Date: Fetch specific day's file ─────────────────────────
-      console.log(`📅 Fetching CSV for date: ${date}`)
-      const result = await getCSVByDate(date, folderId);
 
-      if (result && result.content) {
-        filenames = [result.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date}`;
-        const fileDate = extractFileDate(result.filename, result.modifiedTime);
-        // Use streaming RMS parser — 10s windows for date mode
-        const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 10000, fileDate);
+      // Fallback: full download if batch fetch failed
+      if (allData.length === 0) {
+        console.log('⬇️ Batch fetch unavailable for week, trying full download...')
+        const multiResult = await getMultipleCSVsFromGoogleDrive(7, folderId);
+        if (multiResult && multiResult.contents.length > 0) {
+          filenames = multiResult.filenames;
+          dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
+          const rmsWindowMs = 60000;
+          for (let i = 0; i < multiResult.contents.length; i++) {
+            const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
+            const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], rmsWindowMs, fileDate);
+            allData.push(...rmsData);
+          }
+          isPreRMS = true;
+        }
+      }
+    } else if (mode === 'date' && date) {
+      // ── Select Date: Batch-fetch sampled rows for specific day ──────────
+      console.log(`📅 Fetching CSV for date: ${date} (batch)`);
+      const batchResult = await getCSVBatchSampled(folderId, { date, chunkRows: 400, maxChunks: 49 });
+
+      if (batchResult && batchResult.content && batchResult.content.length > 100) {
+        filenames = [batchResult.filename];
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date} (batch)`;
+        const fileDate = extractFileDate(batchResult.filename, batchResult.modifiedTime);
+        const { rmsData, rawRowCount } = streamParseCSVToRMS(batchResult.content, 10000, fileDate);
         allData = rmsData;
-        console.log(`📈 Streaming-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${result.filename}`);
+        console.log(`📈 Batch-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${batchResult.filename}`);
         isPreRMS = true;
+      }
+
+      // Fallback: full download if batch fetch failed
+      if (allData.length === 0) {
+        console.log('⬇️ Batch fetch unavailable for date, trying full download...')
+        const result = await getCSVByDate(date, folderId);
+        if (result && result.content) {
+          filenames = [result.filename];
+          dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date}`;
+          const fileDate = extractFileDate(result.filename, result.modifiedTime);
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 10000, fileDate);
+          allData = rmsData;
+          isPreRMS = true;
+        }
       }
     }
 
-    // ── 1 Min: optimised path — Range download + streaming RMS ──────────
+    // ── 1 Min: Sheets API batch read (only last 3000 rows) ──────────────
     if (mode === 'minute' && allData.length === 0) {
-      console.log('🔐 Fetching latest CSV (1 Min mode — optimised)...')
+      console.log('🔐 Fetching latest CSV (1 Min mode — batch)...')
+      const batchResult = await getCSVBatchTail(folderId, 3000);
+      if (batchResult && batchResult.content && batchResult.content.length > 100) {
+        filenames = [batchResult.filename];
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest (batch)`;
+        const fileDate = extractFileDate(batchResult.filename, batchResult.modifiedTime);
+
+        const { rmsData, rawRowCount, latestRMS } = streamParseCSVToRMS(
+          batchResult.content, 1000, fileDate, undefined, 60,
+        );
+
+        if (rmsData.length > 0) {
+          console.log(`⚡ Batch Sheets RMS: ${rawRowCount} rows → ${rmsData.length} RMS points`);
+          const MAX_CLIENT_POINTS = 5000;
+          let responseData = rmsData;
+          if (responseData.length > MAX_CLIENT_POINTS) {
+            const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
+            responseData = responseData.filter((_: any, i: number) => i % step === 0);
+          }
+          const dataStartBatch = new Date(responseData[0].timestamp);
+          const dataEndBatch = new Date(responseData[responseData.length - 1].timestamp);
+          const responseJson = {
+            success: true,
+            data: responseData,
+            rms: latestRMS,
+            isRMSData: true,
+            metadata: {
+              source: dataSource,
+              filename: filenames.join(', '),
+              totalPoints: rawRowCount,
+              rawPoints: rawRowCount,
+              rmsPoints: responseData.length,
+              timeframe: '1 minute',
+              dataSpan: { start: dataStartBatch.toISOString(), end: dataEndBatch.toISOString(), spanMinutes: 1 },
+              isRMSData: true,
+              lastUpdate: new Date().toISOString(),
+              latestDataTime: dataEndBatch.toISOString(),
+              oldestDataTime: dataStartBatch.toISOString(),
+              isRealData: true,
+              device: device ? { id: device.id, name: device.name, description: device.description, folderUrl: device.folderUrl } : null
+            }
+          };
+          responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
+          return NextResponse.json(responseJson);
+        }
+      }
+    }
+
+    // ── 1 Min fallback: Range download + streaming RMS ──────────
+    if (mode === 'minute' && allData.length === 0) {
+      console.log('⬇️ Batch fetch unavailable, trying optimised download...')
       const optResult = await getCSVFromGoogleDriveOptimized(folderId);
       if (optResult && optResult.content && optResult.content.length > 100) {
         filenames = [optResult.filename];

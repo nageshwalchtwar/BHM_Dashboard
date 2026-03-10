@@ -77,7 +77,7 @@ export class SimpleGoogleDriveAPI {
   }
 
   // Method 1: Try with API Key (if folder is publicly shared)
-  async listFilesWithAPIKey(sinceDate?: string): Promise<Array<{id: string, name: string, modifiedTime: string}> | null> {
+  async listFilesWithAPIKey(sinceDate?: string): Promise<Array<{id: string, name: string, modifiedTime: string, mimeType?: string}> | null> {
     if (!this.apiKey) {
       console.log('❌ No API key provided');
       return null;
@@ -310,6 +310,78 @@ export class SimpleGoogleDriveAPI {
     }
   }
 
+  // ── Google Sheets API: fetch only the rows you need ─────────────────
+
+  /** Get total row count of the first sheet in a Spreadsheet */
+  async getSheetRowCount(fileId: string): Promise<number | null> {
+    if (!this.apiKey) return null;
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${fileId}?fields=sheets(properties(gridProperties))&key=${this.apiKey}`;
+      const resp = await this.fetchWithTimeout(url, {}, 10000);
+      if (!resp || !resp.ok) {
+        console.log(`⚠️ Sheets metadata failed for ${fileId}: HTTP ${resp?.status}`);
+        return null;
+      }
+      const data = await resp.json();
+      return data.sheets?.[0]?.properties?.gridProperties?.rowCount ?? null;
+    } catch { return null; }
+  }
+
+  /** Fetch specific row ranges from a Google Sheet and return as CSV text */
+  async fetchSheetRangesAsCSV(fileId: string, ranges: string[]): Promise<string | null> {
+    if (!this.apiKey || !ranges.length) return null;
+    try {
+      const params = ranges.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${fileId}/values:batchGet?${params}&key=${this.apiKey}&valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
+      const resp = await this.fetchWithTimeout(url, {}, 25000);
+      if (!resp || !resp.ok) {
+        const errText = resp ? await resp.text().catch(() => '') : '';
+        console.log(`⚠️ Sheets batchGet failed for ${fileId}: HTTP ${resp?.status} — ${errText.substring(0, 300)}`);
+        return null;
+      }
+      const data = await resp.json();
+      const lines: string[] = [];
+      for (const vr of (data.valueRanges || [])) {
+        for (const row of (vr.values || [])) {
+          lines.push(row.map((c: any) => String(c ?? '')).join(','));
+        }
+      }
+      return lines.length >= 2 ? lines.join('\n') : null;
+    } catch (e) {
+      console.log('❌ fetchSheetRangesAsCSV error:', e);
+      return null;
+    }
+  }
+
+  /** Fetch header + last N rows from a Google Sheet (for 1-min mode) */
+  async fetchSheetTail(fileId: string, tailRows = 3000): Promise<string | null> {
+    const total = await this.getSheetRowCount(fileId);
+    if (!total || total < 2) return null;
+    const start = Math.max(2, total - tailRows + 1);
+    console.log(`📊 Sheets tail: rows ${start}–${total} of ${total}`);
+    return this.fetchSheetRangesAsCSV(fileId, ['1:1', `${start}:${total}`]);
+  }
+
+  /** Fetch header + evenly-sampled chunks from a Google Sheet (for date/week modes) */
+  async fetchSheetSampled(fileId: string, chunkRows = 400, maxChunks = 49): Promise<string | null> {
+    const total = await this.getSheetRowCount(fileId);
+    if (!total || total < 2) return null;
+    const dataRows = total - 1;
+    const numChunks = Math.min(maxChunks, Math.ceil(dataRows / chunkRows));
+    const step = Math.max(chunkRows, Math.floor(dataRows / numChunks));
+
+    const ranges: string[] = ['1:1']; // header
+    for (let i = 0; i < numChunks; i++) {
+      const s = 2 + i * step;
+      if (s > total) break;
+      const e = Math.min(s + chunkRows - 1, total);
+      ranges.push(`${s}:${e}`);
+    }
+
+    console.log(`📊 Sheets sampled: ${ranges.length - 1} chunks of ~${chunkRows} rows from ${total} total (${ranges.length} ranges)`);
+    return this.fetchSheetRangesAsCSV(fileId, ranges);
+  }
+
   // Method 3: Try accessing as public/shared folder
   async getPublicFolderContent(): Promise<string | null> {
     try {
@@ -524,6 +596,147 @@ export async function getCSVFromGoogleDriveOptimized(customFolderId?: string): P
     console.log('❌ getCSVFromGoogleDriveOptimized error:', error);
     return null;
   }
+}
+
+/**
+ * Batch-fetch the TAIL of the latest file using Google Sheets API.
+ * Only reads the last ~3000 rows instead of downloading the entire file.
+ * Falls back to full download for non-Sheet files.
+ */
+export async function getCSVBatchTail(
+  customFolderId?: string,
+  tailRows: number = 3000
+): Promise<{ filename: string; content: string; modifiedTime?: string } | null> {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey || apiKey.startsWith('your_')) return null;
+  let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+  if (folderId.includes('http')) {
+    const extracted = extractFolderIdFromUrl(folderId);
+    if (extracted) folderId = extracted;
+  }
+
+  const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+  const files = await api.listFilesWithAPIKey();
+  if (!files || files.length === 0) return null;
+
+  const latest = files[0];
+  // Use Sheets API for Google Sheets files (batch-read only needed rows)
+  if (latest.mimeType === 'application/vnd.google-apps.spreadsheet') {
+    console.log(`📊 Sheets API batch tail for ${latest.name}`);
+    const content = await api.fetchSheetTail(latest.id, tailRows);
+    if (content && content.length > 100) {
+      return { filename: latest.name, content, modifiedTime: latest.modifiedTime };
+    }
+    console.log('⚠️ Sheets API tail failed, trying full download...');
+  }
+
+  // Fallback: full download
+  return api.getLatestCSV();
+}
+
+/**
+ * Batch-fetch sampled rows from a specific date's Google Sheet.
+ * Reads evenly-spaced chunks instead of the entire file.
+ */
+export async function getCSVBatchSampled(
+  customFolderId?: string,
+  options?: { date?: string; chunkRows?: number; maxChunks?: number }
+): Promise<{ filename: string; content: string; modifiedTime?: string } | null> {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey || apiKey.startsWith('your_')) return null;
+  let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+  if (folderId.includes('http')) {
+    const extracted = extractFolderIdFromUrl(folderId);
+    if (extracted) folderId = extracted;
+  }
+
+  const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+  const files = await api.listFilesWithAPIKey();
+  if (!files || files.length === 0) return null;
+
+  // Find target file (latest or matching date)
+  let target = files[0];
+  if (options?.date) {
+    const found = files.find(f => {
+      const m = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (m && m[1] === options.date) return true;
+      return f.modifiedTime?.startsWith(options.date!) ?? false;
+    });
+    if (!found) { console.log(`❌ No file found for date ${options.date}`); return null; }
+    target = found;
+  }
+
+  if (target.mimeType === 'application/vnd.google-apps.spreadsheet') {
+    console.log(`📊 Sheets API sampled batch for ${target.name}`);
+    const content = await api.fetchSheetSampled(target.id, options?.chunkRows || 400, options?.maxChunks || 49);
+    if (content && content.length > 100) {
+      return { filename: target.name, content, modifiedTime: target.modifiedTime };
+    }
+    console.log('⚠️ Sheets API sampled failed, trying full download...');
+  }
+
+  // Fallback: full download
+  const content = await api.downloadFileWithAPIKey(target.id);
+  if (content && content.length > 100) {
+    return { filename: target.name, content, modifiedTime: target.modifiedTime };
+  }
+  return null;
+}
+
+/**
+ * Batch-fetch sampled rows from multiple files (for week mode).
+ * Uses Sheets API to read only sampled chunks from each file.
+ */
+export async function getMultipleCSVsBatch(
+  maxFiles: number = 7,
+  customFolderId?: string,
+  chunkRows: number = 400,
+  maxChunksPerFile: number = 20
+): Promise<{ filenames: string[]; contents: string[]; modifiedTimes: string[] } | null> {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey || apiKey.startsWith('your_')) return null;
+  let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+  if (folderId.includes('http')) {
+    const extracted = extractFolderIdFromUrl(folderId);
+    if (extracted) folderId = extracted;
+  }
+
+  const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+  const files = await api.listFilesWithAPIKey();
+  if (!files || files.length === 0) return null;
+
+  const selected = files.slice(0, Math.min(maxFiles, files.length));
+  const filenames: string[] = [];
+  const contents: string[] = [];
+  const modifiedTimes: string[] = [];
+
+  // Process 3 files in parallel at a time
+  for (let i = 0; i < selected.length; i += 3) {
+    const batch = selected.slice(i, i + 3);
+    const results = await Promise.allSettled(
+      batch.map(async (file) => {
+        let csv: string | null = null;
+        if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
+          csv = await api.fetchSheetSampled(file.id, chunkRows, maxChunksPerFile);
+        }
+        if (!csv) {
+          csv = await api.downloadFileQuick(file.id);
+        }
+        return { file, csv };
+      })
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value.csv && r.value.csv.length > 100) {
+        filenames.push(r.value.file.name);
+        contents.push(r.value.csv);
+        modifiedTimes.push(r.value.file.modifiedTime);
+      }
+    }
+  }
+
+  if (contents.length === 0) return null;
+  console.log(`✅ Batch fetched ${contents.length} files via Sheets API`);
+  return { filenames, contents, modifiedTimes };
 }
 
 /**
