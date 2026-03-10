@@ -2,6 +2,20 @@
 // This provides multiple authentication methods including service accounts
 import { extractFolderIdFromUrl } from './device-config';
 
+/**
+ * Check whether a string looks like valid CSV sensor data.
+ * Matches both old format (Device,Timestamp,X,Y,...) and new format
+ * (Timestamp,ax_adxl,ay_adxl,...). Rejects HTML error pages.
+ */
+function looksLikeCSV(content: string): boolean {
+  if (!content || content.length < 50) return false;
+  if (content.trimStart().startsWith('<')) return false; // HTML / XML
+  const firstLine = content.split('\n')[0].toLowerCase();
+  // Must have commas (CSV) and at least one known sensor-related keyword
+  const knownKeywords = ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp', 'vibration', 'x,', 'y,', 'z,'];
+  return firstLine.includes(',') && knownKeywords.some(k => firstLine.includes(k));
+}
+
 // ── In-memory file content cache ──────────────────────────────────────────
 // Key = fileId, Value = { content, modifiedTime, cachedAt }
 interface FileCacheEntry {
@@ -152,7 +166,7 @@ export class SimpleGoogleDriveAPI {
         if (exportResponse && exportResponse.ok) {
           const content = await exportResponse.text();
           
-          if (content && content.length > 100 && content.includes('Device')) {
+          if (looksLikeCSV(content)) {
             return content;
           }
         } else if (exportResponse && exportResponse.status === 429) {
@@ -168,7 +182,7 @@ export class SimpleGoogleDriveAPI {
         
         if (response && response.ok) {
           const content = await response.text();
-          if (content && content.includes('Device')) {
+          if (looksLikeCSV(content)) {
             return content;
           }
         } else if (response && response.status === 429) {
@@ -204,7 +218,7 @@ export class SimpleGoogleDriveAPI {
 
       if (exportResponse && exportResponse.ok) {
         const content = await exportResponse.text();
-        if (content && content.length > 100 && content.includes('Device')) {
+        if (looksLikeCSV(content)) {
           return content;
         }
       }
@@ -217,7 +231,7 @@ export class SimpleGoogleDriveAPI {
       );
       if (response && response.ok) {
         const content = await response.text();
-        if (content && content.includes('Device')) {
+        if (looksLikeCSV(content)) {
           return content;
         }
       }
@@ -256,7 +270,7 @@ export class SimpleGoogleDriveAPI {
             const content = await response.text();
             
             // Check if this looks like CSV content
-            if (content.includes('Device,Timestamp') || content.includes('CSV')) {
+            if (looksLikeCSV(content)) {
               console.log(`✅ Found CSV content (${content.length} chars)`);
               return content;
             }
@@ -292,7 +306,7 @@ export class SimpleGoogleDriveAPI {
           
           const content = await this.downloadFileWithAPIKey(latestFile.id);
           
-          if (content && content.includes('Device,Timestamp')) {
+          if (content && looksLikeCSV(content)) {
             return {
               filename: latestFile.name,
               content: content,
@@ -305,7 +319,7 @@ export class SimpleGoogleDriveAPI {
       // Method 2: Try public access patterns
       const publicContent = await this.getPublicFolderContent();
       
-      if (publicContent && publicContent.includes('Device,Timestamp')) {
+      if (publicContent && looksLikeCSV(publicContent)) {
         return {
           filename: 'latest-from-public-access.csv',
           content: publicContent
@@ -326,6 +340,9 @@ export class SimpleGoogleDriveAPI {
 export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey || apiKey.startsWith('your_')) {
+      console.log('❌ GOOGLE_DRIVE_API_KEY is not configured. Set a real API key in .env.local');
+    }
     let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     
     if (folderId.includes('http')) {
@@ -358,8 +375,8 @@ export async function getMultipleCSVsFromGoogleDrive(
 ): Promise<{filenames: string[], contents: string[], modifiedTimes: string[]} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    if (!apiKey) {
-      console.log('❌ No API key for multi-file fetch');
+    if (!apiKey || apiKey.startsWith('your_')) {
+      console.log('❌ No valid API key for multi-file fetch. Set GOOGLE_DRIVE_API_KEY in .env.local');
       return null;
     }
 
@@ -452,8 +469,8 @@ export async function getCSVByDate(
 ): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    if (!apiKey) {
-      console.log('❌ No API key for date-based fetch');
+    if (!apiKey || apiKey.startsWith('your_')) {
+      console.log('❌ No valid API key for date-based fetch. Set GOOGLE_DRIVE_API_KEY in .env.local');
       return null;
     }
 
@@ -516,7 +533,7 @@ export async function getAvailableDates(
 ): Promise<string[]> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    if (!apiKey) return [];
+    if (!apiKey || apiKey.startsWith('your_')) return [];
 
     let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
     if (folderId.includes('http')) {
@@ -544,7 +561,7 @@ export async function getDriveSubfolders(
 ): Promise<Array<{ id: string; name: string; modifiedTime?: string; folderUrl: string }>> {
   try {
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-    if (!apiKey) return [];
+    if (!apiKey || apiKey.startsWith('your_')) return [];
 
     let parentFolderId =
       parentFolderIdOrUrl ||

@@ -64,9 +64,11 @@ export async function accessSharedGoogleDriveFolder(): Promise<{filename: string
             if (response.ok) {
               const content = await response.text();
               
-              // Check if it's valid CSV with your format
-              if (content && content.length > 100 && 
-                  (content.includes('Device,Timestamp') || content.includes('88A29E218213'))) {
+              // Check if it's valid CSV with sensor data format
+              const firstLine = (content.split('\n')[0] || '').toLowerCase();
+              const hasCSVHeaders = firstLine.includes(',') &&
+                ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp'].some(k => firstLine.includes(k));
+              if (content && content.length > 100 && hasCSVHeaders) {
                 
                 console.log(`✅ Successfully got file content (${content.length} chars)`);
                 return {

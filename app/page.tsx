@@ -85,7 +85,7 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [viewMode, setViewMode] = useState<string>('hour') // 'hour' | 'date' | 'week'
+  const [viewMode, setViewMode] = useState<string>('minute') // 'minute' | 'date' | 'week'
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const d = new Date(); return d.toISOString().split('T')[0]
   })
@@ -98,7 +98,7 @@ export default function BHMDashboard() {
   const [activeTab, setActiveTab] = useState('adxl-x')
 
   // Effective minutes for chart tick formatting
-  const effectiveMinutes = viewMode === 'week' ? '10080' : viewMode === 'date' ? '1440' : '60'
+  const effectiveMinutes = viewMode === 'week' ? '10080' : viewMode === 'date' ? '1440' : '1'
 
   // Authentication check
   useEffect(() => {
@@ -423,7 +423,7 @@ export default function BHMDashboard() {
               {/* View Mode Buttons */}
               <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
                 {[
-                  { value: 'hour', label: '1 Hr' },
+                  { value: 'minute', label: '1 Min' },
                   { value: 'date', label: '1 Day' },
                   { value: 'week', label: '1 Week' },
                 ].map(({ value, label }) => (
@@ -640,7 +640,7 @@ export default function BHMDashboard() {
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
                   <p className="text-xs text-gray-400">
-                    {viewMode === 'week' ? 'Last 1 week' : viewMode === 'date' ? selectedDate : 'Last 1 hour'}
+                    {viewMode === 'week' ? 'Last 1 week' : viewMode === 'date' ? selectedDate : 'Last 1 minute'}
                   </p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />

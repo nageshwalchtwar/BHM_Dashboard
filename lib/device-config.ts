@@ -5,6 +5,8 @@ export interface Device {
   description?: string;
   folderId: string;
   folderUrl: string;
+  latestDataFolderId?: string;  // Optional separate folder for latest/live data
+  latestDataFolderUrl?: string;
   isActive: boolean;
   addedAt: Date;
   lastAccessed?: Date;
@@ -42,19 +44,27 @@ export function folderIdToUrl(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }
 
+function isPlaceholderValue(value: string | undefined): boolean {
+  if (!value) return true;
+  return value.startsWith('your_') || value.includes('_here');
+}
+
 // Get devices from environment variables
 function getDevicesFromEnv(): Device[] {
   const devices: Device[] = [];
   
   // Device 1
   const device1FolderId = process.env.DEVICE_1_FOLDER_ID;
-  if (device1FolderId) {
+  if (device1FolderId && !isPlaceholderValue(device1FolderId)) {
+    const device1LatestFolderId = process.env.DEVICE_1_LATEST_FOLDER_ID;
     devices.push({
       id: 'd1',
       name: process.env.DEVICE_1_NAME || 'd1',
       description: 'Device 1 monitoring station',
       folderId: device1FolderId,
       folderUrl: folderIdToUrl(device1FolderId),
+      latestDataFolderId: device1LatestFolderId,
+      latestDataFolderUrl: device1LatestFolderId ? folderIdToUrl(device1LatestFolderId) : undefined,
       isActive: true,
       addedAt: new Date('2024-01-01')
     });
@@ -62,13 +72,16 @@ function getDevicesFromEnv(): Device[] {
   
   // Device 2
   const device2FolderId = process.env.DEVICE_2_FOLDER_ID;
-  if (device2FolderId) {
+  if (device2FolderId && !isPlaceholderValue(device2FolderId)) {
+    const device2LatestFolderId = process.env.DEVICE_2_LATEST_FOLDER_ID;
     devices.push({
       id: 'd2',
       name: process.env.DEVICE_2_NAME || 'd2',
       description: 'Device 2 monitoring station',
       folderId: device2FolderId,
       folderUrl: folderIdToUrl(device2FolderId),
+      latestDataFolderId: device2LatestFolderId,
+      latestDataFolderUrl: device2LatestFolderId ? folderIdToUrl(device2LatestFolderId) : undefined,
       isActive: true,
       addedAt: new Date('2024-01-01')
     });
@@ -76,13 +89,16 @@ function getDevicesFromEnv(): Device[] {
   
   // Device 3
   const device3FolderId = process.env.DEVICE_3_FOLDER_ID;
-  if (device3FolderId) {
+  if (device3FolderId && !isPlaceholderValue(device3FolderId)) {
+    const device3LatestFolderId = process.env.DEVICE_3_LATEST_FOLDER_ID;
     devices.push({
       id: 'd3',
       name: process.env.DEVICE_3_NAME || 'd3',
       description: 'Device 3 monitoring station',
       folderId: device3FolderId,
       folderUrl: folderIdToUrl(device3FolderId),
+      latestDataFolderId: device3LatestFolderId,
+      latestDataFolderUrl: device3LatestFolderId ? folderIdToUrl(device3LatestFolderId) : undefined,
       isActive: true,
       addedAt: new Date('2024-01-01')
     });
@@ -90,13 +106,16 @@ function getDevicesFromEnv(): Device[] {
   
   // Device 4
   const device4FolderId = process.env.DEVICE_4_FOLDER_ID;
-  if (device4FolderId) {
+  if (device4FolderId && !isPlaceholderValue(device4FolderId)) {
+    const device4LatestFolderId = process.env.DEVICE_4_LATEST_FOLDER_ID;
     devices.push({
       id: 'd4',
       name: process.env.DEVICE_4_NAME || 'd4',
       description: 'Device 4 monitoring station',
       folderId: device4FolderId,
       folderUrl: folderIdToUrl(device4FolderId),
+      latestDataFolderId: device4LatestFolderId,
+      latestDataFolderUrl: device4LatestFolderId ? folderIdToUrl(device4LatestFolderId) : undefined,
       isActive: true,
       addedAt: new Date('2024-01-01')
     });

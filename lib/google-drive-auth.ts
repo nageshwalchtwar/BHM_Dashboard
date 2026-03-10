@@ -154,9 +154,12 @@ class GoogleDriveAuthenticatedClient {
       
       const content = await this.downloadFile(latestFile.id);
       
-      // Validate it's a CSV with your expected format
-      if (content.includes('Device,Timestamp') || content.includes('88A29E218213')) {
-        console.log(`✅ Valid CSV file found with your sensor data format`);
+      // Validate it's a CSV with sensor data
+      const firstLine = (content.split('\n')[0] || '').toLowerCase();
+      const isCSV = firstLine.includes(',') &&
+        ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp'].some(k => firstLine.includes(k));
+      if (isCSV) {
+        console.log(`✅ Valid CSV file found with sensor data format`);
         return {
           filename: latestFile.name,
           content: content

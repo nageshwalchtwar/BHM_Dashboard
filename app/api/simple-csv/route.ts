@@ -84,7 +84,10 @@ export async function GET() {
           const content = await exportResponse.text();
           
           // Check if it looks like valid CSV
-          if (content && content.includes('Device,Timestamp') && !content.includes('<html>')) {
+          const firstLine = (content.split('\n')[0] || '').toLowerCase();
+          const isCSV = !content.includes('<html>') && firstLine.includes(',') &&
+            ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp'].some(k => firstLine.includes(k));
+          if (content && isCSV) {
             console.log('✅ Success with export method');
             
             return NextResponse.json({

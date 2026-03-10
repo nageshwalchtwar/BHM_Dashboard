@@ -1,4 +1,13 @@
 // Real Google Drive CSV file accessor using direct file access
+
+function looksLikeCSV(content: string): boolean {
+  if (!content || content.length < 50) return false;
+  if (content.trimStart().startsWith('<')) return false;
+  const firstLine = content.split('\n')[0].toLowerCase();
+  const knownKeywords = ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp', 'vibration', 'x,', 'y,', 'z,'];
+  return firstLine.includes(',') && knownKeywords.some(k => firstLine.includes(k));
+}
+
 export class RealGoogleDriveReader {
   private folderId: string;
   
@@ -73,7 +82,7 @@ export class RealGoogleDriveReader {
       // Filter for CSV files that match the expected pattern
       if (data.files) {
         for (const file of data.files) {
-          if (file.name && file.name.includes('2025-12') && (file.name.endsWith('.csv') || file.name.includes('csv'))) {
+          if (file.name && (file.name.endsWith('.csv') || file.name.includes('csv'))) {
             files.push({
               filename: file.name,
               fileId: file.id
@@ -106,7 +115,7 @@ export class RealGoogleDriveReader {
         
         if (response.ok) {
           const content = await response.text();
-          if (content.length > 100 && content.includes('Device')) {
+          if (looksLikeCSV(content)) {
             console.log(`✅ Successfully downloaded via Sheets export (${content.length} chars)`);
             return content;
           }
@@ -121,7 +130,7 @@ export class RealGoogleDriveReader {
       
       if (response.ok) {
         const content = await response.text();
-        if (content.length > 100 && content.includes('Device')) {
+        if (looksLikeCSV(content)) {
           console.log(`✅ Successfully downloaded file (${content.length} chars)`);
           return content;
         }

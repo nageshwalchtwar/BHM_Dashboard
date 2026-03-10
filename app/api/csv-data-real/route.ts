@@ -11,15 +11,15 @@ interface ResponseCacheEntry {
 const responseCache = new Map<string, ResponseCacheEntry>();
 
 function getCacheTTL(mode: string): number {
-  if (mode === 'hour') return 30_000;   // 1 Hour → 30s
-  if (mode === 'date') return 120_000;  // Single date → 2min (historical, won't change)
-  return 120_000;                       // Week → 2min
+  if (mode === 'minute') return 15_000;  // 1 Min → 15s
+  if (mode === 'date') return 120_000;   // Single date → 2min (historical, won't change)
+  return 120_000;                        // Week → 2min
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const modeParam = searchParams.get("mode") || "hour"
-  const mode = ['hour', 'date', 'week'].includes(modeParam) ? modeParam : 'hour' // 'hour' | 'date' | 'week'
+  const modeParam = searchParams.get("mode") || "minute"
+  const mode = ['minute', 'date', 'week'].includes(modeParam) ? modeParam : 'minute' // 'minute' | 'date' | 'week'
   const date = searchParams.get("date") || ""       // YYYY-MM-DD for 'date' mode
   const deviceId = searchParams.get("device")
 
@@ -35,8 +35,11 @@ export async function GET(request: NextRequest) {
   console.log(`📊 API Request: mode=${mode}${date ? `, date=${date}` : ''}, device=${deviceId || 'default'}`)
 
   try {
-    const folderId = getFolderIdForDevice(deviceId || undefined);
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
+    // Use latestDataFolderId for minute mode, regular folderId for date/week
+    const folderId = mode === 'minute' && device?.latestDataFolderId
+      ? device.latestDataFolderId
+      : getFolderIdForDevice(deviceId || undefined);
 
     let allData: any[] = []
     let dataSource = ''
@@ -80,13 +83,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── 1 Hour: fetch single latest CSV and time-filter to last 60 min ─
-    if (mode === 'hour' && allData.length === 0) {
-      console.log('🔐 Fetching latest CSV (1 Hour mode)...')
+    // ── 1 Min: fetch single latest CSV and time-filter to last 1 min ──
+    if (mode === 'minute' && allData.length === 0) {
+      console.log('🔐 Fetching latest CSV (1 Min mode)...')
       const result = await getCSVFromGoogleDrive(folderId);
       if (result && result.content && result.content.length > 100) {
         filenames = [result.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'})`;
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest`;
         const fileDate = extractFileDate(result.filename, result.modifiedTime);
         allData = parseCSVToSensorData(result.content, fileDate);
         console.log(`📈 Parsed ${allData.length} data points from ${result.filename}`);
@@ -94,9 +97,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (allData.length === 0) {
+      const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+      const hasValidKey = apiKey && !apiKey.startsWith('your_');
+      const configHint = !hasValidKey
+        ? ' — GOOGLE_DRIVE_API_KEY is not configured in .env.local. Please set a valid API key from Google Cloud Console.'
+        : '';
       return NextResponse.json({
         success: false,
-        error: "No CSV data available from Google Drive",
+        error: "No CSV data available from Google Drive" + configHint,
         message: mode === 'date'
           ? `No data file found for date: ${date} in selected device folder`
           : mode === 'week'
@@ -115,19 +123,19 @@ export async function GET(request: NextRequest) {
     console.log(`📊 Data span: ${dataStart.toISOString()} → ${dataEnd.toISOString()} (${spanMinutes} min, ${allData.length} points)`)
 
     let filteredData = allData
-    const timeframeDescription = mode === 'week' ? '1 week' : mode === 'date' ? date : '1 hour'
+    const timeframeDescription = mode === 'week' ? '1 week' : mode === 'date' ? date : '1 minute'
 
-    if (mode === 'hour' && allData.length > 0) {
+    if (mode === 'minute' && allData.length > 0) {
       const latestTimestamp = allData[0].timestamp
-      const cutoffMs = latestTimestamp - (60 * 60 * 1000)
+      const cutoffMs = latestTimestamp - (60 * 1000)  // Last 1 minute
       filteredData = allData.filter((d: any) => d.timestamp >= cutoffMs)
-      console.log(`⏱️ 1 Hour filter: ${allData.length} total → ${filteredData.length} filtered`)
+      console.log(`⏱️ 1 Min filter: ${allData.length} total → ${filteredData.length} filtered`)
     }
 
     // Calculate latest RMS for the header display (always 1-second window)
     const responseRMS = getLatestRMSValues(filteredData, 100);
 
-    // RMS window: hour=1s, date=10s, week=60s
+    // RMS window: minute=1s, date=10s, week=60s
     const rmsWindowMs = mode === 'week' ? 60000 : mode === 'date' ? 10000 : 1000;
 
     let responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
