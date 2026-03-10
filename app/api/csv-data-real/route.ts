@@ -1,439 +1,182 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond, streamParseCSVToRMS, computeChunkRMS } from "@/lib/csv-handler"
-import { getCSVFromGoogleDrive, getCSVFromGoogleDriveOptimized, getMultipleCSVsFromGoogleDrive, getCSVByDate, getCSVBatchTail, getCSVBatchSampled, getMultipleCSVsBatch } from '@/lib/simple-google-api'
+import { parseCSVToSensorData, streamParseCSVToRMS } from "@/lib/csv-handler"
+import { getMultipleCSVsFromGoogleDrive, getCSVByDate } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
-// ── Response cache ────────────────────────────────────────────────────────
-interface ResponseCacheEntry {
-  json: any;
-  cachedAt: number;
-}
-const responseCache = new Map<string, ResponseCacheEntry>();
-
-function getCacheTTL(mode: string): number {
-  if (mode === 'minute') return 15_000;  // 1 Min → 15s
-  if (mode === 'date') return 120_000;   // Single date → 2min (historical, won't change)
-  return 120_000;                        // Week → 2min
-}
+// ── Response cache (2 min) ────────────────────────────────────────────────
+const responseCache = new Map<string, { json: any; cachedAt: number }>();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const modeParam = searchParams.get("mode") || "minute"
-  const mode = ['minute', 'date', 'week'].includes(modeParam) ? modeParam : 'minute' // 'minute' | 'date' | 'week'
-  const date = searchParams.get("date") || ""       // YYYY-MM-DD for 'date' mode
+  const modeParam = searchParams.get("mode") || "date"
+  const mode = modeParam === 'week' ? 'week' : 'date'   // only 'date' or 'week'
+  const date = searchParams.get("date") || ""
   const deviceId = searchParams.get("device")
 
   // ── Check response cache ─────────────────────────────────────────────
   const cacheKey = `${deviceId || 'default'}:${mode}:${date}`;
   const cached = responseCache.get(cacheKey);
-  const ttl = getCacheTTL(mode);
-  if (cached && (Date.now() - cached.cachedAt) < ttl) {
-    console.log(`⚡ Cache hit for ${cacheKey} (age: ${Date.now() - cached.cachedAt}ms)`);
+  if (cached && (Date.now() - cached.cachedAt) < 120_000) {
+    console.log(`⚡ Cache hit for ${cacheKey}`);
     return NextResponse.json(cached.json);
   }
 
-  console.log(`📊 API Request: mode=${mode}${date ? `, date=${date}` : ''}, device=${deviceId || 'default'}`)
+  console.log(`📊 API: mode=${mode}, date=${date || 'latest'}, device=${deviceId || 'default'}`)
 
   try {
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
-    // Use latestDataFolderId for minute mode, regular folderId for date/week
-    const folderId = mode === 'minute' && device?.latestDataFolderId
-      ? device.latestDataFolderId
-      : getFolderIdForDevice(deviceId || undefined);
+    const folderId = getFolderIdForDevice(deviceId || undefined);
 
-    console.log(`📂 Using device=${device?.name || 'unknown'} (${device?.id || 'no-id'}), folderId=${folderId}`)
-    console.log(`🔑 API key present: ${!!process.env.GOOGLE_DRIVE_API_KEY}, length: ${process.env.GOOGLE_DRIVE_API_KEY?.length || 0}`)
+    console.log(`📂 Device=${device?.name || 'unknown'}, folderId=${folderId}`)
 
     let allData: any[] = []
     let dataSource = ''
     let filenames: string[] = []
-    let isPreRMS = false; // true when streamParseCSVToRMS was used (skip redundant downsample)
 
     // Helper: extract date from filename or modifiedTime
     const extractFileDate = (filename: string, modifiedTime?: string): string | undefined => {
-      const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
-      if (dateMatch) return dateMatch[1];
+      const m = filename.match(/(\d{4}-\d{2}-\d{2})/);
+      if (m) return m[1];
       if (modifiedTime) return modifiedTime.split('T')[0];
       return undefined;
     };
 
-    if (mode === 'week') {
-      // ── 1 Week: Batch-fetch sampled rows from last 7 files ─────────────
-      console.log('📂 Fetching up to 7 CSV files for 1 Week view (batch)...')
-      const batchMulti = await getMultipleCSVsBatch(7, folderId, 400, 20);
+    if (mode === 'date') {
+      // ── 1 Day: Download full CSV → 1-second RMS ─────────────────────────
+      const targetDate = date || '';
+      console.log(`📅 Fetching CSV for date: ${targetDate || 'latest'}`)
+      const result = await getCSVByDate(targetDate, folderId);
 
-      if (batchMulti && batchMulti.contents.length > 0) {
-        filenames = batchMulti.filenames;
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${batchMulti.contents.length} files (sampled)`;
-        for (let i = 0; i < batchMulti.contents.length; i++) {
-          const fileDate = extractFileDate(batchMulti.filenames[i], batchMulti.modifiedTimes[i]);
-          console.log(`📅 Chunk-RMS parsing file ${batchMulti.filenames[i]} with date: ${fileDate || 'unknown'}`);
-          // Split into chunks for per-chunk RMS (handles byte-range sampled data)
-          const headerEnd = batchMulti.contents[i].indexOf('\n');
-          const headerLine = headerEnd > 0 ? batchMulti.contents[i].substring(0, headerEnd).trim() : '';
-          const dataText = headerEnd > 0 ? batchMulti.contents[i].substring(headerEnd + 1) : batchMulti.contents[i];
-          const lines = dataText.split('\n').filter((l: string) => l.length > 5);
-          const CHUNK_SIZE = 1000;
-          const chunks: string[] = [];
-          for (let ci = 0; ci < lines.length; ci += CHUNK_SIZE) {
-            chunks.push(lines.slice(ci, ci + CHUNK_SIZE).join('\n'));
-          }
-          if (headerLine && chunks.length > 0) {
-            const { rmsData, rawRowCount } = computeChunkRMS(headerLine, chunks, fileDate);
-            allData.push(...rmsData);
-            console.log(`   → ${rawRowCount} raw rows → ${rmsData.length} RMS points`);
-          } else {
-            const { rmsData, rawRowCount } = streamParseCSVToRMS(batchMulti.contents[i], 60000, fileDate);
-            allData.push(...rmsData);
-          }
-        }
-        console.log(`📈 Merged ${allData.length} RMS points from ${batchMulti.contents.length} files`);
-        isPreRMS = true;
-      }
-
-      // Fallback: full download if batch fetch failed
-      if (allData.length === 0) {
-        console.log('⬇️ Batch fetch unavailable for week, trying full download...')
-        const multiResult = await getMultipleCSVsFromGoogleDrive(7, folderId);
-        if (multiResult && multiResult.contents.length > 0) {
-          filenames = multiResult.filenames;
-          dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
-          const rmsWindowMs = 60000;
-          for (let i = 0; i < multiResult.contents.length; i++) {
-            const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
-            const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], rmsWindowMs, fileDate);
-            allData.push(...rmsData);
-          }
-          isPreRMS = true;
-        }
-      }
-    } else if (mode === 'date' && date) {
-      // ── Select Date: Byte-range sampled fetch for specific day ──────────
-      console.log(`📅 Fetching CSV for date: ${date} (byte-range sampling)`);
-      const batchResult = await getCSVBatchSampled(folderId, { date, chunkRows: 400, maxChunks: 49 });
-
-      if (batchResult && batchResult.content && batchResult.content.length > 100) {
-        filenames = [batchResult.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date} (sampled)`;
-        const fileDate = extractFileDate(batchResult.filename, batchResult.modifiedTime);
-
-        // Check if this is byte-range sampled data (has chunks separated by position)
-        // Use chunk-based RMS: one RMS point per sampled position = smooth evenly-spaced chart
-        const headerEnd = batchResult.content.indexOf('\n');
-        const headerLine = headerEnd > 0 ? batchResult.content.substring(0, headerEnd).trim() : '';
-        const dataText = headerEnd > 0 ? batchResult.content.substring(headerEnd + 1) : batchResult.content;
-
-        // Split into chunks by detecting large timestamp gaps (>5 min)
-        // For byte-range sampled data, rows within a chunk are close together
-        // but there are large gaps between chunks
-        const lines = dataText.split('\n').filter((l: string) => l.length > 5);
-        const CHUNK_SIZE = 500; // Group into ~500-line chunks for RMS computation
-        const chunks: string[] = [];
-        for (let ci = 0; ci < lines.length; ci += CHUNK_SIZE) {
-          chunks.push(lines.slice(ci, ci + CHUNK_SIZE).join('\n'));
-        }
-
-        if (headerLine && chunks.length > 0) {
-          const { rmsData, rawRowCount } = computeChunkRMS(headerLine, chunks, fileDate);
-          allData = rmsData;
-          console.log(`📈 Chunk-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${batchResult.filename}`);
-          isPreRMS = true;
-        } else {
-          // Fallback: standard streaming RMS
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(batchResult.content, 10000, fileDate);
-          allData = rmsData;
-          isPreRMS = true;
-        }
-      }
-
-      // Fallback: full download if batch fetch failed
-      if (allData.length === 0) {
-        console.log('⬇️ Byte-range sampling unavailable for date, trying full download...')
-        const result = await getCSVByDate(date, folderId);
-        if (result && result.content) {
-          filenames = [result.filename];
-          dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date}`;
-          const fileDate = extractFileDate(result.filename, result.modifiedTime);
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 10000, fileDate);
-          allData = rmsData;
-          isPreRMS = true;
-        }
-      }
-    }
-
-    // ── 1 Min: Sheets API batch read (only last 3000 rows) ──────────────
-    if (mode === 'minute' && allData.length === 0) {
-      console.log('🔐 Fetching latest CSV (1 Min mode — batch)...')
-      const batchResult = await getCSVBatchTail(folderId, 3000);
-      if (batchResult && batchResult.content && batchResult.content.length > 100) {
-        filenames = [batchResult.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest (batch)`;
-        const fileDate = extractFileDate(batchResult.filename, batchResult.modifiedTime);
-
-        const { rmsData, rawRowCount, latestRMS } = streamParseCSVToRMS(
-          batchResult.content, 1000, fileDate, undefined, 60,
-        );
-
-        if (rmsData.length > 0) {
-          console.log(`⚡ Batch Sheets RMS: ${rawRowCount} rows → ${rmsData.length} RMS points`);
-          const MAX_CLIENT_POINTS = 5000;
-          let responseData = rmsData;
-          if (responseData.length > MAX_CLIENT_POINTS) {
-            const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
-            responseData = responseData.filter((_: any, i: number) => i % step === 0);
-          }
-          const dataStartBatch = new Date(responseData[0].timestamp);
-          const dataEndBatch = new Date(responseData[responseData.length - 1].timestamp);
-          const responseJson = {
-            success: true,
-            data: responseData,
-            rms: latestRMS,
-            isRMSData: true,
-            metadata: {
-              source: dataSource,
-              filename: filenames.join(', '),
-              totalPoints: rawRowCount,
-              rawPoints: rawRowCount,
-              rmsPoints: responseData.length,
-              timeframe: '1 minute',
-              dataSpan: { start: dataStartBatch.toISOString(), end: dataEndBatch.toISOString(), spanMinutes: 1 },
-              isRMSData: true,
-              lastUpdate: new Date().toISOString(),
-              latestDataTime: dataEndBatch.toISOString(),
-              oldestDataTime: dataStartBatch.toISOString(),
-              isRealData: true,
-              device: device ? { id: device.id, name: device.name, description: device.description, folderUrl: device.folderUrl } : null
-            }
-          };
-          responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
-          return NextResponse.json(responseJson);
-        }
-      }
-    }
-
-    // ── 1 Min fallback: Range download + streaming RMS ──────────
-    if (mode === 'minute' && allData.length === 0) {
-      console.log('⬇️ Batch fetch unavailable, trying optimised download...')
-      const optResult = await getCSVFromGoogleDriveOptimized(folderId);
-      if (optResult && optResult.content && optResult.content.length > 100) {
-        filenames = [optResult.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest (optimised)`;
-        const fileDate = extractFileDate(optResult.filename, optResult.modifiedTime);
-
-        // Use streaming RMS parser — goes straight from CSV text → RMS data
-        // Only keep last 60 seconds for "1 minute" mode
-        const { rmsData, rawRowCount, latestRMS } = streamParseCSVToRMS(
-          optResult.content,
-          1000,       // 1-second RMS windows
-          fileDate,
-          optResult.header || undefined,
-          60,         // only last 60 seconds
-        );
-
-        if (rmsData.length > 0) {
-          console.log(`⚡ Streaming RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points (skipped full parse)`);
-
-          // Cap data points
-          const MAX_CLIENT_POINTS = 5000;
-          let responseData = rmsData;
-          if (responseData.length > MAX_CLIENT_POINTS) {
-            const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
-            responseData = responseData.filter((_: any, i: number) => i % step === 0);
-          }
-
-          const dataStart = new Date(responseData[0].timestamp);
-          const dataEnd = new Date(responseData[responseData.length - 1].timestamp);
-
-          const responseJson = {
-            success: true,
-            data: responseData,
-            rms: latestRMS,
-            isRMSData: true,
-            metadata: {
-              source: dataSource,
-              filename: filenames.join(', '),
-              totalPoints: rawRowCount,
-              rawPoints: rawRowCount,
-              rmsPoints: responseData.length,
-              timeframe: '1 minute',
-              dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes: 1 },
-              isRMSData: true,
-              lastUpdate: new Date().toISOString(),
-              latestDataTime: dataEnd.toISOString(),
-              oldestDataTime: dataStart.toISOString(),
-              isRealData: true,
-              device: device ? { id: device.id, name: device.name, description: device.description, folderUrl: device.folderUrl } : null
-            }
-          };
-          responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
-          return NextResponse.json(responseJson);
-        }
-      }
-
-      // Fallback: original full-download path if optimised path failed
-      console.log('⬇️ Optimised path unavailable, trying full download...')
-      const result = await getCSVFromGoogleDrive(folderId);
       if (result && result.content && result.content.length > 100) {
         filenames = [result.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest`;
+        dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
         const fileDate = extractFileDate(result.filename, result.modifiedTime);
-        allData = parseCSVToSensorData(result.content, fileDate);
-        console.log(`📈 Parsed ${allData.length} data points from ${result.filename}`);
+
+        // 1-second RMS windows — processes line by line, no huge intermediate array
+        const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 1000, fileDate);
+        allData = rmsData;
+        console.log(`📈 ${rawRowCount} raw rows → ${rmsData.length} RMS points (1s windows)`);
+      }
+    } else {
+      // ── 1 Week: Download up to 7 CSV files → 1-second RMS each ──────────
+      console.log('📂 Fetching up to 7 CSV files for week view...')
+      const multiResult = await getMultipleCSVsFromGoogleDrive(7, folderId);
+
+      if (multiResult && multiResult.contents.length > 0) {
+        filenames = multiResult.filenames;
+        dataSource = `${device?.name || 'Drive'} - ${multiResult.contents.length} files`;
+
+        for (let i = 0; i < multiResult.contents.length; i++) {
+          const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], 1000, fileDate);
+          allData.push(...rmsData);
+          console.log(`  ${multiResult.filenames[i]}: ${rawRowCount} rows → ${rmsData.length} RMS`);
+        }
+        console.log(`📈 Total: ${allData.length} RMS points from ${multiResult.contents.length} files`);
       }
     }
 
+    // ── No data? Return clear error ──────────────────────────────────────
     if (allData.length === 0) {
       const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
-      const hasValidKey = apiKey && !apiKey.startsWith('your_');
-      let configHint = '';
-      if (!hasValidKey) {
-        configHint = ' — GOOGLE_DRIVE_API_KEY is not configured.';
-      } else if (!folderId) {
-        configHint = ' — No folder ID configured for this device.';
-      } else {
-        configHint = ` — Folder ${folderId} returned no files. This usually means file download failed (files were listed but CSV content could not be downloaded). Check server logs for details, or run the debug endpoint (/api/debug-drive) to diagnose.`;
-      }
-      console.log(`❌ No data: device=${device?.id}, folder=${folderId}, hasKey=${hasValidKey}${configHint}`)
+      const hasKey = apiKey && !apiKey.startsWith('your_');
+      const hint = !hasKey
+        ? 'GOOGLE_DRIVE_API_KEY is not configured.'
+        : !folderId
+          ? 'No folder ID configured for this device.'
+          : `Could not download CSV files from folder. Check server logs or /api/debug-drive.`;
+      console.log(`❌ No data: folder=${folderId}, hasKey=${hasKey}`)
       return NextResponse.json({
         success: false,
-        error: "No CSV data available from Google Drive" + configHint,
+        error: hint,
         message: mode === 'date'
-          ? `No data file found for date: ${date} in selected device folder`
-          : mode === 'week'
-            ? `No weekly CSV data available for device: ${deviceId || 'default'}`
-          : `Could not access CSV files for device: ${deviceId || 'default'}`,
+          ? `No data found for date: ${date || 'latest'}`
+          : `No weekly data available for device: ${deviceId || 'default'}`,
       }, { status: 404 })
     }
 
-    // Sort by timestamp (newest first)
-    allData.sort((a, b) => b.timestamp - a.timestamp)
+    // Sort ascending by timestamp
+    allData.sort((a, b) => a.timestamp - b.timestamp);
 
-    // Log data span
-    const dataStart = new Date(allData[allData.length - 1].timestamp)
-    const dataEnd = new Date(allData[0].timestamp)
-    const spanMinutes = Math.round((dataEnd.getTime() - dataStart.getTime()) / 60000)
-    console.log(`📊 Data span: ${dataStart.toISOString()} → ${dataEnd.toISOString()} (${spanMinutes} min, ${allData.length} points)`)
+    const dataStart = new Date(allData[0].timestamp);
+    const dataEnd = new Date(allData[allData.length - 1].timestamp);
+    const spanMinutes = Math.round((dataEnd.getTime() - dataStart.getTime()) / 60000);
 
-    let filteredData = allData
-    const timeframeDescription = mode === 'week' ? '1 week' : mode === 'date' ? date : '1 minute'
-
-    if (mode === 'minute' && allData.length > 0) {
-      const latestTimestamp = allData[0].timestamp
-      const cutoffMs = latestTimestamp - (60 * 1000)  // Last 1 minute
-      filteredData = allData.filter((d: any) => d.timestamp >= cutoffMs)
-      console.log(`⏱️ 1 Min filter: ${allData.length} total → ${filteredData.length} filtered`)
-    }
-
-    let responseData: any[];
-    let responseRMS: any;
-    const isRMSData = true;
-
-    if (isPreRMS) {
-      // Data already RMS'd by streamParseCSVToRMS — skip redundant downsample
-      responseData = filteredData;
-      responseRMS = filteredData.length > 0 ? {
-        accel_x_rms: filteredData[0].accel_x ?? 0,
-        accel_y_rms: filteredData[0].accel_y ?? 0,
-        accel_z_rms: filteredData[0].accel_z ?? 0,
-        wt901_x_rms: filteredData[0].ax_wt901 ?? 0,
-        wt901_y_rms: filteredData[0].ay_wt901 ?? 0,
-        wt901_z_rms: filteredData[0].az_wt901 ?? 0,
-      } : getLatestRMSValues([], 100);
-      console.log(`⚡ Pre-RMS data: ${filteredData.length} points (no additional downsample)`);
-    } else {
-      // Calculate latest RMS for the header display (always 1-second window)
-      responseRMS = getLatestRMSValues(filteredData, 100);
-
-      // RMS window: minute=1s, date=10s, week=60s
-      const rmsWindowMs = mode === 'week' ? 60000 : mode === 'date' ? 10000 : 1000;
-
-      responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
-      console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} points (${rmsWindowMs/1000}s windows)`);
-    }
-
-    // Cap data points to prevent client crashes
-    const MAX_CLIENT_POINTS = 5000;
-    if (responseData.length > MAX_CLIENT_POINTS) {
-      const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
+    // Cap data to prevent client crashes — keep evenly-spaced points
+    const MAX_POINTS = 5000;
+    let responseData = allData;
+    if (responseData.length > MAX_POINTS) {
+      const step = Math.ceil(responseData.length / MAX_POINTS);
       responseData = responseData.filter((_: any, i: number) => i % step === 0);
-      console.log(`📉 Capped to ${responseData.length} points (step: ${step})`)
+      console.log(`📉 Capped ${allData.length} → ${responseData.length} points`);
     }
 
-    console.log(`📈 Returning ${responseData.length} RMS points for ${timeframeDescription}`)
+    // Latest RMS for header display
+    const last = responseData[responseData.length - 1];
+    const responseRMS = {
+      accel_x_rms: last?.accel_x ?? 0,
+      accel_y_rms: last?.accel_y ?? 0,
+      accel_z_rms: last?.accel_z ?? 0,
+      wt901_x_rms: last?.ax_wt901 ?? 0,
+      wt901_y_rms: last?.ay_wt901 ?? 0,
+      wt901_z_rms: last?.az_wt901 ?? 0,
+    };
+
+    const timeframeDescription = mode === 'week' ? '1 week' : date || 'latest';
 
     const responseJson = {
       success: true,
       data: responseData,
       rms: responseRMS,
-      isRMSData,
+      isRMSData: true,
       metadata: {
         source: dataSource,
         filename: filenames.join(', '),
         totalPoints: allData.length,
-        rawPoints: filteredData.length,
+        rawPoints: allData.length,
         rmsPoints: responseData.length,
         timeframe: timeframeDescription,
         dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes },
-        isRMSData,
+        isRMSData: true,
         lastUpdate: new Date().toISOString(),
-        latestDataTime: responseData[0] ? new Date(responseData[0].timestamp).toISOString() : null,
-        oldestDataTime: responseData.length > 0 ? new Date(responseData[responseData.length - 1].timestamp).toISOString() : null,
+        latestDataTime: dataEnd.toISOString(),
+        oldestDataTime: dataStart.toISOString(),
         isRealData: true,
-        device: device ? {
-          id: device.id,
-          name: device.name,
-          description: device.description,
-          folderUrl: device.folderUrl
-        } : null
+        device: device ? { id: device.id, name: device.name, description: device.description, folderUrl: device.folderUrl } : null
       }
-    }
+    };
 
-    // Store in response cache
     responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
-
-    return NextResponse.json(responseJson)
+    return NextResponse.json(responseJson);
 
   } catch (error) {
     console.error('❌ CSV data error:', error)
     return NextResponse.json({
       success: false,
-      error: "Failed to get real CSV data",
+      error: "Failed to get CSV data",
       message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }
 
-// Keep POST for backward compatibility but disable fake data generation
+// POST for backward compatibility
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { csvContent } = body
-
     if (!csvContent) {
-      return NextResponse.json({
-        success: false,
-        error: "No CSV content provided"
-      }, { status: 400 })
+      return NextResponse.json({ success: false, error: "No CSV content provided" }, { status: 400 })
     }
-
-    console.log('📊 Processing provided CSV content...')
     const data = parseCSVToSensorData(csvContent)
-
     return NextResponse.json({
       success: true,
-      data: data,
-      metadata: {
-        source: 'User Provided',
-        filename: 'user-upload.csv',
-        totalPoints: data.length,
-        lastUpdate: new Date().toISOString()
-      }
+      data,
+      metadata: { source: 'User Provided', filename: 'upload.csv', totalPoints: data.length, lastUpdate: new Date().toISOString() }
     })
-
   } catch (error) {
     return NextResponse.json({
       success: false,
-      error: "Failed to process CSV content",
+      error: "Failed to process CSV",
       message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }

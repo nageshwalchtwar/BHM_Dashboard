@@ -62,7 +62,7 @@ export class SimpleGoogleDriveAPI {
   ) {}
 
   // Helper to perform fetch with timeout, returns null on failure
-  private async fetchWithTimeout(url: string, opts: any = {}, timeoutMs = 30000) {
+  private async fetchWithTimeout(url: string, opts: any = {}, timeoutMs = 120000) {
     const controller = new AbortController()
     const id = setTimeout(() => controller.abort(), timeoutMs)
     try {
@@ -274,7 +274,7 @@ export class SimpleGoogleDriveAPI {
       const driveResponse = await this.fetchWithTimeout(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
         {},
-        15000
+        60000
       );
       if (driveResponse && driveResponse.ok) {
         const content = await driveResponse.text();
@@ -292,7 +292,7 @@ export class SimpleGoogleDriveAPI {
             'Accept': 'text/csv,application/csv,text/plain,*/*'
           }
         },
-        15000
+        60000
       );
 
       if (exportResponse && exportResponse.ok) {
