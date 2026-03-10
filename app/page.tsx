@@ -85,20 +85,20 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [timeRange, setTimeRange] = useState<string>('1') // minutes: 1, 60, 1440, 10080, or 'custom'
+  const [viewMode, setViewMode] = useState<string>('hour') // 'hour' | 'date' | 'week'
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const d = new Date(); return d.toISOString().split('T')[0]
+  })
+  const [availableDates, setAvailableDates] = useState<string[]>([])
+  const [datesLoading, setDatesLoading] = useState(false)
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
   const [isRMSData, setIsRMSData] = useState(false)
-  const [customStartDate, setCustomStartDate] = useState<string>('')
-  const [customEndDate, setCustomEndDate] = useState<string>('')
-  const [showCustomRange, setShowCustomRange] = useState(false)
 
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-x')
 
-  // Compute effective minutes for charts & display (custom range → actual days * 1440)
-  const effectiveMinutes = timeRange === 'custom' && customStartDate && customEndDate
-    ? String((Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1) * 1440)
-    : timeRange
+  // Effective minutes for chart tick formatting
+  const effectiveMinutes = viewMode === 'week' ? '10080' : viewMode === 'date' ? '1440' : '60'
 
   // Authentication check
   useEffect(() => {
@@ -135,12 +135,18 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice])
 
-  // Fetch data when timeRange changes
+  // Fetch data when viewMode or selectedDate changes
   useEffect(() => {
-    if (mounted && timeRange !== 'custom') {
+    if (mounted) {
       fetchData()
     }
-  }, [timeRange, mounted, selectedDevice])
+  }, [viewMode, selectedDate, mounted, selectedDevice])
+
+  // Load available dates for currently selected device
+  useEffect(() => {
+    if (!mounted) return
+    fetchAvailableDates()
+  }, [mounted, selectedDevice])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -148,23 +154,23 @@ export default function BHMDashboard() {
     const ms = parseInt(autoRefreshInterval) * 1000
     const interval = setInterval(fetchData, ms)
     return () => clearInterval(interval)
-  }, [autoRefreshInterval, mounted, timeRange])
+  }, [autoRefreshInterval, mounted, viewMode])
 
   const fetchData = async () => {
+    if (viewMode === 'date' && !selectedDate) {
+      setError('No data dates available for the selected device')
+      setLoading(false)
+      return
+    }
+
     setConnectionStatus('connecting')
     try {
-      // For custom range, compute actual minutes from date span
-      let minutesParam = timeRange
-      if (timeRange === 'custom' && customStartDate && customEndDate) {
-        const days = Math.ceil((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000) + 1
-        minutesParam = String(days * 1440)
-      }
-      let apiUrl = `/api/csv-data-real?minutes=${minutesParam}`
+      let apiUrl = `/api/csv-data-real?mode=${viewMode}`
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
       }
-      if (timeRange === 'custom' && customStartDate && customEndDate) {
-        apiUrl += `&startDate=${customStartDate}&endDate=${customEndDate}`
+      if (viewMode === 'date' && selectedDate) {
+        apiUrl += `&date=${selectedDate}`
       }
 
       const response = await fetch(apiUrl)
@@ -204,6 +210,38 @@ export default function BHMDashboard() {
       setStats(prev => ({ ...prev, healthStatus: 'error' }))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAvailableDates = async () => {
+    setDatesLoading(true)
+    try {
+      let url = '/api/csv-available-dates'
+      if (selectedDevice) {
+        url += `?device=${selectedDevice}`
+      }
+
+      const response = await fetch(url)
+      const result = await response.json()
+
+      if (result.success && Array.isArray(result.dates)) {
+        const dates = result.dates as string[]
+        setAvailableDates(dates)
+
+        if (dates.length === 0) {
+          setSelectedDate('')
+        } else if (!dates.includes(selectedDate)) {
+          setSelectedDate(dates[0])
+        }
+      } else {
+        setAvailableDates([])
+        setSelectedDate('')
+      }
+    } catch {
+      setAvailableDates([])
+      setSelectedDate('')
+    } finally {
+      setDatesLoading(false)
     }
   }
 
@@ -256,39 +294,16 @@ export default function BHMDashboard() {
     router.push('/login')
   }
 
-  const handleTimeRangeChange = (newTimeRange: string) => {
-    setTimeRange(newTimeRange)
-    setShowCustomRange(false)
+  const handleViewModeChange = (mode: string) => {
+    setViewMode(mode)
     setSensorData([])
     setError(null)
   }
 
-  const handleCustomRangeToggle = () => {
-    setShowCustomRange(!showCustomRange)
-    if (!showCustomRange) {
-      setTimeRange('custom')
-      // Default to last 7 days
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - 7)
-      setCustomStartDate(start.toISOString().split('T')[0])
-      setCustomEndDate(end.toISOString().split('T')[0])
-    }
-  }
-
-  const handleCustomRangeApply = () => {
-    if (customStartDate && customEndDate) {
-      setTimeRange('custom')
-      setSensorData([])
-      setError(null)
-      fetchData()
-    }
-  }
-
   const handleDeviceChange = (deviceId: string | undefined) => {
     setSelectedDevice(deviceId)
-    setError(null) // Clear any previous errors
-    fetchData() // Immediately fetch data for new device
+    setError(null)
+    fetchData()
   }
 
   const handleAdminClick = () => {
@@ -405,19 +420,18 @@ export default function BHMDashboard() {
                 </span>
               </div>
 
-              {/* Time Range Buttons */}
+              {/* View Mode Buttons */}
               <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
                 {[
-                  { value: '1', label: '1 Min' },
-                  { value: '60', label: '1 Hour' },
-                  { value: '1440', label: '1 Day' },
-                  { value: '10080', label: '1 Week' },
+                  { value: 'hour', label: '1 Hr' },
+                  { value: 'date', label: '1 Day' },
+                  { value: 'week', label: '1 Week' },
                 ].map(({ value, label }) => (
                   <button
                     key={value}
-                    onClick={() => handleTimeRangeChange(value)}
+                    onClick={() => handleViewModeChange(value)}
                     className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      timeRange === value
+                      viewMode === value
                         ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
@@ -425,17 +439,29 @@ export default function BHMDashboard() {
                     {label}
                   </button>
                 ))}
-                <button
-                  onClick={handleCustomRangeToggle}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    timeRange === 'custom'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Range
-                </button>
               </div>
+
+              {/* Date picker for 1 Day mode */}
+              {viewMode === 'date' && (
+                <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
+                  <SelectTrigger className="w-40 h-8">
+                    <SelectValue placeholder={datesLoading ? 'Loading dates...' : 'Select date'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDates.length === 0 ? (
+                      <SelectItem value="no-dates" disabled>
+                        {datesLoading ? 'Loading...' : 'No dates found'}
+                      </SelectItem>
+                    ) : (
+                      availableDates.map((date) => (
+                        <SelectItem key={date} value={date}>
+                          {date}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
 
               {/* Auto Refresh */}
               <div className="flex items-center space-x-1">
@@ -545,39 +571,6 @@ export default function BHMDashboard() {
           />
         </div>
 
-        {/* Custom Date Range Picker */}
-        {showCustomRange && (
-          <div className="bg-white border border-blue-200 rounded-lg p-3 flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">Date Range:</span>
-            <input
-              type="date"
-              value={customStartDate}
-              onChange={(e) => setCustomStartDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <span className="text-sm text-gray-500">to</span>
-            <input
-              type="date"
-              value={customEndDate}
-              onChange={(e) => setCustomEndDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <Button
-              onClick={handleCustomRangeApply}
-              size="sm"
-              className="h-8 px-4"
-              disabled={!customStartDate || !customEndDate || loading}
-            >
-              {loading ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Apply'}
-            </Button>
-            {customStartDate && customEndDate && (
-              <span className="text-xs text-gray-500">
-                {Math.round((new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) / 86400000 + 1)} day(s)
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Connection Error Alert - Compact */}
         {error && (
           <Alert variant="destructive" className="border-red-200 bg-red-50">
@@ -646,7 +639,9 @@ export default function BHMDashboard() {
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
-                  <p className="text-xs text-gray-400">Last {timeRange === 'custom' ? `${customStartDate} to ${customEndDate}` : parseInt(effectiveMinutes) >= 10080 ? '1 week' : parseInt(effectiveMinutes) >= 1440 ? '1 day' : parseInt(effectiveMinutes) >= 60 ? '1 hour' : `${timeRange} min`}</p>
+                  <p className="text-xs text-gray-400">
+                    {viewMode === 'week' ? 'Last 1 week' : viewMode === 'date' ? selectedDate : 'Last 1 hour'}
+                  </p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
               </div>
@@ -742,7 +737,7 @@ export default function BHMDashboard() {
               </TabsList>
               {isRMSData && (
                 <span className="ml-auto text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({parseInt(effectiveMinutes) >= 20160 ? '600s' : parseInt(effectiveMinutes) >= 10080 ? '60s' : parseInt(effectiveMinutes) >= 1440 ? '10s' : '1s'} window)
+                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({viewMode === 'week' ? '60s' : viewMode === 'date' ? '10s' : '1s'} window)
                 </span>
               )}
             </div>

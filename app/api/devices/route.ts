@@ -1,11 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deviceConfig, extractFolderIdFromUrl } from '@/lib/device-config';
+import { getDriveSubfolders } from '@/lib/simple-google-api';
 
 export const dynamic = 'force-dynamic';
 
+let lastAutoDiscoveryAt = 0;
+const AUTO_DISCOVERY_TTL_MS = 5 * 60 * 1000;
+
+async function autoDiscoverDevices(parentFolderUrl?: string) {
+  const subfolders = await getDriveSubfolders(parentFolderUrl);
+  if (subfolders.length === 0) {
+    return { discovered: 0, added: 0 };
+  }
+
+  // Map first 4 folders to Device 1..4, preserving stable order by folder name.
+  const candidates = [...subfolders]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, 4);
+
+  const existing = deviceConfig.getAllDevices();
+  let added = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const folder = candidates[i];
+    const slot = i + 1;
+    const existingDevice = existing.find((device) => device.folderId === folder.id);
+    if (existingDevice) {
+      // Keep existing records but migrate legacy generic names to real folder names.
+      if (/^Device\s+\d+$/i.test(existingDevice.name)) {
+        existingDevice.name = folder.name;
+      }
+      if (!existingDevice.description?.includes('slot')) {
+        existingDevice.description = `Auto-discovered slot ${slot}: ${folder.name}`;
+      }
+      continue;
+    }
+
+    try {
+      const created = deviceConfig.addDevice(
+        folder.name,
+        folder.folderUrl,
+        `Auto-discovered slot ${slot}: ${folder.name}`
+      );
+      if (created) added++;
+    } catch {
+      // Skip folders that are duplicates or invalid.
+    }
+  }
+
+  if (!deviceConfig.getDefaultDevice()) {
+    const updated = deviceConfig.getAllDevices();
+    if (updated[0]) {
+      deviceConfig.setDefaultDevice(updated[0].id);
+    }
+  }
+
+  return { discovered: candidates.length, added };
+}
+
 // GET - List all devices
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const forceDiscover = searchParams.get('discover') === 'true';
+    const parentFolderUrl = searchParams.get('parentFolderUrl') || undefined;
+
+    const now = Date.now();
+    const shouldAutoDiscover = forceDiscover || now - lastAutoDiscoveryAt > AUTO_DISCOVERY_TTL_MS;
+    let discoveryResult = { discovered: 0, added: 0 };
+    if (shouldAutoDiscover) {
+      discoveryResult = await autoDiscoverDevices(parentFolderUrl);
+      lastAutoDiscoveryAt = now;
+    }
+
     const devices = deviceConfig.getAllDevices();
     const defaultDevice = deviceConfig.getDefaultDevice();
     const stats = deviceConfig.getStats();
@@ -14,7 +81,8 @@ export async function GET() {
       success: true,
       devices,
       defaultDevice,
-      stats
+      stats,
+      autoDiscovery: discoveryResult
     });
   } catch (error) {
     return NextResponse.json({
@@ -29,6 +97,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    if (body?.action === 'autodiscover') {
+      const discoveryResult = await autoDiscoverDevices(body?.parentFolderUrl);
+      const devices = deviceConfig.getAllDevices();
+      const defaultDevice = deviceConfig.getDefaultDevice();
+      const stats = deviceConfig.getStats();
+
+      return NextResponse.json({
+        success: true,
+        message: `Auto-discovery completed (${discoveryResult.added} added, ${discoveryResult.discovered} found)`,
+        autoDiscovery: discoveryResult,
+        devices,
+        defaultDevice,
+        stats
+      });
+    }
+
     const { name, folderUrl, description, setAsDefault } = body;
 
     if (!name || !folderUrl) {

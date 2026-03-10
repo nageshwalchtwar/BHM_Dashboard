@@ -76,6 +76,7 @@ export default function DeviceAdminPage() {
     setAsDefault: false
   })
   const [addLoading, setAddLoading] = useState(false)
+  const [discoveryLoading, setDiscoveryLoading] = useState(false)
 
   // Check authentication and admin role
   useEffect(() => {
@@ -211,6 +212,37 @@ export default function DeviceAdminPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove device')
+    }
+  }
+
+  const handleAutoDiscoverDevices = async () => {
+    try {
+      setDiscoveryLoading(true)
+      setError(null)
+      setSuccess(null)
+
+      const response = await fetch('/api/devices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'autodiscover' })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        const summary = result.autoDiscovery
+          ? `${result.autoDiscovery.added} added, ${result.autoDiscovery.discovered} folders found`
+          : 'completed'
+        setSuccess(`Auto-discovery ${summary}`)
+        await fetchDevices()
+      } else {
+        setError(result.message || 'Auto-discovery failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Auto-discovery failed')
+    } finally {
+      setDiscoveryLoading(false)
     }
   }
 
@@ -399,10 +431,21 @@ export default function DeviceAdminPage() {
                 <p className="text-sm text-muted-foreground">
                   {devices.length} device{devices.length !== 1 ? 's' : ''} configured
                 </p>
-                <Button variant="outline" size="sm" onClick={fetchDevices}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutoDiscoverDevices}
+                    disabled={discoveryLoading}
+                  >
+                    <Server className={`h-4 w-4 mr-2 ${discoveryLoading ? 'animate-pulse' : ''}`} />
+                    Auto Discover
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchDevices}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
               </div>
               
               <Table>

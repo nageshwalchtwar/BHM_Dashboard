@@ -97,6 +97,32 @@ export class SimpleGoogleDriveAPI {
     }
   }
 
+  async listSubfoldersWithAPIKey(): Promise<Array<{ id: string; name: string; modifiedTime: string }> | null> {
+    if (!this.apiKey) {
+      console.log('❌ No API key provided for subfolder discovery');
+      return null;
+    }
+
+    try {
+      const query = `'${this.folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const encodedQuery = encodeURIComponent(query);
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodedQuery}&orderBy=name asc&pageSize=200&key=${this.apiKey}&fields=files(id,name,modifiedTime)`;
+
+      const response = await this.fetchWithTimeout(url);
+      if (!response || !response.ok) {
+        const errorText = response ? await response.text() : 'timeout or fetch error';
+        console.log(`❌ Subfolder listing failed: ${errorText}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return data.files || [];
+    } catch (error) {
+      console.log('❌ listSubfoldersWithAPIKey error:', error);
+      return null;
+    }
+  }
+
   // Method 2: Download file content with API Key (Google Sheets as CSV export)
   async downloadFileWithAPIKey(fileId: string, retries = 2): Promise<string | null> {
     if (!this.apiKey) {
@@ -413,6 +439,140 @@ export async function getMultipleCSVsFromGoogleDrive(
   } catch (error) {
     console.log('❌ getMultipleCSVsFromGoogleDrive error:', error);
     return null;
+  }
+}
+
+/**
+ * Fetch a single CSV file for a specific date from Google Drive.
+ * Matches by filename date pattern (YYYY-MM-DD) first, then modifiedTime.
+ */
+export async function getCSVByDate(
+  date: string, // YYYY-MM-DD
+  customFolderId?: string
+): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
+  try {
+    const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey) {
+      console.log('❌ No API key for date-based fetch');
+      return null;
+    }
+
+    let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    if (folderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(folderId);
+      if (extracted) folderId = extracted;
+    }
+
+    const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+    const files = await api.listFilesWithAPIKey();
+
+    if (!files || files.length === 0) {
+      console.log('❌ No files found for date-based fetch');
+      return null;
+    }
+
+    // Find file matching the requested date (by filename first, then modifiedTime)
+    const targetFile = files.find(f => {
+      const nameMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (nameMatch && nameMatch[1] === date) return true;
+      if (f.modifiedTime && f.modifiedTime.startsWith(date)) return true;
+      return false;
+    });
+
+    if (!targetFile) {
+      console.log(`❌ No file found for date ${date}. Available dates: ${files.slice(0, 10).map(f => f.name).join(', ')}`);
+      return null;
+    }
+
+    console.log(`📅 Found file for ${date}: ${targetFile.name}`);
+
+    // Check cache
+    const cached = getCachedFile(targetFile.id, targetFile.modifiedTime);
+    if (cached) {
+      console.log(`⚡ Cache hit for ${targetFile.name}`);
+      return { filename: targetFile.name, content: cached, modifiedTime: targetFile.modifiedTime };
+    }
+
+    const content = await api.downloadFileWithAPIKey(targetFile.id);
+    if (content && content.length > 100) {
+      setCachedFile(targetFile.id, targetFile.modifiedTime, content);
+      return { filename: targetFile.name, content, modifiedTime: targetFile.modifiedTime };
+    }
+
+    console.log(`❌ Failed to download file for date ${date}`);
+    return null;
+  } catch (error) {
+    console.log('❌ getCSVByDate error:', error);
+    return null;
+  }
+}
+
+/**
+ * Get list of available dates that have data files.
+ * Used to show which dates are available in the date picker.
+ */
+export async function getAvailableDates(
+  customFolderId?: string
+): Promise<string[]> {
+  try {
+    const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey) return [];
+
+    let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    if (folderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(folderId);
+      if (extracted) folderId = extracted;
+    }
+
+    const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+    const files = await api.listFilesWithAPIKey();
+
+    if (!files || files.length === 0) return [];
+
+    return files.map(f => {
+      const nameMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+      if (nameMatch) return nameMatch[1];
+      return f.modifiedTime.split('T')[0];
+    }).filter((d, i, arr) => arr.indexOf(d) === i); // unique dates
+  } catch {
+    return [];
+  }
+}
+
+export async function getDriveSubfolders(
+  parentFolderIdOrUrl?: string
+): Promise<Array<{ id: string; name: string; modifiedTime?: string; folderUrl: string }>> {
+  try {
+    const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey) return [];
+
+    let parentFolderId =
+      parentFolderIdOrUrl ||
+      process.env.GOOGLE_DRIVE_PARENT_FOLDER_URL ||
+      process.env.RAILWAY_GOOGLE_DRIVE_PARENT_FOLDER_URL ||
+      process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL ||
+      process.env.GOOGLE_DRIVE_FOLDER_ID ||
+      '';
+
+    if (!parentFolderId) return [];
+
+    if (parentFolderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(parentFolderId);
+      if (extracted) parentFolderId = extracted;
+    }
+
+    const api = new SimpleGoogleDriveAPI(parentFolderId, apiKey);
+    const folders = await api.listSubfoldersWithAPIKey();
+    if (!folders || folders.length === 0) return [];
+
+    return folders.map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      modifiedTime: folder.modifiedTime,
+      folderUrl: `https://drive.google.com/drive/folders/${folder.id}`,
+    }));
+  } catch {
+    return [];
   }
 }
 
