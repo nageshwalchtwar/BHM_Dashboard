@@ -276,6 +276,111 @@ export function streamParseCSVToRMS(
 }
 
 /**
+ * Compute one RMS value per chunk of CSV text.
+ * Used with byte-range sampling — each chunk represents a small time window
+ * at an evenly-spaced position in the file, producing a smooth chart with no gaps.
+ *
+ * @param header  CSV header line
+ * @param chunks  Array of CSV text chunks (data rows only, no header)
+ * @param fileDate Optional date for time-only timestamps
+ * @returns { rmsData (one RMS point per chunk), rawRowCount }
+ */
+export function computeChunkRMS(
+  header: string,
+  chunks: string[],
+  fileDate?: string,
+): { rmsData: CSVSensorData[]; rawRowCount: number } {
+  const headers = header.split(',').map(h => h.trim().toLowerCase());
+  const col = (name: string): number => headers.indexOf(name);
+  const tsIdx = Math.max(col('timestamp'), col('time'));
+  const axAdxlIdx = col('ax_adxl'); const ayAdxlIdx = col('ay_adxl'); const azAdxlIdx = col('az_adxl');
+  const axWt901Idx = col('ax_wt901'); const ayWt901Idx = col('ay_wt901'); const azWt901Idx = col('az_wt901');
+  const accelXIdx = col('accel_x') >= 0 ? col('accel_x') : col('x');
+  const accelYIdx = col('accel_y') >= 0 ? col('accel_y') : col('y');
+  const accelZIdx = col('accel_z') >= 0 ? col('accel_z') : col('z');
+  const strokeIdx = col('stroke_mm');
+  const tempIdx = [col('temp_c'), col('temperature_c'), col('temperature')].find(i => i >= 0) ?? -1;
+
+  const dateRef = fileDate ? new Date(fileDate) : new Date();
+  function parseTs(raw: string): number {
+    const s = raw.trim();
+    if (s.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
+      const [h, m, secPart] = s.split(':');
+      const sec = parseFloat(secPart || '0');
+      return Date.UTC(dateRef.getUTCFullYear(), dateRef.getUTCMonth(), dateRef.getUTCDate(),
+        parseInt(h), parseInt(m), Math.floor(sec), Math.round((sec % 1) * 1000));
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  const pf = (vals: string[], idx: number): number => {
+    if (idx < 0 || idx >= vals.length) return 0;
+    const v = vals[idx];
+    if (!v || v === '') return 0;
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const rmsData: CSVSensorData[] = [];
+  let rawRowCount = 0;
+
+  for (const chunk of chunks) {
+    const lines = chunk.split('\n').filter(l => l.length > 5);
+    if (lines.length === 0) continue;
+
+    const axAdxl: number[] = [], ayAdxl: number[] = [], azAdxl: number[] = [];
+    const axWt: number[] = [], ayWt: number[] = [], azWt: number[] = [];
+    const ax: number[] = [], ay: number[] = [], az: number[] = [];
+    const strokes: number[] = [], temps: number[] = [];
+    let firstTs = 0, lastTs = 0, firstRaw = '';
+
+    for (const line of lines) {
+      const vals = line.split(',');
+      if (vals.length < headers.length - 1) continue;
+      const ts = tsIdx >= 0 ? parseTs(vals[tsIdx]) : 0;
+      if (ts === 0) continue;
+
+      if (!firstTs) { firstTs = ts; firstRaw = vals[tsIdx]?.trim() || ''; }
+      lastTs = ts;
+      rawRowCount++;
+
+      axAdxl.push(pf(vals, axAdxlIdx)); ayAdxl.push(pf(vals, ayAdxlIdx)); azAdxl.push(pf(vals, azAdxlIdx));
+      axWt.push(pf(vals, axWt901Idx)); ayWt.push(pf(vals, ayWt901Idx)); azWt.push(pf(vals, azWt901Idx));
+      const axv = pf(vals, accelXIdx) || pf(vals, axAdxlIdx);
+      const ayv = pf(vals, accelYIdx) || pf(vals, ayAdxlIdx);
+      const azv = pf(vals, accelZIdx) || pf(vals, azAdxlIdx);
+      ax.push(axv); ay.push(ayv); az.push(azv);
+      strokes.push(pf(vals, strokeIdx)); temps.push(pf(vals, tempIdx));
+    }
+
+    if (ax.length === 0 && axAdxl.length === 0) continue;
+
+    // Use midpoint timestamp for this chunk's RMS value
+    const midTs = firstTs + Math.round((lastTs - firstTs) / 2);
+    const axRms = calculateRMS(ax), ayRms = calculateRMS(ay), azRms = calculateRMS(az);
+    const axAdxlRms = calculateRMS(axAdxl), ayAdxlRms = calculateRMS(ayAdxl), azAdxlRms = calculateRMS(azAdxl);
+
+    rmsData.push({
+      timestamp: midTs,
+      rawTimestamp: firstRaw,
+      ax_adxl: axAdxlRms, ay_adxl: ayAdxlRms, az_adxl: azAdxlRms,
+      ax_wt901: calculateRMS(axWt), ay_wt901: calculateRMS(ayWt), az_wt901: calculateRMS(azWt),
+      accel_x: axRms || axAdxlRms, accel_y: ayRms || ayAdxlRms, accel_z: azRms || azAdxlRms,
+      x: axRms || axAdxlRms, y: ayRms || ayAdxlRms, z: azRms || azAdxlRms,
+      vibration: axRms || axAdxlRms, acceleration: ayRms || ayAdxlRms,
+      stroke_mm: strokes.length ? calculateMean(strokes) : 0,
+      strain: strokes.length ? calculateMean(strokes) : 0,
+      temperature_c: temps.length ? temps[temps.length - 1] : 0,
+      temperature: temps.length ? temps[temps.length - 1] : 0,
+    } as CSVSensorData);
+  }
+
+  // Sort by timestamp ascending
+  rmsData.sort((a, b) => a.timestamp - b.timestamp);
+  return { rmsData, rawRowCount };
+}
+
+/**
  * Calculate RMS for accel_x, accel_y, accel_z over a 1-second window (most recent second)
  * @param data CSVSensorData[] (should be sorted by timestamp descending)
  * @param samplesPerSecond number (default 40)

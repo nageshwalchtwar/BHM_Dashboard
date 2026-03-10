@@ -77,7 +77,7 @@ export class SimpleGoogleDriveAPI {
   }
 
   // Method 1: Try with API Key (if folder is publicly shared)
-  async listFilesWithAPIKey(sinceDate?: string): Promise<Array<{id: string, name: string, modifiedTime: string, mimeType?: string}> | null> {
+  async listFilesWithAPIKey(sinceDate?: string): Promise<Array<{id: string, name: string, modifiedTime: string, mimeType?: string, size?: string}> | null> {
     if (!this.apiKey) {
       console.log('❌ No API key provided');
       return null;
@@ -308,6 +308,82 @@ export class SimpleGoogleDriveAPI {
     } catch {
       return null;
     }
+  }
+
+  // ── Byte-range sampling: download small chunks from evenly-spaced positions ──
+
+  /** Download a specific byte range from a Drive file */
+  async downloadByteRange(fileId: string, start: number, end: number): Promise<string | null> {
+    if (!this.apiKey) return null;
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`;
+      const resp = await this.fetchWithTimeout(url, {
+        headers: { 'Range': `bytes=${start}-${end}` }
+      }, 15000);
+      if (!resp || (resp.status !== 206 && resp.status !== 200)) return null;
+      return resp.text();
+    } catch { return null; }
+  }
+
+  /**
+   * Sample a large CSV by downloading small byte ranges from evenly-spaced positions.
+   * Returns the header line + array of clean CSV chunk texts (partial rows trimmed).
+   */
+  async sampleFileByByteRanges(
+    fileId: string,
+    fileSizeBytes: number,
+    numSamples: number = 100,
+    bytesPerSample: number = 50 * 1024  // 50 KB per sample
+  ): Promise<{ header: string; chunks: string[] } | null> {
+    // Step 1: Get header from first 2 KB
+    const headerResp = await this.downloadByteRange(fileId, 0, 2047);
+    if (!headerResp) return null;
+    const headerEnd = headerResp.indexOf('\n');
+    if (headerEnd <= 0) return null;
+    const header = headerResp.substring(0, headerEnd).trim();
+    if (!looksLikeCSVHeader(header)) {
+      console.log(`⚠️ sampleFileByByteRanges: header doesn't look like CSV: ${header.substring(0, 100)}`);
+      return null;
+    }
+
+    // Step 2: Compute byte offsets for evenly-spaced samples
+    const usableSize = fileSizeBytes - 2048; // skip header region
+    if (usableSize < bytesPerSample * 2) return null; // file too small for sampling
+    const step = Math.floor(usableSize / numSamples);
+
+    const offsets: Array<{ start: number; end: number }> = [];
+    for (let i = 0; i < numSamples; i++) {
+      const start = 2048 + i * step;
+      const end = Math.min(start + bytesPerSample - 1, fileSizeBytes - 1);
+      offsets.push({ start, end });
+    }
+
+    console.log(`📊 Byte-range sampling: ${offsets.length} chunks of ~${Math.round(bytesPerSample / 1024)}KB from ${Math.round(fileSizeBytes / (1024 * 1024))}MB file`);
+
+    // Step 3: Download in parallel batches of 5
+    const chunks: string[] = [];
+    const BATCH = 5;
+    for (let i = 0; i < offsets.length; i += BATCH) {
+      const batch = offsets.slice(i, i + BATCH);
+      const results = await Promise.allSettled(
+        batch.map(o => this.downloadByteRange(fileId, o.start, o.end))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value && r.value.length > 50) {
+          // Drop first line (likely partial) and last line (likely partial)
+          const lines = r.value.split('\n');
+          if (lines.length >= 3) {
+            const cleanLines = lines.slice(1, -1).filter(l => l.length > 5);
+            if (cleanLines.length > 0) {
+              chunks.push(cleanLines.join('\n'));
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Got ${chunks.length}/${offsets.length} valid chunks`);
+    return chunks.length > 0 ? { header, chunks } : null;
   }
 
   // ── Google Sheets API: fetch only the rows you need ─────────────────
@@ -620,14 +696,27 @@ export async function getCSVBatchTail(
   if (!files || files.length === 0) return null;
 
   const latest = files[0];
-  // Use Sheets API for Google Sheets files (batch-read only needed rows)
+  // Use Sheets API for Google Sheets files
   if (latest.mimeType === 'application/vnd.google-apps.spreadsheet') {
     console.log(`📊 Sheets API batch tail for ${latest.name}`);
     const content = await api.fetchSheetTail(latest.id, tailRows);
     if (content && content.length > 100) {
       return { filename: latest.name, content, modifiedTime: latest.modifiedTime };
     }
-    console.log('⚠️ Sheets API tail failed, trying full download...');
+  }
+
+  // For actual CSV files: use Range-based tail download (last 512KB)
+  const tailContent = await api.downloadFileTail(latest.id, 512 * 1024);
+  if (tailContent && tailContent.length > 100) {
+    // Fetch header separately
+    let headerRow: string | null = null;
+    const hdrResp = await api.downloadByteRange(latest.id, 0, 1023);
+    if (hdrResp) {
+      const nl = hdrResp.indexOf('\n');
+      if (nl > 0) headerRow = hdrResp.substring(0, nl).trim();
+    }
+    const content = headerRow ? headerRow + '\n' + tailContent : tailContent;
+    return { filename: latest.name, content, modifiedTime: latest.modifiedTime };
   }
 
   // Fallback: full download
@@ -672,10 +761,22 @@ export async function getCSVBatchSampled(
     if (content && content.length > 100) {
       return { filename: target.name, content, modifiedTime: target.modifiedTime };
     }
-    console.log('⚠️ Sheets API sampled failed, trying full download...');
+  }
+
+  // For actual CSV files: byte-range sampling
+  const fileSize = parseInt(target.size || '0', 10);
+  if (fileSize > 500_000) { // Only sample if file > 500KB
+    console.log(`📊 Byte-range sampling for ${target.name} (${Math.round(fileSize / (1024 * 1024))}MB)`);
+    const sampled = await api.sampleFileByByteRanges(target.id, fileSize, 150, 60 * 1024);
+    if (sampled && sampled.chunks.length > 0) {
+      // Return header + all chunks as combined CSV
+      const content = sampled.header + '\n' + sampled.chunks.join('\n');
+      return { filename: target.name, content, modifiedTime: target.modifiedTime };
+    }
   }
 
   // Fallback: full download
+  console.log('⬇️ Byte-range sampling unavailable, trying full download...');
   const content = await api.downloadFileWithAPIKey(target.id);
   if (content && content.length > 100) {
     return { filename: target.name, content, modifiedTime: target.modifiedTime };
@@ -718,6 +819,16 @@ export async function getMultipleCSVsBatch(
         let csv: string | null = null;
         if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
           csv = await api.fetchSheetSampled(file.id, chunkRows, maxChunksPerFile);
+        }
+        // For actual CSVs: byte-range sampling
+        if (!csv) {
+          const fileSize = parseInt(file.size || '0', 10);
+          if (fileSize > 500_000) {
+            const sampled = await api.sampleFileByByteRanges(file.id, fileSize, maxChunksPerFile * 2, 50 * 1024);
+            if (sampled && sampled.chunks.length > 0) {
+              csv = sampled.header + '\n' + sampled.chunks.join('\n');
+            }
+          }
         }
         if (!csv) {
           csv = await api.downloadFileQuick(file.id);

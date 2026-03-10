@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond, streamParseCSVToRMS } from "@/lib/csv-handler"
+import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond, streamParseCSVToRMS, computeChunkRMS } from "@/lib/csv-handler"
 import { getCSVFromGoogleDrive, getCSVFromGoogleDriveOptimized, getMultipleCSVsFromGoogleDrive, getCSVByDate, getCSVBatchTail, getCSVBatchSampled, getMultipleCSVsBatch } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
@@ -64,14 +64,28 @@ export async function GET(request: NextRequest) {
 
       if (batchMulti && batchMulti.contents.length > 0) {
         filenames = batchMulti.filenames;
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${batchMulti.contents.length} files (batch)`;
-        const rmsWindowMs = 60000; // 60s windows for week mode
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${batchMulti.contents.length} files (sampled)`;
         for (let i = 0; i < batchMulti.contents.length; i++) {
           const fileDate = extractFileDate(batchMulti.filenames[i], batchMulti.modifiedTimes[i]);
-          console.log(`📅 Batch-RMS parsing file ${batchMulti.filenames[i]} with date: ${fileDate || 'unknown'}`);
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(batchMulti.contents[i], rmsWindowMs, fileDate);
-          allData.push(...rmsData);
-          console.log(`   → ${rawRowCount} raw rows → ${rmsData.length} RMS points`);
+          console.log(`📅 Chunk-RMS parsing file ${batchMulti.filenames[i]} with date: ${fileDate || 'unknown'}`);
+          // Split into chunks for per-chunk RMS (handles byte-range sampled data)
+          const headerEnd = batchMulti.contents[i].indexOf('\n');
+          const headerLine = headerEnd > 0 ? batchMulti.contents[i].substring(0, headerEnd).trim() : '';
+          const dataText = headerEnd > 0 ? batchMulti.contents[i].substring(headerEnd + 1) : batchMulti.contents[i];
+          const lines = dataText.split('\n').filter((l: string) => l.length > 5);
+          const CHUNK_SIZE = 1000;
+          const chunks: string[] = [];
+          for (let ci = 0; ci < lines.length; ci += CHUNK_SIZE) {
+            chunks.push(lines.slice(ci, ci + CHUNK_SIZE).join('\n'));
+          }
+          if (headerLine && chunks.length > 0) {
+            const { rmsData, rawRowCount } = computeChunkRMS(headerLine, chunks, fileDate);
+            allData.push(...rmsData);
+            console.log(`   → ${rawRowCount} raw rows → ${rmsData.length} RMS points`);
+          } else {
+            const { rmsData, rawRowCount } = streamParseCSVToRMS(batchMulti.contents[i], 60000, fileDate);
+            allData.push(...rmsData);
+          }
         }
         console.log(`📈 Merged ${allData.length} RMS points from ${batchMulti.contents.length} files`);
         isPreRMS = true;
@@ -94,23 +108,47 @@ export async function GET(request: NextRequest) {
         }
       }
     } else if (mode === 'date' && date) {
-      // ── Select Date: Batch-fetch sampled rows for specific day ──────────
-      console.log(`📅 Fetching CSV for date: ${date} (batch)`);
+      // ── Select Date: Byte-range sampled fetch for specific day ──────────
+      console.log(`📅 Fetching CSV for date: ${date} (byte-range sampling)`);
       const batchResult = await getCSVBatchSampled(folderId, { date, chunkRows: 400, maxChunks: 49 });
 
       if (batchResult && batchResult.content && batchResult.content.length > 100) {
         filenames = [batchResult.filename];
-        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date} (batch)`;
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date} (sampled)`;
         const fileDate = extractFileDate(batchResult.filename, batchResult.modifiedTime);
-        const { rmsData, rawRowCount } = streamParseCSVToRMS(batchResult.content, 10000, fileDate);
-        allData = rmsData;
-        console.log(`📈 Batch-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${batchResult.filename}`);
-        isPreRMS = true;
+
+        // Check if this is byte-range sampled data (has chunks separated by position)
+        // Use chunk-based RMS: one RMS point per sampled position = smooth evenly-spaced chart
+        const headerEnd = batchResult.content.indexOf('\n');
+        const headerLine = headerEnd > 0 ? batchResult.content.substring(0, headerEnd).trim() : '';
+        const dataText = headerEnd > 0 ? batchResult.content.substring(headerEnd + 1) : batchResult.content;
+
+        // Split into chunks by detecting large timestamp gaps (>5 min)
+        // For byte-range sampled data, rows within a chunk are close together
+        // but there are large gaps between chunks
+        const lines = dataText.split('\n').filter((l: string) => l.length > 5);
+        const CHUNK_SIZE = 500; // Group into ~500-line chunks for RMS computation
+        const chunks: string[] = [];
+        for (let ci = 0; ci < lines.length; ci += CHUNK_SIZE) {
+          chunks.push(lines.slice(ci, ci + CHUNK_SIZE).join('\n'));
+        }
+
+        if (headerLine && chunks.length > 0) {
+          const { rmsData, rawRowCount } = computeChunkRMS(headerLine, chunks, fileDate);
+          allData = rmsData;
+          console.log(`📈 Chunk-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${batchResult.filename}`);
+          isPreRMS = true;
+        } else {
+          // Fallback: standard streaming RMS
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(batchResult.content, 10000, fileDate);
+          allData = rmsData;
+          isPreRMS = true;
+        }
       }
 
       // Fallback: full download if batch fetch failed
       if (allData.length === 0) {
-        console.log('⬇️ Batch fetch unavailable for date, trying full download...')
+        console.log('⬇️ Byte-range sampling unavailable for date, trying full download...')
         const result = await getCSVByDate(date, folderId);
         if (result && result.content) {
           filenames = [result.filename];
