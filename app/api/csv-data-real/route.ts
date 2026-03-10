@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       } else if (!folderId) {
         configHint = ' — No folder ID configured for this device.';
       } else {
-        configHint = ` — Folder ${folderId} returned no files. Verify the folder is shared publicly and contains CSV files.`;
+        configHint = ` — Folder ${folderId} returned no files. This usually means file download failed (files were listed but CSV content could not be downloaded). Check server logs for details, or run the debug endpoint (/api/debug-drive) to diagnose.`;
       }
       console.log(`❌ No data: device=${device?.id}, folder=${folderId}, hasKey=${hasValidKey}${configHint}`)
       return NextResponse.json({

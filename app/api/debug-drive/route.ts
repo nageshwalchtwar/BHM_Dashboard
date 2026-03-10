@@ -57,7 +57,8 @@ export async function GET(request: Request) {
     if (apiKey) {
       try {
         console.log('🔑 Testing API key validity...')
-        const testUrl = `https://www.googleapis.com/drive/v3/about?fields=user&key=${apiKey}`
+        // Use files.list with pageSize=1 instead of /about (which requires OAuth, not API key)
+        const testUrl = `https://www.googleapis.com/drive/v3/files?pageSize=1&key=${apiKey}&fields=files(id)`
         const apiResp = await safeFetch(testUrl, {}, 7000)
 
         if (apiResp.ok) {

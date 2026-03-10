@@ -12,8 +12,17 @@ function looksLikeCSV(content: string): boolean {
   if (content.trimStart().startsWith('<')) return false; // HTML / XML
   const firstLine = content.split('\n')[0].toLowerCase();
   // Must have commas (CSV) and at least one known sensor-related keyword
-  const knownKeywords = ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp', 'vibration', 'x,', 'y,', 'z,'];
-  return firstLine.includes(',') && knownKeywords.some(k => firstLine.includes(k));
+  const knownKeywords = ['timestamp', 'time', 'device', 'accel', 'adxl', 'wt901', 'stroke', 'temp', 'vibration', 'x,', 'y,', 'z,', 'date', 'sensor', 'data', 'value', 'reading'];
+  const hasCommasAndKeyword = firstLine.includes(',') && knownKeywords.some(k => firstLine.includes(k));
+  // Also accept any file where the first line has commas and subsequent lines have numeric data
+  if (!hasCommasAndKeyword && firstLine.includes(',') && content.split('\n').length > 2) {
+    const secondLine = content.split('\n')[1];
+    // If second line contains numbers with commas, it's likely CSV data
+    if (secondLine && /\d/.test(secondLine) && secondLine.includes(',')) {
+      return true;
+    }
+  }
+  return hasCommasAndKeyword;
 }
 
 // ── In-memory file content cache ──────────────────────────────────────────
@@ -152,6 +161,7 @@ export class SimpleGoogleDriveAPI {
   // Method 2: Download file content with API Key (Google Sheets as CSV export)
   async downloadFileWithAPIKey(fileId: string, retries = 2): Promise<string | null> {
     if (!this.apiKey) {
+      console.log('❌ downloadFileWithAPIKey: No API key available');
       return null;
     }
 
@@ -164,7 +174,25 @@ export class SimpleGoogleDriveAPI {
           await new Promise(r => setTimeout(r, delay));
         }
 
-        // First try Google Sheets export (most common case)
+        // Try Drive API alt=media first (works for both actual CSVs and Sheets)
+        const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`;
+        const response = await this.fetchWithTimeout(driveUrl);
+        
+        if (response && response.ok) {
+          const content = await response.text();
+          if (looksLikeCSV(content)) {
+            return content;
+          }
+          console.log(`⚠️ Drive API returned content but looksLikeCSV=false for ${fileId}. First 200 chars: ${content.substring(0, 200)}`);
+        } else if (response && response.status === 429) {
+          console.log(`⚠️ Rate limited on Drive API for ${fileId}`);
+          continue;
+        } else if (response) {
+          const errText = await response.text().catch(() => '');
+          console.log(`⚠️ Drive API download failed for ${fileId}: HTTP ${response.status} — ${errText.substring(0, 300)}`);
+        }
+
+        // Fallback: try Google Sheets export (works if file is a Google Sheet)
         const exportResponse = await this.fetchWithTimeout(
           `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
           {
@@ -181,28 +209,17 @@ export class SimpleGoogleDriveAPI {
           if (looksLikeCSV(content)) {
             return content;
           }
+          console.log(`⚠️ Sheets export returned content but looksLikeCSV=false for ${fileId}. First 200 chars: ${content.substring(0, 200)}`);
         } else if (exportResponse && exportResponse.status === 429) {
           // Rate limited — retry
-          console.log(`⚠️ Rate limited on export for ${fileId}`);
+          console.log(`⚠️ Rate limited on Sheets export for ${fileId}`);
           continue;
+        } else if (exportResponse) {
+          console.log(`⚠️ Sheets export failed for ${fileId}: HTTP ${exportResponse.status}`);
         }
         
-        // Fallback to regular file download for actual CSV files
-        const response = await this.fetchWithTimeout(
-          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`
-        );
-        
-        if (response && response.ok) {
-          const content = await response.text();
-          if (looksLikeCSV(content)) {
-            return content;
-          }
-        } else if (response && response.status === 429) {
-          console.log(`⚠️ Rate limited on Drive API for ${fileId}`);
-          continue;
-        }
-        
-        return null;
+        console.log(`❌ Both download methods failed for fileId=${fileId} (attempt ${attempt + 1}/${retries + 1})`);
+        if (attempt === retries) return null;
         
       } catch (error) {
         if (attempt === retries) {
@@ -214,9 +231,23 @@ export class SimpleGoogleDriveAPI {
     return null;
   }
 
-  // Fast single-attempt download for batch use — no retries, 5s timeout, Sheets export only
+  // Fast single-attempt download for batch use — no retries, 5s timeout
   async downloadFileQuick(fileId: string): Promise<string | null> {
     try {
+      // Try Drive API first (works for actual CSV files and Sheets)
+      const driveResponse = await this.fetchWithTimeout(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
+        {},
+        5000
+      );
+      if (driveResponse && driveResponse.ok) {
+        const content = await driveResponse.text();
+        if (looksLikeCSV(content)) {
+          return content;
+        }
+      }
+
+      // Fallback to Sheets export (for Google Sheets files)
       const exportResponse = await this.fetchWithTimeout(
         `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`,
         {
@@ -225,7 +256,7 @@ export class SimpleGoogleDriveAPI {
             'Accept': 'text/csv,application/csv,text/plain,*/*'
           }
         },
-        5000 // 5 second timeout
+        5000
       );
 
       if (exportResponse && exportResponse.ok) {
@@ -235,18 +266,7 @@ export class SimpleGoogleDriveAPI {
         }
       }
 
-      // Quick fallback to Drive API (only if export failed completely)
-      const response = await this.fetchWithTimeout(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
-        {},
-        5000
-      );
-      if (response && response.ok) {
-        const content = await response.text();
-        if (looksLikeCSV(content)) {
-          return content;
-        }
-      }
+      // Already tried Drive API above; no additional fallback needed
 
       return null;
     } catch {
