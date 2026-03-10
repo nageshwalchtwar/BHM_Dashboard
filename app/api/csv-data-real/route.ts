@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
       ? device.latestDataFolderId
       : getFolderIdForDevice(deviceId || undefined);
 
+    console.log(`📂 Using device=${device?.name || 'unknown'} (${device?.id || 'no-id'}), folderId=${folderId}`)
+    console.log(`🔑 API key present: ${!!process.env.GOOGLE_DRIVE_API_KEY}, length: ${process.env.GOOGLE_DRIVE_API_KEY?.length || 0}`)
+
     let allData: any[] = []
     let dataSource = ''
     let filenames: string[] = []
@@ -99,9 +102,15 @@ export async function GET(request: NextRequest) {
     if (allData.length === 0) {
       const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
       const hasValidKey = apiKey && !apiKey.startsWith('your_');
-      const configHint = !hasValidKey
-        ? ' — GOOGLE_DRIVE_API_KEY is not configured in .env.local. Please set a valid API key from Google Cloud Console.'
-        : '';
+      let configHint = '';
+      if (!hasValidKey) {
+        configHint = ' — GOOGLE_DRIVE_API_KEY is not configured.';
+      } else if (!folderId) {
+        configHint = ' — No folder ID configured for this device.';
+      } else {
+        configHint = ` — Folder ${folderId} returned no files. Verify the folder is shared publicly and contains CSV files.`;
+      }
+      console.log(`❌ No data: device=${device?.id}, folder=${folderId}, hasKey=${hasValidKey}${configHint}`)
       return NextResponse.json({
         success: false,
         error: "No CSV data available from Google Drive" + configHint,

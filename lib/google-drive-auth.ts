@@ -6,8 +6,8 @@ class GoogleDriveAuthenticatedClient {
   private tokenExpiry: number = 0;
   
   constructor(
-    private clientId: string = process.env.GOOGLE_CLIENT_ID || '',
-    private clientSecret: string = process.env.GOOGLE_CLIENT_SECRET || '',
+    private clientId: string = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || '',
+    private clientSecret: string = process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET || '',
     private refreshToken: string = process.env.GOOGLE_REFRESH_TOKEN || '',
     private folderId: string = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
   ) {}

@@ -89,9 +89,21 @@ export class SimpleGoogleDriveAPI {
       const response = await this.fetchWithTimeout(url)
       
       if (!response || !response.ok) {
-        console.log(`❌ API key request failed or timed out`);
         const errorText = response ? await response.text() : 'timeout or fetch error'
-        console.log(`📄 Error response: ${errorText}`);
+        console.log(`❌ API key request failed: HTTP ${response?.status || 'N/A'}`);
+        console.log(`📄 Error response: ${errorText.substring(0, 500)}`);
+        // Parse Google error for actionable message
+        try {
+          const errJson = JSON.parse(errorText);
+          const reason = errJson?.error?.errors?.[0]?.reason || '';
+          if (response?.status === 404 || reason === 'notFound') {
+            console.log('💡 Folder not found. Check that the folder ID is correct.');
+          } else if (response?.status === 403 || reason === 'forbidden' || reason === 'dailyLimitExceeded') {
+            console.log('💡 Access denied. The folder must be shared as "Anyone with the link" for API key access.');
+          } else if (response?.status === 401) {
+            console.log('💡 API key rejected. Verify the key is valid and Google Drive API is enabled in the Cloud Console.');
+          }
+        } catch {}
         return null;
       }
       

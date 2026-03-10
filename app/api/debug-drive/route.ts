@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { SimpleGoogleDriveAPI } from '@/lib/simple-google-api'
+import { deviceConfig, getFolderIdForDevice } from '@/lib/device-config'
 
 // Comprehensive Google Drive debug endpoint
 export async function GET(request: Request) {
@@ -22,27 +23,41 @@ export async function GET(request: Request) {
       }
     }
     
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM'
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY
+    
+    // Gather all configured folder IDs for debugging
+    const devices = deviceConfig.getAllDevices();
+    const defaultDevice = deviceConfig.getDefaultDevice();
+    let primaryFolderId: string;
+    try {
+      primaryFolderId = getFolderIdForDevice(undefined);
+    } catch {
+      primaryFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '';
+    }
     
     const debugInfo = {
       timestamp: new Date().toISOString(),
       environment: {
-        folderId: folderId,
+        primaryFolderId,
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey?.length || 0,
-        apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'Not set'
+        apiKeyPrefix: apiKey ? `${apiKey.substring(0, 10)}...` : 'Not set',
+        GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '(not set)',
+        RAILWAY_GOOGLE_DRIVE_FOLDER_URL: process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL ? '(set)' : '(not set)',
+        GOOGLE_DRIVE_PARENT_FOLDER_URL: process.env.GOOGLE_DRIVE_PARENT_FOLDER_URL ? '(set)' : '(not set)',
+        configuredDevices: devices.map(d => ({ id: d.id, name: d.name, folderId: d.folderId })),
+        defaultDeviceId: defaultDevice?.id || 'none',
       },
       tests: [] as any[]
     }
     
-    console.log('📋 Environment check:', debugInfo.environment)
+    console.log('📋 Environment check:', JSON.stringify(debugInfo.environment, null, 2))
     
-    // Test 1: Basic API Key validation
+    // Test 1: Basic API Key validation — use files.list with limit=1 (about endpoint needs fields)
     if (apiKey) {
       try {
         console.log('🔑 Testing API key validity...')
-        const testUrl = `https://www.googleapis.com/drive/v3/about?key=${apiKey}`
+        const testUrl = `https://www.googleapis.com/drive/v3/about?fields=user&key=${apiKey}`
         const apiResp = await safeFetch(testUrl, {}, 7000)
 
         if (apiResp.ok) {
@@ -71,38 +86,54 @@ export async function GET(request: Request) {
         })
       }
       
-      // Test 2: Folder Access
+      // Test 2: Folder Access  — test each configured device folder
       try {
         console.log('📂 Testing folder access...')
-        const api = new SimpleGoogleDriveAPI(folderId, apiKey)
-        const files = await api.listFilesWithAPIKey()
         
-        debugInfo.tests.push({
-          name: 'Folder Access',
-          status: files && files.length > 0 ? 'PASS' : 'FAIL',
-          details: files ? `Found ${files.length} files` : 'No files found or access denied',
-          files: files?.slice(0, 5).map(f => ({
-            id: f.id,
-            name: f.name,
-            modified: f.modifiedTime
-          })) || []
-        })
+        // Test each device folder individually
+        const foldersToTest = devices.length > 0
+          ? devices.map(d => ({ label: `${d.name} (${d.id})`, folderId: d.folderId }))
+          : [{ label: 'default', folderId: primaryFolderId }];
         
-        // Test 3: File Download
-        if (files && files.length > 0) {
+        for (const folder of foldersToTest) {
+          const api = new SimpleGoogleDriveAPI(folder.folderId, apiKey)
+          const files = await api.listFilesWithAPIKey()
+          
+          debugInfo.tests.push({
+            name: `Folder Access: ${folder.label}`,
+            status: files && files.length > 0 ? 'PASS' : 'FAIL',
+            folderId: folder.folderId,
+            details: files ? `Found ${files.length} files` : 'No files found or access denied',
+            files: files?.slice(0, 3).map(f => ({
+              id: f.id,
+              name: f.name,
+              modified: f.modifiedTime
+            })) || []
+          })
+        }
+        
+        // Test 3: File Download — try downloading from the first folder that has files
+        const folderWithFiles = foldersToTest.find((folder) => {
+          const test = debugInfo.tests.find((t: any) => t.folderId === folder.folderId && t.files?.length > 0);
+          return !!test;
+        });
+        if (folderWithFiles) {
           try {
             console.log('📥 Testing file download...')
-            const latestFile = files[0]
-            const content = await api.downloadFileWithAPIKey(latestFile.id)
+            const testEntry = debugInfo.tests.find((t: any) => t.folderId === folderWithFiles.folderId && t.files?.length > 0);
+            const latestFile = testEntry.files[0];
+            const dlApi = new SimpleGoogleDriveAPI(folderWithFiles.folderId, apiKey);
+            const content = await dlApi.downloadFileWithAPIKey(latestFile.id)
             
+            const firstLine = content ? content.split('\n')[0] : '';
             debugInfo.tests.push({
               name: 'File Download',
               status: content && content.length > 0 ? 'PASS' : 'FAIL',
               details: content ? `Downloaded ${content.length} characters` : 'No content received',
               fileId: latestFile.id,
               fileName: latestFile.name,
-              contentPreview: content ? content.substring(0, 200) : null,
-              isCSV: content ? content.includes('Device') || content.includes('CSV') : false
+              headerRow: firstLine.substring(0, 300),
+              contentPreview: content ? content.substring(0, 300) : null,
             })
           } catch (error) {
             debugInfo.tests.push({
@@ -128,63 +159,39 @@ export async function GET(request: Request) {
       })
     }
     
-    // Test 4: Direct file access attempts
-    try {
-      console.log('🎯 Testing direct file access patterns...')
-      const testPatterns = [
-        '2025-12-23_13-50', // Current time pattern
-        '2025-12-23_13-40',
-        '2025-12-23_13-30',
-        '2025-12-23_12-50',
-        '2025-12-23_12-40'
-      ]
-      
-      const directAccessResults = []
-      
-      for (const pattern of testPatterns.slice(0, 3)) {
-        try {
-          const url = `https://docs.google.com/spreadsheets/d/${pattern}/export?format=csv`
-          const resp = await safeFetch(url, { headers: { 'User-Agent': 'BHM-Dashboard/1.0', 'Accept': 'text/csv,*/*' } }, 7000)
-          const content = resp.ok ? resp.text : null
-          
-          directAccessResults.push({
-            pattern: pattern,
-            url: url,
-            status: resp.status,
-            success: resp.ok && content && content.length > 100,
-            contentLength: content?.length || 0,
-            contentPreview: content ? content.substring(0, 100) : null,
-            isCSV: content ? content.includes('Device') : false,
-            error: resp.error || null
-          })
-          
-          if (resp.ok && content && content.includes('Device')) {
-            console.log(`✅ Found working pattern: ${pattern}`)
-            break // Found a working pattern
-          }
-          
-        } catch (error) {
-          directAccessResults.push({
-            pattern: pattern,
-            status: 'ERROR',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          })
-        }
+    // Test 4: Raw Google Drive API call — show exact response for primary folder
+    if (apiKey && primaryFolderId) {
+      try {
+        console.log('🎯 Testing raw Google API call...')
+        const query = encodeURIComponent(`'${primaryFolderId}' in parents`);
+        const rawUrl = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=modifiedTime%20desc&pageSize=5&key=${apiKey}&fields=files(id,name,modifiedTime,mimeType)`;
+        const rawResp = await safeFetch(rawUrl, {}, 8000);
+
+        let parsedBody: any = null;
+        try { parsedBody = JSON.parse(rawResp.text || '{}'); } catch { parsedBody = rawResp.text; }
+
+        debugInfo.tests.push({
+          name: 'Raw API Call',
+          status: rawResp.ok ? 'PASS' : 'FAIL',
+          httpStatus: rawResp.status,
+          folderId: primaryFolderId,
+          details: rawResp.ok
+            ? `OK — ${parsedBody?.files?.length ?? 0} items returned`
+            : `HTTP ${rawResp.status} — ${parsedBody?.error?.message || rawResp.text?.substring(0, 200) || 'unknown'}`,
+          response: parsedBody,
+          hint: rawResp.status === 403 || rawResp.status === 404
+            ? 'Folder is not shared publicly. Share it as "Anyone with the link → Viewer" in Google Drive.'
+            : rawResp.status === 401
+              ? 'API key rejected. Ensure Google Drive API is enabled in Cloud Console and the key has no IP restrictions.'
+              : undefined,
+        });
+      } catch (error) {
+        debugInfo.tests.push({
+          name: 'Raw API Call',
+          status: 'ERROR',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
       }
-      
-      debugInfo.tests.push({
-        name: 'Direct Pattern Access',
-        status: directAccessResults.some(r => r.success) ? 'PASS' : 'FAIL',
-        details: `Tested ${directAccessResults.length} patterns`,
-        results: directAccessResults
-      })
-      
-    } catch (error) {
-      debugInfo.tests.push({
-        name: 'Direct Pattern Access',
-        status: 'ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      })
     }
     
     // Summary
