@@ -94,6 +94,188 @@ function calculateRMS(values: number[]): number {
 }
 
 /**
+ * Streaming CSV → RMS parser.  Parses raw CSV text and computes RMS windows
+ * in a **single pass** without creating an intermediate CSVSensorData[] array.
+ * Memory: O(windowSize) instead of O(totalRows).
+ *
+ * @param csvText   Raw CSV string (may lack header when produced from Range-download tail)
+ * @param windowMs  RMS window in ms (1000 = 1s)
+ * @param fileDate  Optional date for time-only timestamps
+ * @param header    Optional pre-known header row (if csv was from Range tail download)
+ * @param tailSeconds  If > 0, only keep data from the last N seconds
+ * @returns { rmsData, rawRowCount, latestRMS }
+ */
+export function streamParseCSVToRMS(
+  csvText: string,
+  windowMs: number = 1000,
+  fileDate?: string,
+  header?: string,
+  tailSeconds?: number,
+): {
+  rmsData: CSVSensorData[];
+  rawRowCount: number;
+  latestRMS: { accel_x_rms: number; accel_y_rms: number; accel_z_rms: number; wt901_x_rms: number; wt901_y_rms: number; wt901_z_rms: number };
+} {
+  const lines = csvText.split('\n');
+  const emptyRMS = { accel_x_rms: 0, accel_y_rms: 0, accel_z_rms: 0, wt901_x_rms: 0, wt901_y_rms: 0, wt901_z_rms: 0 };
+  if (lines.length < 2) return { rmsData: [], rawRowCount: 0, latestRMS: emptyRMS };
+
+  // Resolve header
+  let headerLine: string;
+  let dataStartIdx: number;
+  if (header) {
+    headerLine = header;
+    dataStartIdx = 0; // All lines are data
+  } else {
+    headerLine = lines[0];
+    dataStartIdx = 1;
+  }
+
+  const rawHeaders = headerLine.split(',').map(h => h.trim());
+  const headers = rawHeaders.map(h => h.toLowerCase());
+
+  // Column index lookup
+  const col = (name: string): number => headers.indexOf(name);
+  const tsIdx = Math.max(col('timestamp'), col('time'));
+  const axAdxlIdx = col('ax_adxl'); const ayAdxlIdx = col('ay_adxl'); const azAdxlIdx = col('az_adxl');
+  const axWt901Idx = col('ax_wt901'); const ayWt901Idx = col('ay_wt901'); const azWt901Idx = col('az_wt901');
+  const accelXIdx = col('accel_x') >= 0 ? col('accel_x') : col('x');
+  const accelYIdx = col('accel_y') >= 0 ? col('accel_y') : col('y');
+  const accelZIdx = col('accel_z') >= 0 ? col('accel_z') : col('z');
+  const strokeIdx = col('stroke_mm') >= 0 ? col('stroke_mm') : col('stroke_mm');
+  const tempIdx = [col('temp_c'), col('temperature_c'), col('temperature')].find(i => i >= 0) ?? -1;
+
+  const pf = (vals: string[], idx: number): number => {
+    if (idx < 0 || idx >= vals.length) return 0;
+    const v = vals[idx];
+    if (!v || v === '') return 0;
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  };
+
+  // Date reference for time-only timestamps
+  const dateRef = fileDate ? new Date(fileDate) : new Date();
+
+  function parseTimestamp(raw: string): number {
+    const s = raw.trim();
+    if (s.match(/^\d{1,2}:\d{2}:\d{2}(\.\d+)?$/)) {
+      const [h, m, secPart] = s.split(':');
+      const sec = parseFloat(secPart || '0');
+      return Date.UTC(dateRef.getUTCFullYear(), dateRef.getUTCMonth(), dateRef.getUTCDate(),
+        parseInt(h), parseInt(m), Math.floor(sec), Math.round((sec % 1) * 1000));
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+
+  // ── First pass: fast-parse all rows into lightweight numeric arrays ──
+  // We need to sort by timestamp, so collect {ts, values} tuples
+  interface RowTuple { ts: number; raw: string; vals: string[] }
+  const rows: RowTuple[] = [];
+
+  for (let i = dataStartIdx; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.length < 5) continue;
+    const vals = line.split(',');
+    if (vals.length < headers.length - 1) continue; // allow off-by-one
+    const ts = tsIdx >= 0 ? parseTimestamp(vals[tsIdx]) : 0;
+    if (ts === 0) continue;
+    rows.push({ ts, raw: vals[tsIdx]?.trim() || '', vals });
+  }
+
+  if (rows.length === 0) return { rmsData: [], rawRowCount: 0, latestRMS: emptyRMS };
+
+  // Sort ascending by timestamp
+  rows.sort((a, b) => a.ts - b.ts);
+
+  // Optional: trim to last N seconds
+  let startIdx = 0;
+  if (tailSeconds && tailSeconds > 0) {
+    const cutoff = rows[rows.length - 1].ts - tailSeconds * 1000;
+    startIdx = rows.findIndex(r => r.ts >= cutoff);
+    if (startIdx < 0) startIdx = 0;
+  }
+
+  // ── Second pass: window-based RMS aggregation ──
+  const rmsData: CSVSensorData[] = [];
+
+  // Running window accumulators
+  let wStart = rows[startIdx].ts;
+  let wAxAdxl: number[] = [], wAyAdxl: number[] = [], wAzAdxl: number[] = [];
+  let wAxWt: number[] = [], wAyWt: number[] = [], wAzWt: number[] = [];
+  let wAx: number[] = [], wAy: number[] = [], wAz: number[] = [];
+  let wStroke: number[] = [], wTemp: number[] = [];
+  let wFirstRaw = '';
+
+  const flushWindow = () => {
+    if (wAx.length === 0 && wAxAdxl.length === 0) return;
+    const ax_adxl_rms = calculateRMS(wAxAdxl);
+    const ay_adxl_rms = calculateRMS(wAyAdxl);
+    const az_adxl_rms = calculateRMS(wAzAdxl);
+    const ax_wt_rms = calculateRMS(wAxWt);
+    const ay_wt_rms = calculateRMS(wAyWt);
+    const az_wt_rms = calculateRMS(wAzWt);
+    const ax_rms = calculateRMS(wAx);
+    const ay_rms = calculateRMS(wAy);
+    const az_rms = calculateRMS(wAz);
+    const stroke_avg = wStroke.length ? calculateMean(wStroke) : 0;
+    const temp_last = wTemp.length ? wTemp[wTemp.length - 1] : 0;
+
+    rmsData.push({
+      timestamp: wStart,
+      rawTimestamp: wFirstRaw,
+      ax_adxl: ax_adxl_rms, ay_adxl: ay_adxl_rms, az_adxl: az_adxl_rms,
+      ax_wt901: ax_wt_rms, ay_wt901: ay_wt_rms, az_wt901: az_wt_rms,
+      accel_x: ax_rms || ax_adxl_rms, accel_y: ay_rms || ay_adxl_rms, accel_z: az_rms || az_adxl_rms,
+      x: ax_rms || ax_adxl_rms, y: ay_rms || ay_adxl_rms, z: az_rms || az_adxl_rms,
+      vibration: ax_rms || ax_adxl_rms, acceleration: ay_rms || ay_adxl_rms,
+      stroke_mm: stroke_avg, strain: stroke_avg,
+      temperature_c: temp_last, temperature: temp_last,
+    } as CSVSensorData);
+  };
+
+  for (let i = startIdx; i < rows.length; i++) {
+    const { ts, raw, vals } = rows[i];
+    if (ts - wStart >= windowMs) {
+      flushWindow();
+      // Reset accumulators
+      wStart = ts; wFirstRaw = raw;
+      wAxAdxl = []; wAyAdxl = []; wAzAdxl = [];
+      wAxWt = []; wAyWt = []; wAzWt = [];
+      wAx = []; wAy = []; wAz = [];
+      wStroke = []; wTemp = [];
+    }
+    if (!wFirstRaw) wFirstRaw = raw;
+    // Accumulate values
+    wAxAdxl.push(pf(vals, axAdxlIdx));
+    wAyAdxl.push(pf(vals, ayAdxlIdx));
+    wAzAdxl.push(pf(vals, azAdxlIdx));
+    wAxWt.push(pf(vals, axWt901Idx));
+    wAyWt.push(pf(vals, ayWt901Idx));
+    wAzWt.push(pf(vals, azWt901Idx));
+    const axVal = pf(vals, accelXIdx) || pf(vals, axAdxlIdx);
+    const ayVal = pf(vals, accelYIdx) || pf(vals, ayAdxlIdx);
+    const azVal = pf(vals, accelZIdx) || pf(vals, azAdxlIdx);
+    wAx.push(axVal); wAy.push(ayVal); wAz.push(azVal);
+    wStroke.push(pf(vals, strokeIdx));
+    wTemp.push(pf(vals, tempIdx));
+  }
+  flushWindow(); // Last window
+
+  // Compute latest 1-second RMS from the last window or last second of rmsData
+  const latestRMS = rmsData.length > 0 ? {
+    accel_x_rms: rmsData[rmsData.length - 1].accel_x ?? 0,
+    accel_y_rms: rmsData[rmsData.length - 1].accel_y ?? 0,
+    accel_z_rms: rmsData[rmsData.length - 1].accel_z ?? 0,
+    wt901_x_rms: rmsData[rmsData.length - 1].ax_wt901 ?? 0,
+    wt901_y_rms: rmsData[rmsData.length - 1].ay_wt901 ?? 0,
+    wt901_z_rms: rmsData[rmsData.length - 1].az_wt901 ?? 0,
+  } : emptyRMS;
+
+  return { rmsData, rawRowCount: rows.length - startIdx, latestRMS };
+}
+
+/**
  * Calculate RMS for accel_x, accel_y, accel_z over a 1-second window (most recent second)
  * @param data CSVSensorData[] (should be sorted by timestamp descending)
  * @param samplesPerSecond number (default 40)

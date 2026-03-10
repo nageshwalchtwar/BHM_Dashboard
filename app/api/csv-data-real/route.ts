@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond } from "@/lib/csv-handler"
-import { getCSVFromGoogleDrive, getMultipleCSVsFromGoogleDrive, getCSVByDate } from '@/lib/simple-google-api'
+import { parseCSVToSensorData, getRecentData, getLatestRMSValues, downsampleToRMSPerSecond, streamParseCSVToRMS } from "@/lib/csv-handler"
+import { getCSVFromGoogleDrive, getCSVFromGoogleDriveOptimized, getMultipleCSVsFromGoogleDrive, getCSVByDate } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache ────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     let allData: any[] = []
     let dataSource = ''
     let filenames: string[] = []
+    let isPreRMS = false; // true when streamParseCSVToRMS was used (skip redundant downsample)
 
     // Helper: extract date from filename or modifiedTime
     const extractFileDate = (filename: string, modifiedTime?: string): string | undefined => {
@@ -64,13 +65,17 @@ export async function GET(request: NextRequest) {
       if (multiResult && multiResult.contents.length > 0) {
         filenames = multiResult.filenames;
         dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${multiResult.contents.length} files`;
+        // Use streaming RMS parser per file — avoids huge intermediate arrays
+        const rmsWindowMs = 60000; // 60s windows for week mode
         for (let i = 0; i < multiResult.contents.length; i++) {
           const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
-          console.log(`📅 Parsing file ${multiResult.filenames[i]} with date: ${fileDate || 'unknown'}`);
-          const parsed = parseCSVToSensorData(multiResult.contents[i], fileDate);
-          allData.push(...parsed);
+          console.log(`📅 Streaming-RMS parsing file ${multiResult.filenames[i]} with date: ${fileDate || 'unknown'}`);
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], rmsWindowMs, fileDate);
+          allData.push(...rmsData);
+          console.log(`   → ${rawRowCount} raw rows → ${rmsData.length} RMS points`);
         }
-        console.log(`📈 Merged ${allData.length} data points from ${multiResult.contents.length} files`);
+        console.log(`📈 Merged ${allData.length} RMS points from ${multiResult.contents.length} files`);
+        isPreRMS = true;
       }
     } else if (mode === 'date' && date) {
       // ── Select Date: Fetch specific day's file ─────────────────────────
@@ -81,14 +86,75 @@ export async function GET(request: NextRequest) {
         filenames = [result.filename];
         dataSource = `Google Drive (${device?.name || 'Real Data'}) - ${date}`;
         const fileDate = extractFileDate(result.filename, result.modifiedTime);
-        allData = parseCSVToSensorData(result.content, fileDate);
-        console.log(`📈 Parsed ${allData.length} data points from ${result.filename}`);
+        // Use streaming RMS parser — 10s windows for date mode
+        const { rmsData, rawRowCount } = streamParseCSVToRMS(result.content, 10000, fileDate);
+        allData = rmsData;
+        console.log(`📈 Streaming-RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points from ${result.filename}`);
+        isPreRMS = true;
       }
     }
 
-    // ── 1 Min: fetch single latest CSV and time-filter to last 1 min ──
+    // ── 1 Min: optimised path — Range download + streaming RMS ──────────
     if (mode === 'minute' && allData.length === 0) {
-      console.log('🔐 Fetching latest CSV (1 Min mode)...')
+      console.log('🔐 Fetching latest CSV (1 Min mode — optimised)...')
+      const optResult = await getCSVFromGoogleDriveOptimized(folderId);
+      if (optResult && optResult.content && optResult.content.length > 100) {
+        filenames = [optResult.filename];
+        dataSource = `Google Drive (${device?.name || 'Real Data'}) - Latest (optimised)`;
+        const fileDate = extractFileDate(optResult.filename, optResult.modifiedTime);
+
+        // Use streaming RMS parser — goes straight from CSV text → RMS data
+        // Only keep last 60 seconds for "1 minute" mode
+        const { rmsData, rawRowCount, latestRMS } = streamParseCSVToRMS(
+          optResult.content,
+          1000,       // 1-second RMS windows
+          fileDate,
+          optResult.header || undefined,
+          60,         // only last 60 seconds
+        );
+
+        if (rmsData.length > 0) {
+          console.log(`⚡ Streaming RMS: ${rawRowCount} raw rows → ${rmsData.length} RMS points (skipped full parse)`);
+
+          // Cap data points
+          const MAX_CLIENT_POINTS = 5000;
+          let responseData = rmsData;
+          if (responseData.length > MAX_CLIENT_POINTS) {
+            const step = Math.ceil(responseData.length / MAX_CLIENT_POINTS);
+            responseData = responseData.filter((_: any, i: number) => i % step === 0);
+          }
+
+          const dataStart = new Date(responseData[0].timestamp);
+          const dataEnd = new Date(responseData[responseData.length - 1].timestamp);
+
+          const responseJson = {
+            success: true,
+            data: responseData,
+            rms: latestRMS,
+            isRMSData: true,
+            metadata: {
+              source: dataSource,
+              filename: filenames.join(', '),
+              totalPoints: rawRowCount,
+              rawPoints: rawRowCount,
+              rmsPoints: responseData.length,
+              timeframe: '1 minute',
+              dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes: 1 },
+              isRMSData: true,
+              lastUpdate: new Date().toISOString(),
+              latestDataTime: dataEnd.toISOString(),
+              oldestDataTime: dataStart.toISOString(),
+              isRealData: true,
+              device: device ? { id: device.id, name: device.name, description: device.description, folderUrl: device.folderUrl } : null
+            }
+          };
+          responseCache.set(cacheKey, { json: responseJson, cachedAt: Date.now() });
+          return NextResponse.json(responseJson);
+        }
+      }
+
+      // Fallback: original full-download path if optimised path failed
+      console.log('⬇️ Optimised path unavailable, trying full download...')
       const result = await getCSVFromGoogleDrive(folderId);
       if (result && result.content && result.content.length > 100) {
         filenames = [result.filename];
@@ -141,15 +207,32 @@ export async function GET(request: NextRequest) {
       console.log(`⏱️ 1 Min filter: ${allData.length} total → ${filteredData.length} filtered`)
     }
 
-    // Calculate latest RMS for the header display (always 1-second window)
-    const responseRMS = getLatestRMSValues(filteredData, 100);
-
-    // RMS window: minute=1s, date=10s, week=60s
-    const rmsWindowMs = mode === 'week' ? 60000 : mode === 'date' ? 10000 : 1000;
-
-    let responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
+    let responseData: any[];
+    let responseRMS: any;
     const isRMSData = true;
-    console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} points (${rmsWindowMs/1000}s windows)`);
+
+    if (isPreRMS) {
+      // Data already RMS'd by streamParseCSVToRMS — skip redundant downsample
+      responseData = filteredData;
+      responseRMS = filteredData.length > 0 ? {
+        accel_x_rms: filteredData[0].accel_x ?? 0,
+        accel_y_rms: filteredData[0].accel_y ?? 0,
+        accel_z_rms: filteredData[0].accel_z ?? 0,
+        wt901_x_rms: filteredData[0].ax_wt901 ?? 0,
+        wt901_y_rms: filteredData[0].ay_wt901 ?? 0,
+        wt901_z_rms: filteredData[0].az_wt901 ?? 0,
+      } : getLatestRMSValues([], 100);
+      console.log(`⚡ Pre-RMS data: ${filteredData.length} points (no additional downsample)`);
+    } else {
+      // Calculate latest RMS for the header display (always 1-second window)
+      responseRMS = getLatestRMSValues(filteredData, 100);
+
+      // RMS window: minute=1s, date=10s, week=60s
+      const rmsWindowMs = mode === 'week' ? 60000 : mode === 'date' ? 10000 : 1000;
+
+      responseData = downsampleToRMSPerSecond(filteredData, rmsWindowMs);
+      console.log(`📊 RMS downsampled: ${filteredData.length} raw → ${responseData.length} points (${rmsWindowMs/1000}s windows)`);
+    }
 
     // Cap data points to prevent client crashes
     const MAX_CLIENT_POINTS = 5000;

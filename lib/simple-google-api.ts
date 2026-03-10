@@ -62,14 +62,14 @@ export class SimpleGoogleDriveAPI {
   ) {}
 
   // Helper to perform fetch with timeout, returns null on failure
-  private async fetchWithTimeout(url: string, opts: any = {}, timeoutMs = 8000) {
+  private async fetchWithTimeout(url: string, opts: any = {}, timeoutMs = 30000) {
     const controller = new AbortController()
     const id = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const res = await fetch(url, { ...opts, signal: controller.signal })
       return res
     } catch (err) {
-      console.log(`❌ fetch failed for ${url}:`, err instanceof Error ? err.message : String(err))
+      console.log(`❌ fetch failed for ${url.substring(0, 80)}...:`, err instanceof Error ? err.message : String(err))
       return null
     } finally {
       clearTimeout(id)
@@ -231,14 +231,50 @@ export class SimpleGoogleDriveAPI {
     return null;
   }
 
-  // Fast single-attempt download for batch use — no retries, 5s timeout
+  /**
+   * Download only the tail of a file using HTTP Range header.
+   * Useful for "1 minute" mode where we only need the last ~60s of data.
+   * @param fileId Google Drive file ID
+   * @param tailBytes Number of bytes from the end to download (default 512KB)
+   */
+  async downloadFileTail(fileId: string, tailBytes = 512 * 1024): Promise<string | null> {
+    if (!this.apiKey) return null;
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`;
+      const response = await this.fetchWithTimeout(url, {
+        headers: { 'Range': `bytes=-${tailBytes}` }
+      }, 20000);
+
+      if (!response) return null;
+
+      // 206 = partial content (Range worked), 200 = file smaller than range (full file)
+      if (response.status === 206 || response.status === 200) {
+        const content = await response.text();
+        if (response.status === 206) {
+          // Drop first partial line (may be cut mid-row)
+          const newlineIdx = content.indexOf('\n');
+          if (newlineIdx > 0 && newlineIdx < 500) {
+            return content.substring(newlineIdx + 1);
+          }
+        }
+        return content;
+      }
+      console.log(`⚠️ Range download returned HTTP ${response.status} for ${fileId}`);
+      return null;
+    } catch (err) {
+      console.log(`⚠️ downloadFileTail error for ${fileId}:`, err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  }
+
+  // Fast single-attempt download for batch use — no retries, 15s timeout
   async downloadFileQuick(fileId: string): Promise<string | null> {
     try {
       // Try Drive API first (works for actual CSV files and Sheets)
       const driveResponse = await this.fetchWithTimeout(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
         {},
-        5000
+        15000
       );
       if (driveResponse && driveResponse.ok) {
         const content = await driveResponse.text();
@@ -256,7 +292,7 @@ export class SimpleGoogleDriveAPI {
             'Accept': 'text/csv,application/csv,text/plain,*/*'
           }
         },
-        5000
+        15000
       );
 
       if (exportResponse && exportResponse.ok) {
@@ -326,7 +362,7 @@ export class SimpleGoogleDriveAPI {
   // Get latest CSV file using all available methods
   async getLatestCSV(): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
     try {
-      console.log('🎯 Getting latest CSV using Simple Google Drive API...');
+      console.log('\ud83c\udfaf Getting latest CSV using Simple Google Drive API...');
       
       // Method 1: Try API key first
       if (this.apiKey) {
@@ -366,7 +402,81 @@ export class SimpleGoogleDriveAPI {
       return null;
     }
   }
+  /**
+   * Optimised latest-file fetch for \"1 minute\" mode.
+   * 1. List files to find the latest.
+   * 2. Try Range-based tail download (only last ~512KB) — much faster for big files.
+   * 3. If that fails, fall back to full download.
+   * Returns the CSV header (for the streaming parser) + content.
+   */
+  async getLatestCSVOptimized(): Promise<{
+    filename: string;
+    content: string;
+    header: string | null;  // null = content includes header; string = header provided separately (tail download)
+    modifiedTime?: string;
+  } | null> {
+    if (!this.apiKey) return null;
+    try {
+      const files = await this.listFilesWithAPIKey();
+      if (!files || files.length === 0) return null;
+      const latest = files[0];
+      console.log(`⚡ Optimised fetch for ${latest.name}`);
+
+      // Check content cache first
+      const cached = getCachedFile(latest.id, latest.modifiedTime);
+      if (cached) {
+        console.log(`⚡ Cache hit for ${latest.name} (${cached.length} chars)`);
+        return { filename: latest.name, content: cached, header: null, modifiedTime: latest.modifiedTime };
+      }
+
+      // Step 1: Try Range-based tail download (fast for large files)
+      const tailContent = await this.downloadFileTail(latest.id, 512 * 1024);
+      if (tailContent && tailContent.length > 100) {
+        // Fetch header row from the first 1KB of the file
+        let headerRow: string | null = null;
+        try {
+          const url = `https://www.googleapis.com/drive/v3/files/${latest.id}?alt=media&key=${this.apiKey}`;
+          const hdrResp = await this.fetchWithTimeout(url, { headers: { 'Range': 'bytes=0-1023' } }, 8000);
+          if (hdrResp && (hdrResp.status === 206 || hdrResp.status === 200)) {
+            const hdrText = await hdrResp.text();
+            const firstNewline = hdrText.indexOf('\n');
+            if (firstNewline > 0) {
+              headerRow = hdrText.substring(0, firstNewline).trim();
+            }
+          }
+        } catch {}
+
+        if (headerRow && looksLikeCSVHeader(headerRow)) {
+          console.log(`\u2705 Tail download: ${tailContent.length} chars with header`);
+          return { filename: latest.name, content: tailContent, header: headerRow, modifiedTime: latest.modifiedTime };
+        }
+        // If we can't get header, the tail content may still include header if file was small
+        if (looksLikeCSV(tailContent)) {
+          setCachedFile(latest.id, latest.modifiedTime, tailContent);
+          return { filename: latest.name, content: tailContent, header: null, modifiedTime: latest.modifiedTime };
+        }
+      }
+
+      // Step 2: Fallback to full download
+      console.log(`\u23ec Falling back to full download for ${latest.name}`);
+      const content = await this.downloadFileWithAPIKey(latest.id);
+      if (content && looksLikeCSV(content)) {
+        setCachedFile(latest.id, latest.modifiedTime, content);
+        return { filename: latest.name, content, header: null, modifiedTime: latest.modifiedTime };
+      }
+      return null;
+    } catch (error) {
+      console.log('\u274c getLatestCSVOptimized error:', error);
+      return null;
+    }
+  }
 }
+
+/** Check if a single line looks like a CSV header row */
+function looksLikeCSVHeader(line: string): boolean {
+  const lower = line.toLowerCase();
+  const keywords = ['timestamp', 'time', 'accel', 'adxl', 'wt901', 'stroke', 'temp', 'x,', 'y,', 'z,', 'device'];
+  return lower.includes(',') && keywords.some(k => lower.includes(k));}
 
 // Quick helper function to try getting CSV content using any available method
 export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{filename: string, content: string, modifiedTime?: string} | null> {
@@ -389,6 +499,29 @@ export async function getCSVFromGoogleDrive(customFolderId?: string): Promise<{f
     
   } catch (error) {
     console.log('❌ getCSVFromGoogleDrive error:', error);
+    return null;
+  }
+}
+
+/**
+ * Optimised CSV fetch for "1 minute" mode.
+ * Uses Range-based partial download to avoid fetching the entire large file.
+ */
+export async function getCSVFromGoogleDriveOptimized(customFolderId?: string): Promise<{
+  filename: string; content: string; header: string | null; modifiedTime?: string;
+} | null> {
+  try {
+    const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+    if (!apiKey || apiKey.startsWith('your_')) return null;
+    let folderId = customFolderId || process.env.RAILWAY_GOOGLE_DRIVE_FOLDER_URL || process.env.GOOGLE_DRIVE_FOLDER_ID || '10T_z5tX0XjWQ9OAlPdPQpmPXbpE0GxqM';
+    if (folderId.includes('http')) {
+      const extracted = extractFolderIdFromUrl(folderId);
+      if (extracted) folderId = extracted;
+    }
+    const api = new SimpleGoogleDriveAPI(folderId, apiKey);
+    return await api.getLatestCSVOptimized();
+  } catch (error) {
+    console.log('❌ getCSVFromGoogleDriveOptimized error:', error);
     return null;
   }
 }
