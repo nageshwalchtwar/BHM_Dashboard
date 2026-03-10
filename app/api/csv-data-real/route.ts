@@ -68,9 +68,10 @@ export async function GET(request: NextRequest) {
 
         for (let i = 0; i < multiResult.contents.length; i++) {
           const fileDate = extractFileDate(multiResult.filenames[i], multiResult.modifiedTimes[i]);
-          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], 1000, fileDate);
+          // 10s RMS windows for week — keeps point count manageable across 7 days
+          const { rmsData, rawRowCount } = streamParseCSVToRMS(multiResult.contents[i], 10000, fileDate);
           allData.push(...rmsData);
-          console.log(`  ${multiResult.filenames[i]}: ${rawRowCount} rows → ${rmsData.length} RMS`);
+          console.log(`  ${multiResult.filenames[i]}: ${rawRowCount} rows → ${rmsData.length} RMS (10s)`);
         }
         console.log(`📈 Total: ${allData.length} RMS points from ${multiResult.contents.length} files`);
       }

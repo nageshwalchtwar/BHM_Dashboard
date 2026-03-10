@@ -232,8 +232,52 @@ export class SimpleGoogleDriveAPI {
   }
 
   /**
+   * Download the header line (first 1 KB) + tail of a large file via two Range requests.
+   * This is the only viable approach for 1+ GB CSV files.
+   * @param fileId Google Drive file ID
+   * @param tailBytes How many bytes from the end to download (default 30 MB)
+   */
+  async downloadFileTailWithHeader(fileId: string, tailBytes = 30 * 1024 * 1024): Promise<string | null> {
+    if (!this.apiKey) return null;
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`;
+    try {
+      // Step 1: grab the header row (first 1 KB — header lines are never > 500 bytes)
+      const hdrResp = await this.fetchWithTimeout(url, { headers: { 'Range': 'bytes=0-1023' } }, 15000);
+      if (!hdrResp || (hdrResp.status !== 206 && hdrResp.status !== 200)) {
+        console.log(`⚠️ Header fetch failed for ${fileId}: HTTP ${hdrResp?.status}`);
+        return null;
+      }
+      const hdrContent = await hdrResp.text();
+      const headerEnd = hdrContent.indexOf('\n');
+      const headerLine = headerEnd > 0 ? hdrContent.substring(0, headerEnd).trim() : hdrContent.trim();
+      if (!headerLine || !headerLine.includes(',')) {
+        console.log(`⚠️ Could not extract header from ${fileId}`);
+        return null;
+      }
+
+      // Step 2: grab the tail
+      const tailResp = await this.fetchWithTimeout(url, { headers: { 'Range': `bytes=-${tailBytes}` } }, 45000);
+      if (!tailResp || (tailResp.status !== 206 && tailResp.status !== 200)) {
+        console.log(`⚠️ Tail fetch failed for ${fileId}: HTTP ${tailResp?.status}`);
+        return null;
+      }
+      const tailContent = await tailResp.text();
+
+      // Drop the first line of the tail (it's a partial row cut at the byte boundary)
+      const firstNl = tailContent.indexOf('\n');
+      const cleanTail = firstNl > 0 ? tailContent.substring(firstNl + 1) : tailContent;
+
+      const combined = headerLine + '\n' + cleanTail;
+      console.log(`✅ Tail download: header + ${Math.round(tailBytes / (1024 * 1024))}MB tail = ${Math.round(combined.length / 1024)}KB total`);
+      return combined;
+    } catch (err) {
+      console.log(`⚠️ downloadFileTailWithHeader error for ${fileId}:`, err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  }
+
+  /**
    * Download only the tail of a file using HTTP Range header.
-   * Useful for "1 minute" mode where we only need the last ~60s of data.
    * @param fileId Google Drive file ID
    * @param tailBytes Number of bytes from the end to download (default 512KB)
    */
@@ -247,11 +291,9 @@ export class SimpleGoogleDriveAPI {
 
       if (!response) return null;
 
-      // 206 = partial content (Range worked), 200 = file smaller than range (full file)
       if (response.status === 206 || response.status === 200) {
         const content = await response.text();
         if (response.status === 206) {
-          // Drop first partial line (may be cut mid-row)
           const newlineIdx = content.indexOf('\n');
           if (newlineIdx > 0 && newlineIdx < 500) {
             return content.substring(newlineIdx + 1);
@@ -274,7 +316,7 @@ export class SimpleGoogleDriveAPI {
       const driveResponse = await this.fetchWithTimeout(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${this.apiKey}`,
         {},
-        60000
+        25000
       );
       if (driveResponse && driveResponse.ok) {
         const content = await driveResponse.text();
@@ -292,7 +334,7 @@ export class SimpleGoogleDriveAPI {
             'Accept': 'text/csv,application/csv,text/plain,*/*'
           }
         },
-        60000
+        25000
       );
 
       if (exportResponse && exportResponse.ok) {
@@ -921,8 +963,13 @@ export async function getMultipleCSVsFromGoogleDrive(
             cacheHits++;
             return { file, content: cached };
           }
-          // Fast download: no retries, just Sheets export with 5s timeout
-          const content = await api.downloadFileQuick(file.id);
+          // Files are 1+ GB — use Range tail download (header + last 8 MB per file)
+          // 8 MB ≈ last 9 minutes of the day; with 10s RMS = ~54 points per file
+          const fileSizeBytes = parseInt(file.size || '0', 10);
+          const isLargeFile = fileSizeBytes > 5 * 1024 * 1024;
+          const content = isLargeFile
+            ? await api.downloadFileTailWithHeader(file.id, 8 * 1024 * 1024)
+            : await api.downloadFileQuick(file.id);
           if (content && content.length > 100) {
             setCachedFile(file.id, file.modifiedTime, content);
           }
@@ -978,7 +1025,9 @@ export async function getCSVByDate(
     }
 
     // Find file matching the requested date (by filename first, then modifiedTime)
-    const targetFile = files.find(f => {
+    // Falls back to the most recent file if no exact date match found
+    let targetFile = files.find(f => {
+      if (!date) return true; // no date → pick first (newest)
       const nameMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/);
       if (nameMatch && nameMatch[1] === date) return true;
       if (f.modifiedTime && f.modifiedTime.startsWith(date)) return true;
@@ -986,11 +1035,14 @@ export async function getCSVByDate(
     });
 
     if (!targetFile) {
-      console.log(`❌ No file found for date ${date}. Available dates: ${files.slice(0, 10).map(f => f.name).join(', ')}`);
-      return null;
+      // No file for the requested date — use the latest file instead
+      console.log(`⚠️ No file found for date ${date}, falling back to latest: ${files[0]?.name}`);
+      targetFile = files[0];
+    } else {
+      console.log(`📅 Found file for ${date}: ${targetFile.name}`);
     }
 
-    console.log(`📅 Found file for ${date}: ${targetFile.name}`);
+    if (!targetFile) return null;
 
     // Check cache
     const cached = getCachedFile(targetFile.id, targetFile.modifiedTime);
@@ -999,7 +1051,13 @@ export async function getCSVByDate(
       return { filename: targetFile.name, content: cached, modifiedTime: targetFile.modifiedTime };
     }
 
-    const content = await api.downloadFileWithAPIKey(targetFile.id);
+    // Files are 1+ GB — always use Range tail download (header + last 30 MB)
+    // 30 MB @ ~15 KB/s data rate ≈ last 35 minutes of the day
+    const fileSizeBytes = parseInt(targetFile.size || '0', 10);
+    const isLargeFile = fileSizeBytes > 5 * 1024 * 1024; // > 5 MB
+    const content = isLargeFile
+      ? await api.downloadFileTailWithHeader(targetFile.id, 30 * 1024 * 1024)
+      : await api.downloadFileWithAPIKey(targetFile.id, 0);
     if (content && content.length > 100) {
       setCachedFile(targetFile.id, targetFile.modifiedTime, content);
       return { filename: targetFile.name, content, modifiedTime: targetFile.modifiedTime };
