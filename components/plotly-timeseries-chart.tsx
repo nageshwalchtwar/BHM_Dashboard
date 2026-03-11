@@ -155,7 +155,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         spikethickness: 1,
         spikecolor: "#94a3b8",
         spikedash: "dot",
-        rangeslider: { visible: true, thickness: 0.06 },
+        rangeslider: { visible: false },
         automargin: true,
       },
       yaxis: {
@@ -167,7 +167,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         automargin: true,
         fixedrange: false,
       },
-      margin: { t: 40, r: 20, b: 10, l: 60 },
+      margin: { t: 40, r: 20, b: 30, l: 60 },
       hovermode: "x unified",
       plot_bgcolor: "white",
       paper_bgcolor: "white",

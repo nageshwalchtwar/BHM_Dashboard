@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     const spanMinutes = Math.round((dataEnd.getTime() - dataStart.getTime()) / 60000);
 
     // Cap data to prevent client crashes — keep evenly-spaced points
-    const MAX_POINTS = 5000;
+    const MAX_POINTS = isLive ? 5000 : 8000;
     let responseData = allData;
     if (responseData.length > MAX_POINTS) {
       const step = Math.ceil(responseData.length / MAX_POINTS);

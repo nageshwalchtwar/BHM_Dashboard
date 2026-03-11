@@ -1767,13 +1767,13 @@ export async function streamCSVByDateAsSampled(
   // Strategy A: Google Sheets — export without downloading
   // ════════════════════════════════════════════════════════════════════
   if (isSheet || fileSize === 0) {
-    // Pick up to 12 evenly-spaced sheets for the date (covers full day)
-    const MAX_SHEETS = 12;
+    // Pick up to 48 evenly-spaced sheets for the date (covers full day)
+    const MAX_SHEETS = 48;
     const sheetsToExport = allMatchingFiles.length <= MAX_SHEETS
       ? allMatchingFiles
       : allMatchingFiles.filter((_, i) => i % Math.ceil(allMatchingFiles.length / MAX_SHEETS) === 0).slice(0, MAX_SHEETS);
 
-    console.log(`📊 Exporting ${sheetsToExport.length} sheet(s) for date ${date || 'latest'}...`);
+    console.log(`📊 Exporting ${sheetsToExport.length} of ${allMatchingFiles.length} sheet(s) for date ${date || 'latest'}...`);
 
     // A1: Sheets API (values:batchGet) — try first sheet only
     console.log(`📊 [A1] Sheets API sampling for ${targetFile.name}...`);
@@ -1790,7 +1790,7 @@ export async function streamCSVByDateAsSampled(
     console.log(`📊 [A2] Sheets export for ${sheetsToExport.length} sheet(s)...`);
     const allPts: any[] = [];
     let headerLine = '';
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 6;
     for (let i = 0; i < sheetsToExport.length; i += BATCH_SIZE) {
       const batch = sheetsToExport.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(

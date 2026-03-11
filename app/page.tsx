@@ -769,7 +769,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Acceleration (g)"
                       color="#ef4444"
                       unit="g"
-                      rms={rms ? rms.accel_x_rms : undefined}
+                      rms={viewMode !== 'date' && rms ? rms.accel_x_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
@@ -789,7 +789,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Acceleration (g)"
                       color="#22c55e"
                       unit="g"
-                      rms={rms ? rms.accel_y_rms : undefined}
+                      rms={viewMode !== 'date' && rms ? rms.accel_y_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
@@ -809,7 +809,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Acceleration (g)"
                       color="#3b82f6"
                       unit="g"
-                      rms={rms ? rms.accel_z_rms : undefined}
+                      rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
@@ -829,7 +829,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Acceleration (g)"
                       color="#f59e0b"
                       unit="g"
-                      rms={rms ? rms.wt901_x_rms : undefined}
+                      rms={viewMode !== 'date' && rms ? rms.wt901_x_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
@@ -849,7 +849,7 @@ export default function BHMDashboard() {
                       yAxisLabel="Acceleration (g)"
                       color="#8b5cf6"
                       unit="g"
-                      rms={rms ? rms.wt901_y_rms : undefined}
+                      rms={viewMode !== 'date' && rms ? rms.wt901_y_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
