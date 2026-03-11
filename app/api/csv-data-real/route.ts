@@ -74,12 +74,26 @@ export async function GET(request: NextRequest) {
       console.log(`📈 Live: ${parsedData.length} parsed → ${allData.length} rows in last ${mode === '1min' ? '1' : '5'} min`);
 
     } else {
-      // ── Historical (date / week) — existing logic ────────────────────
-      const folderId = getFolderIdForDevice(deviceId || undefined);
-      console.log(`📂 Device=${device?.name || 'unknown'}, folderId=${folderId}`);
-
+      // ── Historical (date) — use LATEST folder first (merged folder files are often 403) ──
       if (mode === 'date') {
-        const result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
+        let result = null;
+
+        // Strategy 1: Try LATEST folder (files are downloadable)
+        try {
+          const latestFolderId = getLatestFolderIdForDevice(deviceId || undefined);
+          console.log(`📂 Device=${device?.name || 'unknown'}, trying LATEST folder=${latestFolderId}`);
+          result = await streamCSVByDateAsSampled(date || '', latestFolderId, 1000);
+        } catch {
+          console.log('⚠️ No LATEST folder configured, trying merged folder...');
+        }
+
+        // Strategy 2: Fallback to merged folder
+        if (!result) {
+          const folderId = getFolderIdForDevice(deviceId || undefined);
+          console.log(`📂 Device=${device?.name || 'unknown'}, trying merged folder=${folderId}`);
+          result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
+        }
+
         if (result) {
           filenames = [result.filename];
           dataSource = `${device?.name || 'Drive'} - ${result.filename}`;

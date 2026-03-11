@@ -362,7 +362,12 @@ export class SimpleGoogleDriveAPI {
       const resp = await this.fetchWithTimeout(url, {
         headers: { 'Range': `bytes=${start}-${end}` }
       }, 15000);
-      if (!resp || (resp.status !== 206 && resp.status !== 200)) return null;
+      if (!resp || (resp.status !== 206 && resp.status !== 200)) {
+        if (resp && resp.status === 403 && start === 0) {
+          console.log(`🔒 downloadByteRange: 403 Forbidden for ${fileId} — file not shared for download`);
+        }
+        return null;
+      }
       return resp.text();
     } catch { return null; }
   }
@@ -1714,33 +1719,59 @@ export async function streamCSVByDateAsSampled(
 
   const fileDate = targetFile.name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? targetFile.modifiedTime?.split('T')[0];
   const fileSize = parseInt(targetFile.size || '0', 10);
-  const fileMB = Math.round(fileSize / (1024 * 1024));
+  const isSheet = targetFile.mimeType === 'application/vnd.google-apps.spreadsheet';
   const t0 = Date.now();
 
-  // ── Use byte-range sampling: download only small evenly-spaced chunks ──
-  // Instead of streaming the entire file (could be 100MB-1GB+),
-  // grab ~200 chunks of 50KB each ≈ 10MB total transfer.
-  const BYTE_RANGE_THRESHOLD = 2 * 1024 * 1024; // Use byte-ranges for files > 2MB
-
-  if (fileSize > BYTE_RANGE_THRESHOLD) {
-    console.log(`📡 Byte-range sampling ${targetFile.name} (${fileMB} MB) — downloading only chunks, not full file...`);
-    const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3))); // ~3 chunks per MB, 50-300
-    const sampled = await api.sampleFileByByteRanges(targetFile.id, fileSize, numChunks, 50 * 1024);
-    if (sampled && sampled.chunks.length > 0) {
-      const pts = pickOneSampleFromChunks(sampled.header, sampled.chunks, fileDate);
-      if (pts.length > 0) {
-        console.log(`⏱️ Byte-range done in ${Math.round((Date.now() - t0) / 1000)}s — ${sampled.chunks.length} chunks → ${pts.length} pts (downloaded ~${Math.round(numChunks * 50 / 1024)}MB vs ${fileMB}MB full)`);
-        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+  // ── Strategy 1: Google Sheets → use Sheets API (zero file download) ──
+  if (isSheet || fileSize === 0) {
+    console.log(`📊 Sheets API sampling for ${targetFile.name}...`);
+    const csvContent = await api.fetchSheetSampled(targetFile.id, 200, 100);
+    if (csvContent && csvContent.length > 50) {
+      const nl = csvContent.indexOf('\n');
+      if (nl > 0) {
+        const header = csvContent.substring(0, nl).trim();
+        const body = csvContent.substring(nl + 1);
+        const pts = pickOneSampleFromChunks(header, [body], fileDate);
+        if (pts.length > 0) {
+          console.log(`⏱️ Sheets API done in ${Math.round((Date.now() - t0) / 1000)}s → ${pts.length} pts`);
+          return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+        }
       }
     }
-    console.log('⚠️ Byte-range sampling returned no data, falling back to stream...');
+    console.log('⚠️ Sheets API sampling failed, trying Sheets export + byte-range...');
+
+    // Sheets with unknown size: try export as CSV via alt=media to get the size, then byte-range
+    // Or just stream with sampling as last resort
+    const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
+    if (result) {
+      console.log(`⏱️ Stream fallback done in ${Math.round((Date.now() - t0) / 1000)}s`);
+      return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
+    }
+    return null;
   }
 
-  // ── Fallback for small files or if byte-range fails: stream ──
-  console.log(`📡 Streaming ${targetFile.name} (${fileMB} MB) → 1 sample per ${windowMs}ms...`);
+  // ── Strategy 2: Actual CSV file → byte-range sampling (download only ~10MB) ──
+  const fileMB = Math.round(fileSize / (1024 * 1024));
+  const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3)));
+  console.log(`📡 Byte-range sampling ${targetFile.name} (${fileMB} MB) — ${numChunks} chunks of 50KB...`);
+
+  const sampled = await api.sampleFileByByteRanges(targetFile.id, fileSize, numChunks, 50 * 1024);
+  if (sampled && sampled.chunks.length > 0) {
+    const pts = pickOneSampleFromChunks(sampled.header, sampled.chunks, fileDate);
+    if (pts.length > 0) {
+      console.log(`⏱️ Byte-range done in ${Math.round((Date.now() - t0) / 1000)}s — ${sampled.chunks.length} chunks → ${pts.length} pts (~${Math.round(numChunks * 50 / 1024)}MB vs ${fileMB}MB full)`);
+      return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+    }
+  }
+
+  // ── Strategy 3: If file is small (<2MB) or byte-range failed, stream it ──
+  if (fileSize < 2 * 1024 * 1024) {
+    console.log(`📡 Small file, streaming ${targetFile.name} (${fileMB} MB)...`);
+  } else {
+    console.log('⚠️ Byte-range returned no data, falling back to stream...');
+  }
   const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
   if (!result) return null;
-
   console.log(`⏱️ Stream done in ${Math.round((Date.now() - t0) / 1000)}s`);
   return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
 }
