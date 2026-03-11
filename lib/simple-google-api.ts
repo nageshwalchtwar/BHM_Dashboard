@@ -1713,14 +1713,35 @@ export async function streamCSVByDateAsSampled(
   }) ?? files[0];
 
   const fileDate = targetFile.name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? targetFile.modifiedTime?.split('T')[0];
-  const fileMB = Math.round(parseInt(targetFile.size || '0') / (1024 * 1024));
-  console.log(`📡 Sampling ${targetFile.name} (${fileMB} MB) → 1 sample per ${windowMs}ms...`);
+  const fileSize = parseInt(targetFile.size || '0', 10);
+  const fileMB = Math.round(fileSize / (1024 * 1024));
   const t0 = Date.now();
 
+  // ── Use byte-range sampling: download only small evenly-spaced chunks ──
+  // Instead of streaming the entire file (could be 100MB-1GB+),
+  // grab ~200 chunks of 50KB each ≈ 10MB total transfer.
+  const BYTE_RANGE_THRESHOLD = 2 * 1024 * 1024; // Use byte-ranges for files > 2MB
+
+  if (fileSize > BYTE_RANGE_THRESHOLD) {
+    console.log(`📡 Byte-range sampling ${targetFile.name} (${fileMB} MB) — downloading only chunks, not full file...`);
+    const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3))); // ~3 chunks per MB, 50-300
+    const sampled = await api.sampleFileByByteRanges(targetFile.id, fileSize, numChunks, 50 * 1024);
+    if (sampled && sampled.chunks.length > 0) {
+      const pts = pickOneSampleFromChunks(sampled.header, sampled.chunks, fileDate);
+      if (pts.length > 0) {
+        console.log(`⏱️ Byte-range done in ${Math.round((Date.now() - t0) / 1000)}s — ${sampled.chunks.length} chunks → ${pts.length} pts (downloaded ~${Math.round(numChunks * 50 / 1024)}MB vs ${fileMB}MB full)`);
+        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+      }
+    }
+    console.log('⚠️ Byte-range sampling returned no data, falling back to stream...');
+  }
+
+  // ── Fallback for small files or if byte-range fails: stream ──
+  console.log(`📡 Streaming ${targetFile.name} (${fileMB} MB) → 1 sample per ${windowMs}ms...`);
   const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
   if (!result) return null;
 
-  console.log(`⏱️ Done in ${Math.round((Date.now() - t0) / 1000)}s`);
+  console.log(`⏱️ Stream done in ${Math.round((Date.now() - t0) / 1000)}s`);
   return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
 }
 

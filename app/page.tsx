@@ -98,7 +98,7 @@ export default function BHMDashboard() {
   const [activeTab, setActiveTab] = useState('adxl-x')
 
   // Effective minutes for chart tick formatting
-  const effectiveMinutes = ({ '1min': '1', '5min': '5', 'week': '10080' } as Record<string, string>)[viewMode] || '1440'
+  const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
   const isLiveMode = viewMode === '1min' || viewMode === '5min'
 
   // Authentication check
@@ -436,7 +436,6 @@ export default function BHMDashboard() {
                   { value: '1min', label: '1 Min' },
                   { value: '5min', label: '5 Min' },
                   { value: 'date', label: '1 Day' },
-                  { value: 'week', label: '1 Week' },
                 ].map(({ value, label }) => (
                   <button
                     key={value}
@@ -616,7 +615,7 @@ export default function BHMDashboard() {
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
                   <p className="text-xs text-gray-400">
-                    {viewMode === 'week' ? 'Last 1 week' : viewMode === '1min' ? 'Last 1 min' : viewMode === '5min' ? 'Last 5 min' : selectedDate || 'Latest'}
+                    {viewMode === '1min' ? 'Last 1 min' : viewMode === '5min' ? 'Last 5 min' : selectedDate || 'Latest'}
                   </p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />
@@ -712,7 +711,7 @@ export default function BHMDashboard() {
                 <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
               </TabsList>
               <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                1 sample/sec {viewMode === 'week' ? '(week overview)' : ''}
+                1 sample/sec
               </span>
             </div>
 

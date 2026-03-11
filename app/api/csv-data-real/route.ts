@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData } from "@/lib/csv-handler"
-import { streamCSVByDateAsSampled, sampleWeekAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
+import { streamCSVByDateAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, getLatestFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache (2 min for historical, 15s for live) ───────────────────
@@ -9,7 +9,7 @@ const responseCache = new Map<string, { json: any; cachedAt: number }>();
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const modeParam = searchParams.get("mode") || "date"
-  const mode = (['1min', '5min', 'week'].includes(modeParam) ? modeParam : 'date') as '1min' | '5min' | 'date' | 'week'
+  const mode = (['1min', '5min'].includes(modeParam) ? modeParam : 'date') as '1min' | '5min' | 'date'
   const date = searchParams.get("date") || ""
   const deviceId = searchParams.get("device")
 
@@ -86,15 +86,6 @@ export async function GET(request: NextRequest) {
           allData = result.sampledData;
           console.log(`📈 ${result.rawRowCount} raw rows → ${result.sampledData.length} sample points (1/sec)`);
         }
-      } else {
-        console.log('📂 Sampling week data (48 chunks × 7 days)...');
-        const result = await sampleWeekAsSampled(folderId, 7, 48);
-        if (result) {
-          filenames = result.filenames;
-          dataSource = `${device?.name || 'Drive'} - ${result.filenames.length} files (sampled)`;
-          allData = result.sampledData;
-          console.log(`📈 Week: ${allData.length} sample points from ${result.filenames.length} files`);
-        }
       }
     }
 
@@ -110,7 +101,6 @@ export async function GET(request: NextRequest) {
         '1min': 'No live data (last 1 min)',
         '5min': 'No live data (last 5 min)',
         'date': `No data found for date: ${date || 'latest'}`,
-        'week': `No weekly data available for device: ${deviceId || 'default'}`,
       };
       return NextResponse.json({
         success: false,
@@ -146,7 +136,7 @@ export async function GET(request: NextRequest) {
       wt901_z_rms: last?.az_wt901 ?? 0,
     };
 
-    const timeframeDescription = ({ '1min': 'last 1 minute', '5min': 'last 5 minutes', 'week': '1 week' } as Record<string, string>)[mode] || date || 'latest';
+    const timeframeDescription = ({ '1min': 'last 1 minute', '5min': 'last 5 minutes' } as Record<string, string>)[mode] || date || 'latest';
 
     const responseJson = {
       success: true,
