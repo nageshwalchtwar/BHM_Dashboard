@@ -233,6 +233,15 @@ class DeviceConfigManager {
     }
   }
 
+  // Update a device's folder ID (e.g. when auto-discovery finds a working folder)
+  updateDeviceFolder(id: string, folderId: string): void {
+    const device = this.config.devices.find(d => d.id === id);
+    if (device) {
+      device.folderId = folderId;
+      device.folderUrl = folderIdToUrl(folderId);
+    }
+  }
+
   // Get device statistics
   getStats() {
     const activeDevices = this.getAllDevices();

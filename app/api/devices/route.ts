@@ -65,26 +65,35 @@ export async function GET(request: NextRequest) {
     const forceDiscover = searchParams.get('discover') === 'true';
     const parentFolderUrl = searchParams.get('parentFolderUrl') || undefined;
 
-    // Skip auto-discovery when devices are already configured via env vars
-    // to avoid duplicates (env folders are merged-CSV folders, auto-discovered
-    // ones are device-root folders with different IDs).
-    const envDevices = deviceConfig.getAllDevices();
-    const hasEnvDevices = envDevices.some(d => ['d1','d2','d3','d4'].includes(d.id));
-
-    // Remove any previously auto-discovered duplicates if env devices exist
-    if (hasEnvDevices) {
-      const nonEnvDevices = envDevices.filter(d => !['d1','d2','d3','d4'].includes(d.id));
-      for (const dup of nonEnvDevices) {
-        deviceConfig.removeDevice(dup.id);
-      }
-    }
-
     const now = Date.now();
-    const shouldAutoDiscover = !hasEnvDevices && (forceDiscover || now - lastAutoDiscoveryAt > AUTO_DISCOVERY_TTL_MS);
+    const shouldAutoDiscover = forceDiscover || now - lastAutoDiscoveryAt > AUTO_DISCOVERY_TTL_MS;
     let discoveryResult = { discovered: 0, added: 0 };
     if (shouldAutoDiscover) {
       discoveryResult = await autoDiscoverDevices(parentFolderUrl);
       lastAutoDiscoveryAt = now;
+    }
+
+    // Merge: when env devices and auto-discovered devices share a name,
+    // update the env device's folderId to use the auto-discovered one
+    // (auto-discovered folders are verified accessible via the API key).
+    // Then remove auto-discovered duplicates so only 4 unique devices remain.
+    const allDevices = deviceConfig.getAllDevices();
+    const envDeviceIds = ['d1', 'd2', 'd3', 'd4'];
+    const envDevices = allDevices.filter(d => envDeviceIds.includes(d.id));
+    const autoDevices = allDevices.filter(d => !envDeviceIds.includes(d.id));
+
+    if (envDevices.length > 0 && autoDevices.length > 0) {
+      for (const autoDevice of autoDevices) {
+        const matchingEnv = envDevices.find(
+          d => d.name.toLowerCase() === autoDevice.name.toLowerCase()
+        );
+        if (matchingEnv) {
+          // Update env device to use the auto-discovered (working) folder
+          deviceConfig.updateDeviceFolder(matchingEnv.id, autoDevice.folderId);
+        }
+        // Remove the auto-discovered duplicate either way
+        deviceConfig.removeDevice(autoDevice.id);
+      }
     }
 
     const devices = deviceConfig.getAllDevices();
