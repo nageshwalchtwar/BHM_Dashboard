@@ -76,11 +76,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const gapThreshold = Math.max(medianGap * 3, 30000) // 3x median or 30s minimum
 
     for (let i = 0; i < sorted.length; i++) {
-      // Insert a null point before this one if there's a big time gap
-      if (i > 0 && (sorted[i].timestamp - sorted[i - 1].timestamp) > gapThreshold) {
-        timestamps.push(null)
-        values.push(null)
-      }
+      // Always push timestamp and value, do not insert nulls for gaps
       timestamps.push(new Date(sorted[i].timestamp).toISOString().slice(0, -1))
       values.push(sorted[i][dataKey])
     }

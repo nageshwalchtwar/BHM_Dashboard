@@ -13,71 +13,60 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number
 
   let window: CSVSensorData[] = [];
   let windowStart = sorted[0].timestamp;
+  let lastSample: CSVSensorData | null = null;
 
   const flushWindow = () => {
-    if (window.length === 0) return;
-    // RMS for ADXL accelerometer axes
-    const ax_adxl_rms = calculateRMS(window.map(d => d.ax_adxl ?? 0));
-    const ay_adxl_rms = calculateRMS(window.map(d => d.ay_adxl ?? 0));
-    const az_adxl_rms = calculateRMS(window.map(d => d.az_adxl ?? 0));
-    // RMS for WT901 accelerometer axes
-    const ax_wt901_rms = calculateRMS(window.map(d => d.ax_wt901 ?? 0));
-    const ay_wt901_rms = calculateRMS(window.map(d => d.ay_wt901 ?? 0));
-    const az_wt901_rms = calculateRMS(window.map(d => d.az_wt901 ?? 0));
-    const accel_x_rms = calculateRMS(window.map(d => d.accel_x ?? 0));
-    const accel_y_rms = calculateRMS(window.map(d => d.accel_y ?? 0));
-    const accel_z_rms = calculateRMS(window.map(d => d.accel_z ?? 0));
-    // LVDT/stroke: 1-second average (mean)
-    const stroke_avg = calculateMean(window.map(d => d.stroke_mm ?? 0));
-    // Temperature: raw value (last sample in window, no averaging)
-    const lastSample = window[window.length - 1];
-    const temp_raw = lastSample.temperature_c ?? lastSample.temperature ?? 0;
-
+    let ax_adxl_avg = 0, ay_adxl_avg = 0, az_adxl_avg = 0;
+    let ax_wt901_avg = 0, ay_wt901_avg = 0, az_wt901_avg = 0;
+    let rawTimestamp = window.length > 0 ? window[0].rawTimestamp : undefined;
+    let id = window.length > 0 ? window[0].id : undefined;
+    let created_at = window.length > 0 ? window[0].created_at : undefined;
+    if (window.length > 0) {
+      ax_adxl_avg = calculateMean(window.map(d => d.ax_adxl ?? 0));
+      ay_adxl_avg = calculateMean(window.map(d => d.ay_adxl ?? 0));
+      az_adxl_avg = calculateMean(window.map(d => d.az_adxl ?? 0));
+      ax_wt901_avg = calculateMean(window.map(d => d.ax_wt901 ?? 0));
+      ay_wt901_avg = calculateMean(window.map(d => d.ay_wt901 ?? 0));
+      az_wt901_avg = calculateMean(window.map(d => d.az_wt901 ?? 0));
+      lastSample = window[window.length - 1];
+    } else {
+      // Fill with zero for gaps
+      ax_adxl_avg = 0;
+      ay_adxl_avg = 0;
+      az_adxl_avg = 0;
+      ax_wt901_avg = 0;
+      ay_wt901_avg = 0;
+      az_wt901_avg = 0;
+    }
     result.push({
       timestamp: windowStart,
-      rawTimestamp: window[0].rawTimestamp,
-      // ADXL: RMS
-      ax_adxl: ax_adxl_rms,
-      ay_adxl: ay_adxl_rms,
-      az_adxl: az_adxl_rms,
-      // WT901: RMS
-      ax_wt901: ax_wt901_rms,
-      ay_wt901: ay_wt901_rms,
-      az_wt901: az_wt901_rms,
-      // Generic accel: RMS
-      accel_x: accel_x_rms,
-      accel_y: accel_y_rms,
-      accel_z: accel_z_rms,
-      // Compatibility aliases
-      x: accel_x_rms,
-      y: accel_y_rms,
-      z: accel_z_rms,
-      vibration: accel_x_rms,
-      acceleration: accel_y_rms,
-      // LVDT: average
-      stroke_mm: stroke_avg,
-      strain: stroke_avg,
-      // Temperature: raw (last sample)
-      temperature_c: temp_raw,
-      temperature: temp_raw,
-      // Metadata
-      id: window[0].id,
-      created_at: window[0].created_at,
+      rawTimestamp,
+      ax_adxl: ax_adxl_avg,
+      ay_adxl: ay_adxl_avg,
+      az_adxl: az_adxl_avg,
+      ax_wt901: ax_wt901_avg,
+      ay_wt901: ay_wt901_avg,
+      az_wt901: az_wt901_avg,
+      id,
+      created_at,
     } as CSVSensorData);
   };
 
-  for (let i = 0; i < sorted.length; i++) {
-    const point = sorted[i];
-    if (point.timestamp - windowStart < windowMs) {
-      window.push(point);
-    } else {
-      flushWindow();
-      window = [point];
-      windowStart = point.timestamp;
+  // Fill every second from start to end, using previous value for gaps
+  let i = 0;
+  let startTs = sorted[0].timestamp;
+  let endTs = sorted[sorted.length - 1].timestamp;
+  let nextWindowStart = startTs;
+  while (nextWindowStart <= endTs) {
+    window = [];
+    // Collect all points in this window
+    while (i < sorted.length && sorted[i].timestamp - nextWindowStart < windowMs) {
+      window.push(sorted[i]);
+      i++;
     }
+    flushWindow();
+    nextWindowStart += windowMs;
   }
-  // Final window
-  flushWindow();
 
   return result;
 }
