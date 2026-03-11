@@ -1718,7 +1718,7 @@ export async function sampleWeekAsRMS(
  *
  * Multi-strategy approach (tries each until one works):
  *  Sheets: Sheets API → Sheets export URL → alt=media stream
- *  CSVs:   Byte-range sampling → tail download → full stream
+ *  CSVs:   Quick 403 probe → Byte-range sampling → tail download → full stream
  */
 export async function streamCSVByDateAsSampled(
   date: string,
@@ -1734,34 +1734,48 @@ export async function streamCSVByDateAsSampled(
   if (folderId.includes('http')) { const e = extractFolderIdFromUrl(folderId); if (e) folderId = e; }
 
   const api = new SimpleGoogleDriveAPI(folderId, apiKey);
-  const files = await api.listFilesWithAPIKey();
+
+  // ── Try to find files for the specific date (name-based filter) ──
+  let files = await listFilesByNameDate(folderId, apiKey, date);
+  if (!files || files.length === 0) {
+    // Fallback: list all files and search locally
+    files = await api.listFilesWithAPIKey();
+  }
   if (!files || files.length === 0) {
     console.log('❌ streamCSVByDateAsSampled: No files found in folder', folderId);
     return null;
   }
 
-  // ── Find the right file for the requested date ──
-  const targetFile = files.find(f => {
-    if (!date) return true;
-    // Match MERGED_2026-02-28_S.csv or 2026-02-28_12-10 or similar patterns
+  // ── Find file(s) matching the requested date ──
+  const dateMatches = date ? files.filter(f => {
     const nm = f.name.match(/(\d{4}-\d{2}-\d{2})/);
     if (nm && nm[1] === date) return true;
     if (f.modifiedTime?.startsWith(date)) return true;
     return false;
-  }) ?? files[0];
+  }) : [];
+  const targetFile = dateMatches.length > 0 ? dateMatches[0] : files[0];
+  const allMatchingFiles = dateMatches.length > 0 ? dateMatches : [files[0]];
 
   const fileDate = targetFile.name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? targetFile.modifiedTime?.split('T')[0];
   const fileSize = parseInt(targetFile.size || '0', 10);
   const isSheet = targetFile.mimeType === 'application/vnd.google-apps.spreadsheet';
   const t0 = Date.now();
 
-  console.log(`🎯 Target: ${targetFile.name} (${isSheet ? 'Sheet' : `${Math.round(fileSize / (1024 * 1024))}MB CSV`})`);
+  console.log(`🎯 Target: ${targetFile.name} (${isSheet ? 'Sheet' : `${Math.round(fileSize / (1024 * 1024))}MB CSV`}), ${allMatchingFiles.length} files match date`);
 
   // ════════════════════════════════════════════════════════════════════
-  // Strategy A: Google Sheets — use APIs that don't download the file
+  // Strategy A: Google Sheets — export without downloading
   // ════════════════════════════════════════════════════════════════════
   if (isSheet || fileSize === 0) {
-    // A1: Sheets API (values:batchGet) — fastest, zero download
+    // Pick up to 12 evenly-spaced sheets for the date (covers full day)
+    const MAX_SHEETS = 12;
+    const sheetsToExport = allMatchingFiles.length <= MAX_SHEETS
+      ? allMatchingFiles
+      : allMatchingFiles.filter((_, i) => i % Math.ceil(allMatchingFiles.length / MAX_SHEETS) === 0).slice(0, MAX_SHEETS);
+
+    console.log(`📊 Exporting ${sheetsToExport.length} sheet(s) for date ${date || 'latest'}...`);
+
+    // A1: Sheets API (values:batchGet) — try first sheet only
     console.log(`📊 [A1] Sheets API sampling for ${targetFile.name}...`);
     const sheetsCSV = await api.fetchSheetSampled(targetFile.id, 200, 100);
     if (sheetsCSV && sheetsCSV.length > 50) {
@@ -1772,18 +1786,38 @@ export async function streamCSVByDateAsSampled(
       }
     }
 
-    // A2: Google Sheets export URL (no Sheets API needed, works if Sheet is shared)
-    console.log(`📊 [A2] Sheets export URL for ${targetFile.name}...`);
-    const exportCSV = await api.exportSheetAsCSV(targetFile.id);
-    if (exportCSV && exportCSV.length > 50) {
-      const pts = parseCSVTextToSampled(exportCSV, fileDate, windowMs);
-      if (pts.length > 0) {
-        console.log(`✅ [A2] Sheets export → ${pts.length} pts in ${secs(t0)}s`);
-        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+    // A2: Google Sheets export URL — export multiple sheets and combine
+    console.log(`📊 [A2] Sheets export for ${sheetsToExport.length} sheet(s)...`);
+    const allPts: any[] = [];
+    let headerLine = '';
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < sheetsToExport.length; i += BATCH_SIZE) {
+      const batch = sheetsToExport.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(f => api.exportSheetAsCSV(f.id))
+      );
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status !== 'fulfilled' || !r.value || r.value.length < 50) continue;
+        const csv = r.value;
+        const nl = csv.indexOf('\n');
+        if (nl <= 0) continue;
+        if (!headerLine) headerLine = csv.substring(0, nl).trim();
+        const sheetDate = batch[j].name.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? fileDate;
+        const pts = parseCSVTextToSampled(csv, sheetDate, windowMs);
+        allPts.push(...pts);
+        console.log(`  📄 ${batch[j].name}: ${pts.length} pts`);
       }
     }
 
-    // A3: Drive alt=media (auto-exports Sheets to CSV-ish format)
+    if (allPts.length > 0) {
+      // Sort by timestamp and deduplicate
+      allPts.sort((a, b) => a.timestamp - b.timestamp);
+      console.log(`✅ [A2] Sheets export → ${allPts.length} pts from ${sheetsToExport.length} sheets in ${secs(t0)}s`);
+      return { filename: sheetsToExport.map(f => f.name).join(', '), modifiedTime: targetFile.modifiedTime, sampledData: allPts, rawRowCount: allPts.length };
+    }
+
+    // A3: Drive alt=media (last resort for Sheets)
     console.log(`📊 [A3] Drive alt=media for ${targetFile.name}...`);
     const driveCSV = await api.downloadFileQuick(targetFile.id);
     if (driveCSV && driveCSV.length > 50) {
@@ -1799,9 +1833,16 @@ export async function streamCSVByDateAsSampled(
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // Strategy B: Actual CSV file
+  // Strategy B: Actual CSV file — fast 403 probe first
   // ════════════════════════════════════════════════════════════════════
   const fileMB = Math.round(fileSize / (1024 * 1024));
+
+  // B0: Quick 403 probe — download first 2KB to check if file is accessible
+  const probe = await api.downloadByteRange(targetFile.id, 0, 2047);
+  if (!probe) {
+    console.log(`🔒 [B0] File not downloadable (403) — skipping all CSV strategies for ${targetFile.name}`);
+    return null;
+  }
 
   // B1: Byte-range sampling (download ~10MB of evenly-spaced 50KB chunks)
   const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3)));
@@ -1819,19 +1860,14 @@ export async function streamCSVByDateAsSampled(
   console.log(`📡 [B2] Tail download ${targetFile.name} (last 30MB of ${fileMB} MB)...`);
   const tailCSV = await api.downloadFileTailWithHeader(targetFile.id, 30 * 1024 * 1024);
   if (tailCSV && tailCSV.length > 100) {
-    const nl = tailCSV.indexOf('\n');
-    if (nl > 0) {
-      const header = tailCSV.substring(0, nl).trim();
-      const body = tailCSV.substring(nl + 1);
-      const pts = pickOneSampleFromChunks(header, [body], fileDate);
-      if (pts.length > 0) {
-        console.log(`✅ [B2] Tail download → ${pts.length} pts in ${secs(t0)}s`);
-        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
-      }
+    const pts = parseCSVTextToSampled(tailCSV, fileDate, windowMs);
+    if (pts.length > 0) {
+      console.log(`✅ [B2] Tail download → ${pts.length} pts in ${secs(t0)}s`);
+      return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
     }
   }
 
-  // B3: Full stream (last resort for small files or when everything else fails)
+  // B3: Full stream (last resort for small files)
   if (fileSize < 50 * 1024 * 1024) {
     console.log(`📡 [B3] Full stream ${targetFile.name} (${fileMB} MB)...`);
     const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
@@ -1847,16 +1883,44 @@ export async function streamCSVByDateAsSampled(
   return null;
 }
 
+/** List files in a folder filtered by date in the filename (uses Drive API name query) */
+async function listFilesByNameDate(
+  folderId: string, apiKey: string, date?: string
+): Promise<Array<{id: string, name: string, modifiedTime: string, mimeType?: string, size?: string}> | null> {
+  if (!date || !apiKey) return null;
+  try {
+    const query = encodeURIComponent(`'${folderId}' in parents and name contains '${date}'`);
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=name&pageSize=200&key=${apiKey}&fields=files(id,name,modifiedTime,size,mimeType)`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const files = data.files || [];
+    if (files.length > 0) {
+      console.log(`📋 Found ${files.length} files matching date '${date}' in folder`);
+    }
+    return files.length > 0 ? files : null;
+  } catch { return null; }
+}
+
 /** Helper: seconds since t0 */
 function secs(t0: number): string { return (Math.round((Date.now() - t0) / 100) / 10).toFixed(1); }
 
 /** Helper: parse a CSV text blob into 1-sample-per-second data points */
-function parseCSVTextToSampled(csv: string, fileDate?: string, windowMs: number = 1000): any[] {
+function parseCSVTextToSampled(csv: string, fileDate?: string, _windowMs: number = 1000): any[] {
   const nl = csv.indexOf('\n');
   if (nl <= 0) return [];
   const header = csv.substring(0, nl).trim();
   const body = csv.substring(nl + 1);
-  return pickOneSampleFromChunks(header, [body], fileDate);
+  // Split into ~100-line chunks so pickOneSampleFromChunks picks 1 per chunk
+  // At 100 Hz sensor rate, 100 lines ≈ 1 second → gives ~1 sample/sec
+  const lines = body.split('\n').filter(l => l.length > 5);
+  if (lines.length === 0) return [];
+  const CHUNK_SIZE = 100;
+  const chunks: string[] = [];
+  for (let i = 0; i < lines.length; i += CHUNK_SIZE) {
+    chunks.push(lines.slice(i, i + CHUNK_SIZE).join('\n'));
+  }
+  return pickOneSampleFromChunks(header, chunks, fileDate);
 }
 
 /**
