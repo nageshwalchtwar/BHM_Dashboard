@@ -98,7 +98,8 @@ export default function BHMDashboard() {
   const [activeTab, setActiveTab] = useState('adxl-x')
 
   // Effective minutes for chart tick formatting
-  const effectiveMinutes = viewMode === 'week' ? '10080' : '1440'
+  const effectiveMinutes = ({ '1min': '1', '5min': '5', 'week': '10080' } as Record<string, string>)[viewMode] || '1440'
+  const isLiveMode = viewMode === '1min' || viewMode === '5min'
 
   // Authentication check
   useEffect(() => {
@@ -172,6 +173,7 @@ export default function BHMDashboard() {
       if (viewMode === 'date' && selectedDate) {
         apiUrl += `&date=${selectedDate}`
       }
+
 
       const response = await fetch(apiUrl)
       
@@ -298,6 +300,14 @@ export default function BHMDashboard() {
     setViewMode(mode)
     setSensorData([])
     setError(null)
+    // Auto-enable refresh for live modes, disable for historical
+    if (mode === '1min') {
+      setAutoRefreshInterval('10')
+    } else if (mode === '5min') {
+      setAutoRefreshInterval('30')
+    } else {
+      setAutoRefreshInterval('off')
+    }
   }
 
   const handleDeviceChange = (deviceId: string | undefined) => {
@@ -423,6 +433,8 @@ export default function BHMDashboard() {
               {/* View Mode Buttons */}
               <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
                 {[
+                  { value: '1min', label: '1 Min' },
+                  { value: '5min', label: '5 Min' },
                   { value: 'date', label: '1 Day' },
                   { value: 'week', label: '1 Week' },
                 ].map(({ value, label }) => (
@@ -639,7 +651,7 @@ export default function BHMDashboard() {
                   <p className="text-xs text-gray-500 uppercase tracking-wide">Data Points</p>
                   <p className="text-lg font-bold text-gray-900">{stats?.totalDataPoints || 0}</p>
                   <p className="text-xs text-gray-400">
-                    {viewMode === 'week' ? 'Last 1 week' : selectedDate || 'Latest'}
+                    {viewMode === 'week' ? 'Last 1 week' : viewMode === '1min' ? 'Last 1 min' : viewMode === '5min' ? 'Last 5 min' : selectedDate || 'Latest'}
                   </p>
                 </div>
                 <Database className="h-5 w-5 text-blue-500" />

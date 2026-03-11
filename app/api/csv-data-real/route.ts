@@ -1,22 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData } from "@/lib/csv-handler"
-import { streamCSVByDateAsSampled, sampleWeekAsSampled } from '@/lib/simple-google-api'
-import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
+import { streamCSVByDateAsSampled, sampleWeekAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
+import { getFolderIdForDevice, getLatestFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
-// ── Response cache (2 min) ────────────────────────────────────────────────
+// ── Response cache (2 min for historical, 15s for live) ───────────────────
 const responseCache = new Map<string, { json: any; cachedAt: number }>();
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const modeParam = searchParams.get("mode") || "date"
-  const mode = modeParam === 'week' ? 'week' : 'date'   // only 'date' or 'week'
+  const mode = (['1min', '5min', 'week'].includes(modeParam) ? modeParam : 'date') as '1min' | '5min' | 'date' | 'week'
   const date = searchParams.get("date") || ""
   const deviceId = searchParams.get("device")
+
+  const isLive = mode === '1min' || mode === '5min'
+  const cacheTTL = isLive ? 15_000 : 120_000  // 15s for live, 2min for historical
 
   // ── Check response cache ─────────────────────────────────────────────
   const cacheKey = `${deviceId || 'default'}:${mode}:${date}`;
   const cached = responseCache.get(cacheKey);
-  if (cached && (Date.now() - cached.cachedAt) < 120_000) {
+  if (cached && (Date.now() - cached.cachedAt) < cacheTTL) {
     console.log(`⚡ Cache hit for ${cacheKey}`);
     return NextResponse.json(cached.json);
   }
@@ -25,32 +28,73 @@ export async function GET(request: NextRequest) {
 
   try {
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
-    const folderId = getFolderIdForDevice(deviceId || undefined);
-
-    console.log(`📂 Device=${device?.name || 'unknown'}, folderId=${folderId}`)
 
     let allData: any[] = []
     let dataSource = ''
     let filenames: string[] = []
 
-    if (mode === 'date') {
-      // ── 1 Day: Stream full CSV → 1 raw sample per second (ultra-low processing) ──
-      const result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
-      if (result) {
-        filenames = [result.filename];
-        dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
-        allData = result.sampledData;
-        console.log(`📈 ${result.rawRowCount} raw rows → ${result.sampledData.length} sample points (1/sec)`);
+    if (isLive) {
+      // ── Live (1 min / 5 min): latest file from latestDataFolderId ──
+      let liveFolderId: string;
+      try {
+        liveFolderId = getLatestFolderIdForDevice(deviceId || undefined);
+      } catch {
+        return NextResponse.json({
+          success: false,
+          error: `No live-data folder configured for ${device?.name || 'this device'}. Set DEVICE_N_LATEST_FOLDER_ID in Railway.`,
+        }, { status: 404 });
       }
+
+      console.log(`📂 Live mode: device=${device?.name || 'unknown'}, liveFolderId=${liveFolderId}`);
+
+      // Download tail of the latest CSV from the live folder (last 512KB is plenty for 5 min @ 1 sample/sec)
+      const result = await getCSVBatchTail(liveFolderId, 20000);
+      if (!result || !result.content) {
+        return NextResponse.json({
+          success: false,
+          error: `No live data found in folder for ${device?.name || 'device'}`,
+        }, { status: 404 });
+      }
+
+      filenames = [result.filename];
+      dataSource = `${device?.name || 'Drive'} - ${result.filename} (live)`;
+
+      // Parse CSV content
+      const parsedData = parseCSVToSensorData(result.content);
+      if (parsedData.length === 0) {
+        return NextResponse.json({ success: false, error: 'Live CSV returned no parseable rows' }, { status: 404 });
+      }
+
+      // Filter to only the last N minutes
+      const windowMs = mode === '1min' ? 60_000 : 300_000;
+      const latestTs = parsedData[parsedData.length - 1].timestamp;
+      const cutoff = latestTs - windowMs;
+      allData = parsedData.filter((row: any) => row.timestamp >= cutoff);
+
+      console.log(`📈 Live: ${parsedData.length} parsed → ${allData.length} rows in last ${mode === '1min' ? '1' : '5'} min`);
+
     } else {
-      // ── 1 Week: Pick 1 raw sample from each of 48 evenly-spaced chunks × 7 files ──
-      console.log('📂 Sampling week data (48 chunks × 7 days)...');
-      const result = await sampleWeekAsSampled(folderId, 7, 48);
-      if (result) {
-        filenames = result.filenames;
-        dataSource = `${device?.name || 'Drive'} - ${result.filenames.length} files (sampled)`;
-        allData = result.sampledData;
-        console.log(`📈 Week: ${allData.length} sample points from ${result.filenames.length} files`);
+      // ── Historical (date / week) — existing logic ────────────────────
+      const folderId = getFolderIdForDevice(deviceId || undefined);
+      console.log(`📂 Device=${device?.name || 'unknown'}, folderId=${folderId}`);
+
+      if (mode === 'date') {
+        const result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
+        if (result) {
+          filenames = [result.filename];
+          dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
+          allData = result.sampledData;
+          console.log(`📈 ${result.rawRowCount} raw rows → ${result.sampledData.length} sample points (1/sec)`);
+        }
+      } else {
+        console.log('📂 Sampling week data (48 chunks × 7 days)...');
+        const result = await sampleWeekAsSampled(folderId, 7, 48);
+        if (result) {
+          filenames = result.filenames;
+          dataSource = `${device?.name || 'Drive'} - ${result.filenames.length} files (sampled)`;
+          allData = result.sampledData;
+          console.log(`📈 Week: ${allData.length} sample points from ${result.filenames.length} files`);
+        }
       }
     }
 
@@ -60,16 +104,18 @@ export async function GET(request: NextRequest) {
       const hasKey = apiKey && !apiKey.startsWith('your_');
       const hint = !hasKey
         ? 'GOOGLE_DRIVE_API_KEY is not configured.'
-        : !folderId
-          ? 'No folder ID configured for this device.'
-          : `Could not download CSV files from folder. Check server logs or /api/debug-drive.`;
-      console.log(`❌ No data: folder=${folderId}, hasKey=${hasKey}`)
+        : `Could not download CSV files from folder. Check server logs or /api/debug-drive.`;
+      console.log(`❌ No data: hasKey=${hasKey}`)
+      const modeMessages: Record<string, string> = {
+        '1min': 'No live data (last 1 min)',
+        '5min': 'No live data (last 5 min)',
+        'date': `No data found for date: ${date || 'latest'}`,
+        'week': `No weekly data available for device: ${deviceId || 'default'}`,
+      };
       return NextResponse.json({
         success: false,
         error: hint,
-        message: mode === 'date'
-          ? `No data found for date: ${date || 'latest'}`
-          : `No weekly data available for device: ${deviceId || 'default'}`,
+        message: modeMessages[mode] || 'No data',
       }, { status: 404 })
     }
 
@@ -100,7 +146,7 @@ export async function GET(request: NextRequest) {
       wt901_z_rms: last?.az_wt901 ?? 0,
     };
 
-    const timeframeDescription = mode === 'week' ? '1 week' : date || 'latest';
+    const timeframeDescription = ({ '1min': 'last 1 minute', '5min': 'last 5 minutes', 'week': '1 week' } as Record<string, string>)[mode] || date || 'latest';
 
     const responseJson = {
       success: true,

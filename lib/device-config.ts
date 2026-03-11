@@ -278,3 +278,21 @@ export function getFolderIdForDevice(deviceId?: string): string {
   
   return device.folderId;
 }
+
+// Helper to get the LIVE / latest data folder ID (for 1min/5min modes)
+export function getLatestFolderIdForDevice(deviceId?: string): string {
+  const device = deviceId
+    ? deviceConfig.getDevice(deviceId)
+    : deviceConfig.getDefaultDevice();
+
+  if (!device) {
+    throw new Error(deviceId ? `Device not found: ${deviceId}` : 'No devices configured');
+  }
+
+  if (!device.latestDataFolderId) {
+    throw new Error(`No live-data folder configured for device: ${device.name}`);
+  }
+
+  if (deviceId) deviceConfig.updateLastAccessed(deviceId);
+  return device.latestDataFolderId;
+}
