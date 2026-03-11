@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData } from "@/lib/csv-handler"
-import { streamCSVByDateAsRMS, sampleWeekAsRMS } from '@/lib/simple-google-api'
+import { streamCSVByDateAsSampled, sampleWeekAsSampled } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache (2 min) ────────────────────────────────────────────────
@@ -34,24 +34,23 @@ export async function GET(request: NextRequest) {
     let filenames: string[] = []
 
     if (mode === 'date') {
-      // ── 1 Day: Stream full CSV → 1-second RMS (never buffers the 1+ GB file) ──
-      const result = await streamCSVByDateAsRMS(date || '', folderId, 1000);
+      // ── 1 Day: Stream full CSV → 1 raw sample per second (ultra-low processing) ──
+      const result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
       if (result) {
         filenames = [result.filename];
         dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
-        allData = result.rmsData;
-        console.log(`📈 ${result.rawRowCount} raw rows → ${result.rmsData.length} RMS points (1s)`);
+        allData = result.sampledData;
+        console.log(`📈 ${result.rawRowCount} raw rows → ${result.sampledData.length} sample points (1/sec)`);
       }
     } else {
-      // ── 1 Week: Sample 48 evenly-spaced chunks from each of 7 files ─────────
-      // 48 chunks × 500 KB each covers the full 24h pattern without full download
+      // ── 1 Week: Pick 1 raw sample from each of 48 evenly-spaced chunks × 7 files ──
       console.log('📂 Sampling week data (48 chunks × 7 days)...');
-      const result = await sampleWeekAsRMS(folderId, 7, 48);
+      const result = await sampleWeekAsSampled(folderId, 7, 48);
       if (result) {
         filenames = result.filenames;
         dataSource = `${device?.name || 'Drive'} - ${result.filenames.length} files (sampled)`;
-        allData = result.rmsData;
-        console.log(`📈 Week: ${allData.length} sampled RMS points from ${result.filenames.length} files`);
+        allData = result.sampledData;
+        console.log(`📈 Week: ${allData.length} sample points from ${result.filenames.length} files`);
       }
     }
 
@@ -107,7 +106,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: responseData,
       rms: responseRMS,
-      isRMSData: true,
+      isRMSData: false,
       metadata: {
         source: dataSource,
         filename: filenames.join(', '),
@@ -116,7 +115,7 @@ export async function GET(request: NextRequest) {
         rmsPoints: responseData.length,
         timeframe: timeframeDescription,
         dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes },
-        isRMSData: true,
+        isRMSData: false,
         lastUpdate: new Date().toISOString(),
         latestDataTime: dataEnd.toISOString(),
         oldestDataTime: dataStart.toISOString(),

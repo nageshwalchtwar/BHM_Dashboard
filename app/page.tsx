@@ -734,11 +734,9 @@ export default function BHMDashboard() {
                 <TabsTrigger value="wt901-y" className="text-xs px-3 py-1.5">WT901 Y</TabsTrigger>
                 <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
               </TabsList>
-              {isRMSData && (
-                <span className="ml-auto text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                  {activeTab === 'temperature' ? 'Raw' : activeTab === 'lvdt' ? 'Avg' : 'RMS'} ({viewMode === 'week' ? '10s' : '1s'} window)
-                </span>
-              )}
+              <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+                1 sample/sec {viewMode === 'week' ? '(week overview)' : ''}
+              </span>
             </div>
 
             <TabsContent value="temperature" className="p-4">
