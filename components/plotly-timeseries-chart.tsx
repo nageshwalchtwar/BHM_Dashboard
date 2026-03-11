@@ -247,17 +247,15 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   }
 
   return (
-    <div className="h-full w-full flex flex-col">
-      <div className="flex-1 min-h-0">
-        <Plot
-          data={plotData}
-          layout={plotLayout}
-          config={config}
-          useResizeHandler={true}
-          style={{ width: "100%", height: "100%" }}
-        />
-      </div>
-      <div className="flex gap-4 text-xs text-gray-500 px-2 pt-1">
+    <div className="h-full w-full relative">
+      <Plot
+        data={plotData}
+        layout={plotLayout}
+        config={config}
+        useResizeHandler={true}
+        style={{ width: "100%", height: "100%" }}
+      />
+      <div className="absolute bottom-0 left-0 right-0 flex gap-4 text-xs text-gray-500 px-2 pb-1">
         <span><b>Points:</b> {safeCount}</span>
         <span className="text-gray-400">Drag to zoom • Scroll to zoom • Double-click to reset</span>
       </div>
