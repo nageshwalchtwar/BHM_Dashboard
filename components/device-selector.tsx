@@ -75,7 +75,7 @@ export function DeviceSelector({
   }, [])
 
   const handleDeviceSelect = (deviceId: string) => {
-    onDeviceChange(deviceId === 'default' ? undefined : deviceId)
+    onDeviceChange(deviceId)
   }
 
   if (loading) {
@@ -119,41 +119,25 @@ export function DeviceSelector({
         </div>
         
         <Select
-          value={selectedDevice || 'default'}
+          value={selectedDevice || defaultDevice?.id || ''}
           onValueChange={handleDeviceSelect}
         >
           <SelectTrigger className="w-48 h-8">
             <SelectValue placeholder="Select device..." />
           </SelectTrigger>
           <SelectContent>
-            {defaultDevice && (
-              <SelectItem value="default">
-                <div className="flex items-center space-x-2">
-                  <span>{defaultDevice.name}</span>
-                  <Badge variant="outline" className="text-xs">Default</Badge>
-                </div>
-              </SelectItem>
-            )}
-            {devices.filter(d => d.id !== defaultDevice?.id).map((device) => (
+            {devices.map((device) => (
               <SelectItem key={device.id} value={device.id}>
-                <div className="flex flex-col">
+                <div className="flex items-center space-x-2">
                   <span>{device.name}</span>
-                  {device.description && (
-                    <span className="text-xs text-gray-500">
-                      {device.description}
-                    </span>
+                  {device.id === defaultDevice?.id && (
+                    <Badge variant="outline" className="text-xs">Default</Badge>
                   )}
                 </div>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-
-        {currentDevice && (
-          <span className="text-xs text-gray-500">
-            {currentDevice.name}
-          </span>
-        )}
       </div>
 
       {onAdminClick && (

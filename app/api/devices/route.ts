@@ -65,8 +65,22 @@ export async function GET(request: NextRequest) {
     const forceDiscover = searchParams.get('discover') === 'true';
     const parentFolderUrl = searchParams.get('parentFolderUrl') || undefined;
 
+    // Skip auto-discovery when devices are already configured via env vars
+    // to avoid duplicates (env folders are merged-CSV folders, auto-discovered
+    // ones are device-root folders with different IDs).
+    const envDevices = deviceConfig.getAllDevices();
+    const hasEnvDevices = envDevices.some(d => ['d1','d2','d3','d4'].includes(d.id));
+
+    // Remove any previously auto-discovered duplicates if env devices exist
+    if (hasEnvDevices) {
+      const nonEnvDevices = envDevices.filter(d => !['d1','d2','d3','d4'].includes(d.id));
+      for (const dup of nonEnvDevices) {
+        deviceConfig.removeDevice(dup.id);
+      }
+    }
+
     const now = Date.now();
-    const shouldAutoDiscover = forceDiscover || now - lastAutoDiscoveryAt > AUTO_DISCOVERY_TTL_MS;
+    const shouldAutoDiscover = !hasEnvDevices && (forceDiscover || now - lastAutoDiscoveryAt > AUTO_DISCOVERY_TTL_MS);
     let discoveryResult = { discovered: 0, added: 0 };
     if (shouldAutoDiscover) {
       discoveryResult = await autoDiscoverDevices(parentFolderUrl);
