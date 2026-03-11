@@ -74,24 +74,24 @@ export async function GET(request: NextRequest) {
       console.log(`📈 Live: ${parsedData.length} parsed → ${allData.length} rows in last ${mode === '1min' ? '1' : '5'} min`);
 
     } else {
-      // ── Historical (date) — use LATEST folder first (merged folder files are often 403) ──
+      // ── Historical (date) — try both folders with multiple strategies ──
       if (mode === 'date') {
         let result = null;
 
-        // Strategy 1: Try LATEST folder (files are downloadable)
-        try {
-          const latestFolderId = getLatestFolderIdForDevice(deviceId || undefined);
-          console.log(`📂 Device=${device?.name || 'unknown'}, trying LATEST folder=${latestFolderId}`);
-          result = await streamCSVByDateAsSampled(date || '', latestFolderId, 1000);
-        } catch {
-          console.log('⚠️ No LATEST folder configured, trying merged folder...');
-        }
+        // Strategy 1: Try merged folder first (has properly named date CSVs)
+        const folderId = getFolderIdForDevice(deviceId || undefined);
+        console.log(`📂 [1] Device=${device?.name || 'unknown'}, trying merged folder=${folderId}`);
+        result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
 
-        // Strategy 2: Fallback to merged folder
+        // Strategy 2: Fallback to LATEST folder (has Google Sheets, uses Sheets API/export)
         if (!result) {
-          const folderId = getFolderIdForDevice(deviceId || undefined);
-          console.log(`📂 Device=${device?.name || 'unknown'}, trying merged folder=${folderId}`);
-          result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
+          try {
+            const latestFolderId = getLatestFolderIdForDevice(deviceId || undefined);
+            console.log(`📂 [2] Device=${device?.name || 'unknown'}, trying LATEST folder=${latestFolderId}`);
+            result = await streamCSVByDateAsSampled(date || '', latestFolderId, 1000);
+          } catch {
+            console.log('⚠️ No LATEST folder configured');
+          }
         }
 
         if (result) {
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       const hasKey = apiKey && !apiKey.startsWith('your_');
       const hint = !hasKey
         ? 'GOOGLE_DRIVE_API_KEY is not configured.'
-        : `Could not download CSV files from folder. Check server logs or /api/debug-drive.`;
+        : `Files found but download blocked (403). Ensure files are shared as "Anyone with the link can view" and Google Sheets API is enabled in Cloud Console.`;
       console.log(`❌ No data: hasKey=${hasKey}`)
       const modeMessages: Record<string, string> = {
         '1min': 'No live data (last 1 min)',

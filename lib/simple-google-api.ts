@@ -505,6 +505,33 @@ export class SimpleGoogleDriveAPI {
     return this.fetchSheetRangesAsCSV(fileId, ranges);
   }
 
+  /** Export a Google Sheet as CSV via the public export URL (no Sheets API needed) */
+  async exportSheetAsCSV(fileId: string): Promise<string | null> {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`;
+      const resp = await this.fetchWithTimeout(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; BHM-Dashboard/1.0)',
+          'Accept': 'text/csv,application/csv,text/plain,*/*'
+        }
+      }, 30000);
+      if (!resp || !resp.ok) {
+        console.log(`⚠️ Sheets export failed for ${fileId}: HTTP ${resp?.status}`);
+        return null;
+      }
+      const content = await resp.text();
+      if (looksLikeCSV(content)) {
+        console.log(`✅ Sheets export: ${Math.round(content.length / 1024)}KB CSV`);
+        return content;
+      }
+      console.log(`⚠️ Sheets export content doesn't look like CSV (${content.length} chars)`);
+      return null;
+    } catch (err) {
+      console.log(`⚠️ exportSheetAsCSV error:`, err instanceof Error ? err.message : String(err));
+      return null;
+    }
+  }
+
   // Method 3: Try accessing as public/shared folder
   async getPublicFolderContent(): Promise<string | null> {
     try {
@@ -1688,6 +1715,10 @@ export async function sampleWeekAsRMS(
  * Stream a CSV file for a specific date and pick 1 raw sample per second.
  * No RMS — just one data point per second window. Ultra-low processing.
  * Falls back to the most recent file if the requested date has no match.
+ *
+ * Multi-strategy approach (tries each until one works):
+ *  Sheets: Sheets API → Sheets export URL → alt=media stream
+ *  CSVs:   Byte-range sampling → tail download → full stream
  */
 export async function streamCSVByDateAsSampled(
   date: string,
@@ -1709,8 +1740,10 @@ export async function streamCSVByDateAsSampled(
     return null;
   }
 
+  // ── Find the right file for the requested date ──
   const targetFile = files.find(f => {
     if (!date) return true;
+    // Match MERGED_2026-02-28_S.csv or 2026-02-28_12-10 or similar patterns
     const nm = f.name.match(/(\d{4}-\d{2}-\d{2})/);
     if (nm && nm[1] === date) return true;
     if (f.modifiedTime?.startsWith(date)) return true;
@@ -1722,58 +1755,108 @@ export async function streamCSVByDateAsSampled(
   const isSheet = targetFile.mimeType === 'application/vnd.google-apps.spreadsheet';
   const t0 = Date.now();
 
-  // ── Strategy 1: Google Sheets → use Sheets API (zero file download) ──
+  console.log(`🎯 Target: ${targetFile.name} (${isSheet ? 'Sheet' : `${Math.round(fileSize / (1024 * 1024))}MB CSV`})`);
+
+  // ════════════════════════════════════════════════════════════════════
+  // Strategy A: Google Sheets — use APIs that don't download the file
+  // ════════════════════════════════════════════════════════════════════
   if (isSheet || fileSize === 0) {
-    console.log(`📊 Sheets API sampling for ${targetFile.name}...`);
-    const csvContent = await api.fetchSheetSampled(targetFile.id, 200, 100);
-    if (csvContent && csvContent.length > 50) {
-      const nl = csvContent.indexOf('\n');
-      if (nl > 0) {
-        const header = csvContent.substring(0, nl).trim();
-        const body = csvContent.substring(nl + 1);
-        const pts = pickOneSampleFromChunks(header, [body], fileDate);
-        if (pts.length > 0) {
-          console.log(`⏱️ Sheets API done in ${Math.round((Date.now() - t0) / 1000)}s → ${pts.length} pts`);
-          return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
-        }
+    // A1: Sheets API (values:batchGet) — fastest, zero download
+    console.log(`📊 [A1] Sheets API sampling for ${targetFile.name}...`);
+    const sheetsCSV = await api.fetchSheetSampled(targetFile.id, 200, 100);
+    if (sheetsCSV && sheetsCSV.length > 50) {
+      const pts = parseCSVTextToSampled(sheetsCSV, fileDate, windowMs);
+      if (pts.length > 0) {
+        console.log(`✅ [A1] Sheets API → ${pts.length} pts in ${secs(t0)}s`);
+        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
       }
     }
-    console.log('⚠️ Sheets API sampling failed, trying Sheets export + byte-range...');
 
-    // Sheets with unknown size: try export as CSV via alt=media to get the size, then byte-range
-    // Or just stream with sampling as last resort
-    const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
-    if (result) {
-      console.log(`⏱️ Stream fallback done in ${Math.round((Date.now() - t0) / 1000)}s`);
-      return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
+    // A2: Google Sheets export URL (no Sheets API needed, works if Sheet is shared)
+    console.log(`📊 [A2] Sheets export URL for ${targetFile.name}...`);
+    const exportCSV = await api.exportSheetAsCSV(targetFile.id);
+    if (exportCSV && exportCSV.length > 50) {
+      const pts = parseCSVTextToSampled(exportCSV, fileDate, windowMs);
+      if (pts.length > 0) {
+        console.log(`✅ [A2] Sheets export → ${pts.length} pts in ${secs(t0)}s`);
+        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+      }
     }
+
+    // A3: Drive alt=media (auto-exports Sheets to CSV-ish format)
+    console.log(`📊 [A3] Drive alt=media for ${targetFile.name}...`);
+    const driveCSV = await api.downloadFileQuick(targetFile.id);
+    if (driveCSV && driveCSV.length > 50) {
+      const pts = parseCSVTextToSampled(driveCSV, fileDate, windowMs);
+      if (pts.length > 0) {
+        console.log(`✅ [A3] alt=media → ${pts.length} pts in ${secs(t0)}s`);
+        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+      }
+    }
+
+    console.log(`❌ All Sheets strategies failed for ${targetFile.name}`);
     return null;
   }
 
-  // ── Strategy 2: Actual CSV file → byte-range sampling (download only ~10MB) ──
+  // ════════════════════════════════════════════════════════════════════
+  // Strategy B: Actual CSV file
+  // ════════════════════════════════════════════════════════════════════
   const fileMB = Math.round(fileSize / (1024 * 1024));
-  const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3)));
-  console.log(`📡 Byte-range sampling ${targetFile.name} (${fileMB} MB) — ${numChunks} chunks of 50KB...`);
 
+  // B1: Byte-range sampling (download ~10MB of evenly-spaced 50KB chunks)
+  const numChunks = Math.min(300, Math.max(50, Math.floor(fileSize / (1024 * 1024) * 3)));
+  console.log(`📡 [B1] Byte-range sampling ${targetFile.name} (${fileMB} MB) — ${numChunks} chunks...`);
   const sampled = await api.sampleFileByByteRanges(targetFile.id, fileSize, numChunks, 50 * 1024);
   if (sampled && sampled.chunks.length > 0) {
     const pts = pickOneSampleFromChunks(sampled.header, sampled.chunks, fileDate);
     if (pts.length > 0) {
-      console.log(`⏱️ Byte-range done in ${Math.round((Date.now() - t0) / 1000)}s — ${sampled.chunks.length} chunks → ${pts.length} pts (~${Math.round(numChunks * 50 / 1024)}MB vs ${fileMB}MB full)`);
+      console.log(`✅ [B1] Byte-range → ${pts.length} pts in ${secs(t0)}s (~${Math.round(numChunks * 50 / 1024)}MB downloaded)`);
       return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
     }
   }
 
-  // ── Strategy 3: If file is small (<2MB) or byte-range failed, stream it ──
-  if (fileSize < 2 * 1024 * 1024) {
-    console.log(`📡 Small file, streaming ${targetFile.name} (${fileMB} MB)...`);
-  } else {
-    console.log('⚠️ Byte-range returned no data, falling back to stream...');
+  // B2: Tail download (like live mode — download last 30MB via Range header)
+  console.log(`📡 [B2] Tail download ${targetFile.name} (last 30MB of ${fileMB} MB)...`);
+  const tailCSV = await api.downloadFileTailWithHeader(targetFile.id, 30 * 1024 * 1024);
+  if (tailCSV && tailCSV.length > 100) {
+    const nl = tailCSV.indexOf('\n');
+    if (nl > 0) {
+      const header = tailCSV.substring(0, nl).trim();
+      const body = tailCSV.substring(nl + 1);
+      const pts = pickOneSampleFromChunks(header, [body], fileDate);
+      if (pts.length > 0) {
+        console.log(`✅ [B2] Tail download → ${pts.length} pts in ${secs(t0)}s`);
+        return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, sampledData: pts, rawRowCount: pts.length };
+      }
+    }
   }
-  const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
-  if (!result) return null;
-  console.log(`⏱️ Stream done in ${Math.round((Date.now() - t0) / 1000)}s`);
-  return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
+
+  // B3: Full stream (last resort for small files or when everything else fails)
+  if (fileSize < 50 * 1024 * 1024) {
+    console.log(`📡 [B3] Full stream ${targetFile.name} (${fileMB} MB)...`);
+    const result = await api.streamAndPickOneSample(targetFile.id, windowMs, fileDate);
+    if (result) {
+      console.log(`✅ [B3] Stream → ${result.sampledData.length} pts in ${secs(t0)}s`);
+      return { filename: targetFile.name, modifiedTime: targetFile.modifiedTime, ...result };
+    }
+  } else {
+    console.log(`⏭️ [B3] Skipping full stream — file too large (${fileMB} MB)`);
+  }
+
+  console.log(`❌ All strategies failed for ${targetFile.name} (${fileMB} MB)`);
+  return null;
+}
+
+/** Helper: seconds since t0 */
+function secs(t0: number): string { return (Math.round((Date.now() - t0) / 100) / 10).toFixed(1); }
+
+/** Helper: parse a CSV text blob into 1-sample-per-second data points */
+function parseCSVTextToSampled(csv: string, fileDate?: string, windowMs: number = 1000): any[] {
+  const nl = csv.indexOf('\n');
+  if (nl <= 0) return [];
+  const header = csv.substring(0, nl).trim();
+  const body = csv.substring(nl + 1);
+  return pickOneSampleFromChunks(header, [body], fileDate);
 }
 
 /**
