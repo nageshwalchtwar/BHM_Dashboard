@@ -11,6 +11,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Skip rate limiting in development (local / Codespaces)
+  if (process.env.NODE_ENV === 'development') {
+    return NextResponse.next()
+  }
+
   // More lenient rate limiting for auth routes
   const isAuthRoute = request.nextUrl.pathname.startsWith('/api/auth/')
   const currentRateLimit = isAuthRoute ? RATE_LIMIT * 2 : RATE_LIMIT // 100 for auth, 50 for others

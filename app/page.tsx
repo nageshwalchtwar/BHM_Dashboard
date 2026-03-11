@@ -513,41 +513,6 @@ export default function BHMDashboard() {
                 <AlertTriangle className="h-3 w-3" />
               </Button>
 
-              {/* Admin-only buttons */}
-              {currentUser?.role === 'admin' && (
-                <>
-                  <Button
-                    onClick={handleUserManagement}
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 flex items-center space-x-1"
-                  >
-                    <Users className="h-3 w-3" />
-                    <span className="text-xs">Users</span>
-                  </Button>
-
-                  <Button
-                    onClick={handleAdminClick}
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 flex items-center space-x-1"
-                  >
-                    <Settings className="h-3 w-3" />
-                    <span className="text-xs">Devices</span>
-                  </Button>
-
-                  <Button
-                    onClick={handleEmailReports}
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 flex items-center space-x-1"
-                  >
-                    <Mail className="h-3 w-3" />
-                    <span className="text-xs">Reports</span>
-                  </Button>
-                </>
-              )}
-
               {/* Account Management */}
               <Button
                 onClick={handleAccountManagement}

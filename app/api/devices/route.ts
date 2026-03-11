@@ -13,34 +13,52 @@ async function autoDiscoverDevices(parentFolderUrl?: string) {
     return { discovered: 0, added: 0 };
   }
 
-  // Map first 4 folders to Device 1..4, preserving stable order by folder name.
+  // Sort discovered folders alphabetically for stable ordering.
   const candidates = [...subfolders]
     .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 4);
 
   const existing = deviceConfig.getAllDevices();
-  let added = 0;
+  const envDeviceIds = ['d1', 'd2', 'd3', 'd4'];
+  const envDevices = existing.filter(d => envDeviceIds.includes(d.id));
 
+  // ── If we already have env-configured devices, only UPDATE their folderIds ──
+  // Never add new auto-discovered devices when env devices exist.
+  if (envDevices.length > 0) {
+    let updated = 0;
+    for (const candidate of candidates) {
+      // Try fuzzy name match first (ignore case, underscores, spaces)
+      const norm = (s: string) => s.toLowerCase().replace(/[_\s-]/g, '');
+      let match = envDevices.find(d => norm(d.name) === norm(candidate.name));
+
+      // Fallback: positional match (sorted auto-discovered → d1, d2, d3, d4)
+      if (!match) {
+        const idx = candidates.indexOf(candidate);
+        if (idx < envDevices.length) {
+          match = envDevices[idx];
+        }
+      }
+
+      if (match) {
+        deviceConfig.updateDeviceFolder(match.id, candidate.folderId);
+        updated++;
+      }
+    }
+    return { discovered: candidates.length, added: 0, updated };
+  }
+
+  // ── No env devices — add auto-discovered devices as before ──
+  let added = 0;
   for (let i = 0; i < candidates.length; i++) {
     const folder = candidates[i];
-    const slot = i + 1;
     const existingDevice = existing.find((device) => device.folderId === folder.id);
-    if (existingDevice) {
-      // Keep existing records but migrate legacy generic names to real folder names.
-      if (/^Device\s+\d+$/i.test(existingDevice.name)) {
-        existingDevice.name = folder.name;
-      }
-      if (!existingDevice.description?.includes('slot')) {
-        existingDevice.description = `Auto-discovered slot ${slot}: ${folder.name}`;
-      }
-      continue;
-    }
+    if (existingDevice) continue;
 
     try {
       const created = deviceConfig.addDevice(
         folder.name,
         folder.folderUrl,
-        `Auto-discovered slot ${slot}: ${folder.name}`
+        `Auto-discovered slot ${i + 1}: ${folder.name}`
       );
       if (created) added++;
     } catch {
@@ -73,26 +91,15 @@ export async function GET(request: NextRequest) {
       lastAutoDiscoveryAt = now;
     }
 
-    // Merge: when env devices and auto-discovered devices share a name,
-    // update the env device's folderId to use the auto-discovered one
-    // (auto-discovered folders are verified accessible via the API key).
-    // Then remove auto-discovered duplicates so only 4 unique devices remain.
+    // Clean up: remove any stale auto-discovered devices if env devices exist.
     const allDevices = deviceConfig.getAllDevices();
     const envDeviceIds = ['d1', 'd2', 'd3', 'd4'];
     const envDevices = allDevices.filter(d => envDeviceIds.includes(d.id));
-    const autoDevices = allDevices.filter(d => !envDeviceIds.includes(d.id));
-
-    if (envDevices.length > 0 && autoDevices.length > 0) {
-      for (const autoDevice of autoDevices) {
-        const matchingEnv = envDevices.find(
-          d => d.name.toLowerCase() === autoDevice.name.toLowerCase()
-        );
-        if (matchingEnv) {
-          // Update env device to use the auto-discovered (working) folder
-          deviceConfig.updateDeviceFolder(matchingEnv.id, autoDevice.folderId);
+    if (envDevices.length > 0) {
+      for (const d of allDevices) {
+        if (!envDeviceIds.includes(d.id)) {
+          deviceConfig.removeDevice(d.id);
         }
-        // Remove the auto-discovered duplicate either way
-        deviceConfig.removeDevice(autoDevice.id);
       }
     }
 
