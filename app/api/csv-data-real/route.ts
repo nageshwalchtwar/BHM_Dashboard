@@ -142,12 +142,12 @@ export async function GET(request: NextRequest) {
     // Latest RMS for header display
     const last = responseData[responseData.length - 1];
     const responseRMS = {
-      accel_x_rms: last?.accel_x ?? 0,
-      accel_y_rms: last?.accel_y ?? 0,
-      accel_z_rms: last?.accel_z ?? 0,
-      wt901_x_rms: last?.ax_wt901 ?? 0,
-      wt901_y_rms: last?.ay_wt901 ?? 0,
-      wt901_z_rms: last?.az_wt901 ?? 0,
+      accel_x_rms: Math.abs(last?.accel_x ?? 0),
+      accel_y_rms: Math.abs(last?.accel_y ?? 0),
+      accel_z_rms: Math.abs(last?.accel_z ?? 0),
+      wt901_x_rms: Math.abs(last?.ax_wt901 ?? 0),
+      wt901_y_rms: Math.abs(last?.ay_wt901 ?? 0),
+      wt901_z_rms: Math.abs(last?.az_wt901 ?? 0),
     };
 
     const timeframeDescription = ({ '1min': 'last 1 minute', '5min': 'last 5 minutes' } as Record<string, string>)[mode] || date || 'latest';

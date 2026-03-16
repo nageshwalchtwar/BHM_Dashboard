@@ -678,18 +678,18 @@ export default function BHMDashboard() {
               <div className="flex flex-col gap-1 w-1/2">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">ADXL RMS (1s)</p>
                 <div className="flex flex-col text-xs">
-                  <span className="font-bold text-red-700">X: {rms ? rms.accel_x_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-green-700">Y: {rms ? rms.accel_y_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-blue-700">Z: {rms ? rms.accel_z_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-red-700">X: {rms ? Math.abs(rms.accel_x_rms).toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-green-700">Y: {rms ? Math.abs(rms.accel_y_rms).toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-blue-700">Z: {rms ? Math.abs(rms.accel_z_rms).toFixed(4) : 'N/A'} g</span>
                 </div>
               </div>
 
               <div className="flex flex-col gap-1 w-1/2 border-l border-gray-100 pl-4">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">WT901 RMS (1s)</p>
                 <div className="flex flex-col text-xs">
-                  <span className="font-bold text-amber-600">X: {rms ? rms.wt901_x_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-purple-600">Y: {rms ? rms.wt901_y_rms.toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-cyan-600">Z: {rms ? rms.wt901_z_rms.toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-amber-600">X: {rms ? Math.abs(rms.wt901_x_rms).toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-purple-600">Y: {rms ? Math.abs(rms.wt901_y_rms).toFixed(4) : 'N/A'} g</span>
+                  <span className="font-bold text-cyan-600">Z: {rms ? Math.abs(rms.wt901_z_rms).toFixed(4) : 'N/A'} g</span>
                 </div>
               </div>
             </div>

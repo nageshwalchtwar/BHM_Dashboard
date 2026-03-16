@@ -66,6 +66,19 @@ export const AccelerometerChart = React.memo(function AccelerometerChart({ data,
   const oldest = chartData[0]
   const latest = chartData[chartData.length - 1]
 
+  // Calculate dynamic Y-axis range
+  const values = chartData.map(d => d[axis]).filter(v => typeof v === 'number' && !isNaN(v));
+  let minY = Math.min(...values);
+  let maxY = Math.max(...values);
+  // Add some padding
+  if (minY === maxY) {
+    minY -= 0.01;
+    maxY += 0.01;
+  } else {
+    const pad = (maxY - minY) * 0.1;
+    minY -= pad;
+    maxY += pad;
+  }
   return (
     <div className="h-full w-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-hidden">
@@ -73,7 +86,7 @@ export const AccelerometerChart = React.memo(function AccelerometerChart({ data,
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="timestamp" tickFormatter={formatXAxis} stroke="#94a3b8" fontSize={10} interval="preserveStartEnd" />
           <YAxis
-            domain={['auto', 'auto']}
+            domain={[minY, maxY]}
             stroke="#94a3b8"
             fontSize={10}
             label={{ value: `${title} (g)`, angle: -90, position: 'insideLeft', offset: 15, style: { fontSize: '10px' } }}
