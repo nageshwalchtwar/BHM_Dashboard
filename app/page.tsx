@@ -749,9 +749,9 @@ export default function BHMDashboard() {
                       data={sensorData}
                       isLoading={loading}
                       dataKey="az_adxl"
-                      title="ADXL Z-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#3b82f6"
+                      title="ADXL RMS Vibration vs Time (1 Second RMS)"
+                      yAxisLabel="RMS Acceleration (g)"
+                      color="#10b981"
                       unit="g"
                       rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                       timeRange={effectiveMinutes}
