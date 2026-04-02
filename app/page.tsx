@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Zap,
   TrendingUp,
   RefreshCw,
   CheckCircle,
@@ -166,12 +165,13 @@ export default function BHMDashboard() {
 
     setConnectionStatus('connecting')
     try {
-      let apiUrl = `/api/csv-data-real?mode=${viewMode}`
+      // Use merged-day endpoint for 1-day view, regular endpoint for live modes
+      let apiUrl = viewMode === 'date' 
+        ? `/api/csv-data-merged-day?date=${selectedDate}`
+        : `/api/csv-data-real?mode=${viewMode}`
+      
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
-      }
-      if (viewMode === 'date' && selectedDate) {
-        apiUrl += `&date=${selectedDate}`
       }
 
 
@@ -643,34 +643,20 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            {/* Latest Reading */}
+            {/* Latest Data Received */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Latest</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Latest Data Received</p>
                   <p className="text-lg font-bold text-gray-900">
                     {stats?.latestTimestamp !== 'No data' ?
                       (typeof stats?.latestTimestamp === 'string' && stats.latestTimestamp.includes(':') ?
-                        stats.latestTimestamp :
+                        stats.latestTimestamp.split('.')[0] :
                         'N/A') : 'N/A'}
                   </p>
                   <p className="text-xs text-gray-400">Timestamp</p>
                 </div>
                 <TrendingUp className="h-5 w-5 text-purple-500" />
-              </div>
-            </div>
-
-
-
-            {/* Acceleration (Peak) */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Accel</p>
-                  <p className="text-lg font-bold text-gray-900">{latestValues.acceleration}g</p>
-                  <p className="text-xs text-gray-400">Peak</p>
-                </div>
-                <Zap className="h-5 w-5 text-yellow-500" />
               </div>
             </div>
             {/* RMS Acceleration (1s window) */}
@@ -695,7 +681,7 @@ export default function BHMDashboard() {
                 <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
               </TabsList>
               <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                1 sample/sec
+                {viewMode === 'date' ? '10s average' : '1 sample/sec'}
               </span>
             </div>
 
@@ -748,8 +734,8 @@ export default function BHMDashboard() {
                     <PlotlyTimeSeriesChart
                       data={sensorData}
                       isLoading={loading}
-                      dataKey="az_adxl"
-                      title="ADXL RMS Vibration vs Time (1 Second RMS)"
+                      dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
+                      title={viewMode === 'date' ? "ADXL Z Acceleration (Pre-computed RMS)" : "ADXL RMS Vibration vs Time (1 Second RMS)"}
                       yAxisLabel="RMS Acceleration (g)"
                       color="#10b981"
                       unit="g"
