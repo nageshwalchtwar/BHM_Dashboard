@@ -760,7 +760,13 @@ export class SimpleGoogleDriveAPI {
     let wAx: number[] = [], wAy: number[] = [], wAz: number[] = [];
     let wSt: number[] = [], wTp: number[] = [];
 
-    const rms = (a: number[]) => a.length ? Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length) : 0;
+    // RMS with zero-baseline (subtract mean first)
+    const rms = (a: number[]) => {
+      if (!a.length) return 0;
+      const mean = a.reduce((s, v) => s + v, 0) / a.length;
+      const zeroBased = a.map(v => v - mean);
+      return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / a.length);
+    };
     const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
 
     const flushWindow = () => {
@@ -1567,7 +1573,13 @@ function computeRMSFromChunks(header: string, chunks: string[], fileDate?: strin
     if (i < 0 || i >= v.length) return 0;
     const n = parseFloat(v[i]?.trim() || ''); return isNaN(n) ? 0 : n;
   };
-  const rms = (a: number[]) => a.length ? Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length) : 0;
+  // RMS with zero-baseline (subtract mean first)
+  const rms = (a: number[]) => {
+    if (!a.length) return 0;
+    const mean = a.reduce((s, v) => s + v, 0) / a.length;
+    const zeroBased = a.map(v => v - mean);
+    return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / a.length);
+  };
   const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
 
   const result: any[] = [];

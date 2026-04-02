@@ -63,11 +63,12 @@ function calculateMean(values: number[]): number {
   if (!values.length) return 0;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
-// Calculate RMS for a numeric array
+// Calculate RMS for a numeric array (with zero-baseline: subtract mean first)
 function calculateRMS(values: number[]): number {
   if (!values.length) return 0;
-  const meanSquare = values.reduce((sum, v) => sum + v * v, 0) / values.length;
-  return Math.sqrt(meanSquare);
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const zeroBased = values.map(v => v - mean);
+  return Math.sqrt(zeroBased.reduce((sum, v) => sum + v * v, 0) / values.length);
 }
 
 /**
