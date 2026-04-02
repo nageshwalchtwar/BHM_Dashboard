@@ -122,34 +122,21 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
-    // ── Primary trace: filled area with markers ──────────────────────────────────────────
+    // ── Primary trace: bar chart ──────────────────────────────────────────────────────────
     const primaryTrace: any = {
       x: timestamps,
       y: values,
-      type: "scatter",
-      mode: "lines+markers",
+      type: "bar",
       name: title,
-      line: {
-        color,        // teal/green line on top
-        width: 1.5,
-        shape: "linear",
-      },
       marker: {
-        size: 4,
         color: color,
-        opacity: 0.7,
+        opacity: 0.8,
       },
-      connectgaps: false,
       hovertemplate:
         `<b>${title}</b><br>` +
         `Time: %{x|${hoverFmt}}<br>` +
         `Value: %{y:.4f} ${unit}<br>` +
         "<extra></extra>",
-    }
-
-    if (filled) {
-      primaryTrace.fill = "tozeroy"                   // fill down to y=0
-      primaryTrace.fillcolor = resolveFillColor(color) // semi-transparent fill
     }
 
     const traces: any[] = [primaryTrace]
