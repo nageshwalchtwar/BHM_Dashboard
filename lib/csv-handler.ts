@@ -47,6 +47,13 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number
       const ax_wt901_vals = window.map(s => s.ax_wt901 ?? 0);
       const ay_wt901_vals = window.map(s => s.ay_wt901 ?? 0);
       const az_wt901_vals = window.map(s => s.az_wt901 ?? 0);
+      
+      // Average temperature and stroke in window
+      const temp_vals = window.map(s => s.temperature_c ?? 0);
+      const stroke_vals = window.map(s => s.stroke_mm ?? 0);
+      const avg_temp = temp_vals.reduce((a, b) => a + b, 0) / window.length;
+      const avg_stroke = stroke_vals.reduce((a, b) => a + b, 0) / window.length;
+      
       result.push({
         timestamp: windowStart,
         rawTimestamp: window[0].rawTimestamp,
@@ -56,6 +63,8 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number
         ax_wt901: calculateRMSWithGlobalMean(ax_wt901_vals, globalAxWt),
         ay_wt901: calculateRMSWithGlobalMean(ay_wt901_vals, globalAyWt),
         az_wt901: calculateRMSWithGlobalMean(az_wt901_vals, globalAzWt),
+        temperature_c: avg_temp,
+        stroke_mm: avg_stroke,
         id: window[0].id,
         created_at: window[0].created_at,
       } as CSVSensorData);
