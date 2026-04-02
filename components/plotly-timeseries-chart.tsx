@@ -90,9 +90,31 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const timestamps: (string | null)[] = []
     const values: (number | null)[] = []
 
-    for (let i = 0; i < sorted.length; i++) {
-      timestamps.push(new Date(sorted[i].timestamp).toISOString().slice(0, -1))
-      values.push(sorted[i][dataKey])
+    // Check if timestamps are properly spaced (should be at least 500ms apart for RMS data)
+    let hasProperSpacing = true
+    for (let i = 1; i < sorted.length; i++) {
+      const timeDiff = sorted[i].timestamp - sorted[i - 1].timestamp
+      if (timeDiff < 500) {
+        hasProperSpacing = false
+        break
+      }
+    }
+
+    // If timestamps are not properly spaced, reconstruct them with 1-second intervals
+    if (!hasProperSpacing && sorted.length > 0) {
+      const baseTimestamp = sorted[0].timestamp
+      for (let i = 0; i < sorted.length; i++) {
+        // Assign each point a timestamp 1 second apart, starting from base time
+        const syntheticTs = baseTimestamp + i * 1000
+        timestamps.push(new Date(syntheticTs).toISOString().slice(0, -1))
+        values.push(sorted[i][dataKey])
+      }
+    } else {
+      // Use original timestamps if they're properly spaced
+      for (let i = 0; i < sorted.length; i++) {
+        timestamps.push(new Date(sorted[i].timestamp).toISOString().slice(0, -1))
+        values.push(sorted[i][dataKey])
+      }
     }
 
     // Dynamic time format based on range
