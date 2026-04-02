@@ -104,12 +104,12 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const primaryTrace: any = {
       x: timestamps,
       y: values,
-      type: "scattergl",
+      type: "scatter",
       mode: "lines",
       name: title,
       line: {
         color,        // teal/green line on top
-        width: 1.5,
+        width: 2.5,   // increased for better visibility of spikes
         shape: "linear",
       },
       connectgaps: false,

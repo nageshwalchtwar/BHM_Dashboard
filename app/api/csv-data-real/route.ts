@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseCSVToSensorData } from "@/lib/csv-handler"
-import { streamCSVByDateAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
+import { streamCSVByDateAsRMS, streamCSVByDateAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, getLatestFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
 // ── Response cache (2 min for historical, 15s for live) ───────────────────
@@ -74,21 +74,21 @@ export async function GET(request: NextRequest) {
       console.log(`📈 Live: ${parsedData.length} parsed → ${allData.length} rows in last ${mode === '1min' ? '1' : '5'} min`);
 
     } else {
-      // ── Historical (date) — try both folders with multiple strategies ──
+      // ── Historical (date) — use RMS-windowed aggregation instead of sampling ──
       if (mode === 'date') {
         let result = null;
 
-        // Strategy 1: Try merged folder first (has properly named date CSVs)
+        // Strategy 1: Try merged folder first (compute 1-second RMS windows)
         const folderId = getFolderIdForDevice(deviceId || undefined);
-        console.log(`📂 [1] Device=${device?.name || 'unknown'}, trying merged folder=${folderId}`);
-        result = await streamCSVByDateAsSampled(date || '', folderId, 1000);
+        console.log(`📂 [1] Device=${device?.name || 'unknown'}, trying merged folder=${folderId}, computing RMS...`);
+        result = await streamCSVByDateAsRMS(date || '', folderId, 1000);
 
-        // Strategy 2: Fallback to LATEST folder (has Google Sheets, uses Sheets API/export)
+        // Strategy 2: Fallback to LATEST folder (RMS computation)
         if (!result) {
           try {
             const latestFolderId = getLatestFolderIdForDevice(deviceId || undefined);
-            console.log(`📂 [2] Device=${device?.name || 'unknown'}, trying LATEST folder=${latestFolderId}`);
-            result = await streamCSVByDateAsSampled(date || '', latestFolderId, 1000);
+            console.log(`📂 [2] Device=${device?.name || 'unknown'}, trying LATEST folder=${latestFolderId}, computing RMS...`);
+            result = await streamCSVByDateAsRMS(date || '', latestFolderId, 1000);
           } catch {
             console.log('⚠️ No LATEST folder configured');
           }
@@ -96,12 +96,11 @@ export async function GET(request: NextRequest) {
 
         if (result) {
           filenames = [result.filename];
-          dataSource = `${device?.name || 'Drive'} - ${result.filename}`;
-          allData = result.sampledData;
-          console.log(`📈 ${result.rawRowCount} raw rows → ${result.sampledData.length} sample points (1/sec)`);
+          dataSource = `${device?.name || 'Drive'} - ${result.filename} (RMS)`;
+          allData = result.rmsData;
+          console.log(`📈 ${result.rawRowCount} raw rows → ${result.rmsData.length} RMS points (1-second windows)`);
         }
       }
-    }
 
     // ── No data? Return clear error ──────────────────────────────────────
     if (allData.length === 0) {
@@ -142,21 +141,24 @@ export async function GET(request: NextRequest) {
     // Latest RMS for header display
     const last = responseData[responseData.length - 1];
     const responseRMS = {
-      accel_x_rms: Math.abs(last?.accel_x ?? 0),
-      accel_y_rms: Math.abs(last?.accel_y ?? 0),
-      accel_z_rms: Math.abs(last?.accel_z ?? 0),
+      // For RMS data, use the computed RMS fields directly
+      // For raw data, take absolute value of last acceleration reading
+      accel_x_rms: Math.abs(last?.accel_x ?? last?.ax_adxl ?? 0),
+      accel_y_rms: Math.abs(last?.accel_y ?? last?.ay_adxl ?? 0),
+      accel_z_rms: Math.abs(last?.accel_z ?? last?.az_adxl ?? 0),
       wt901_x_rms: Math.abs(last?.ax_wt901 ?? 0),
       wt901_y_rms: Math.abs(last?.ay_wt901 ?? 0),
       wt901_z_rms: Math.abs(last?.az_wt901 ?? 0),
     };
 
     const timeframeDescription = ({ '1min': 'last 1 minute', '5min': 'last 5 minutes' } as Record<string, string>)[mode] || date || 'latest';
+    const isRMSMode = mode === 'date'; // Historical date mode uses RMS computation
 
     const responseJson = {
       success: true,
       data: responseData,
       rms: responseRMS,
-      isRMSData: false,
+      isRMSData: isRMSMode,
       metadata: {
         source: dataSource,
         filename: filenames.join(', '),
@@ -165,7 +167,7 @@ export async function GET(request: NextRequest) {
         rmsPoints: responseData.length,
         timeframe: timeframeDescription,
         dataSpan: { start: dataStart.toISOString(), end: dataEnd.toISOString(), spanMinutes },
-        isRMSData: false,
+        isRMSData: isRMSMode,
         lastUpdate: new Date().toISOString(),
         latestDataTime: dataEnd.toISOString(),
         oldestDataTime: dataStart.toISOString(),
