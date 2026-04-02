@@ -324,33 +324,74 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     [title]
   )
 
-  if (isLoading) {
+  const safeCount = Array.isArray(data)
+    ? data.filter((d) => typeof d[dataKey] === "number" && !isNaN(d[dataKey])).length
+    : 0
+
+  // Show chart even while loading or with zero data - allows incremental display
+  if (!isClient) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded-full animate-pulse" style={{ backgroundColor: color }} />
-          <span className="text-gray-600 text-sm">Loading {title} data...</span>
+        <span className="text-gray-500 text-sm">Initializing chart...</span>
+      </div>
+    )
+  }
+
+  // If loading but no data yet, show empty chart with loading indicator
+  if (isLoading && safeCount === 0) {
+    return (
+      <div className="h-full w-full relative">
+        <Plot
+          data={[]}
+          layout={
+            {
+              title: {
+                text: title,
+                font: { size: 14, family: "Inter, sans-serif" },
+                x: 0.02,
+                xanchor: "left",
+              },
+              xaxis: {
+                title: { text: "Time", font: { size: 11 } },
+                type: "date",
+                showgrid: true,
+                gridcolor: "#f1f5f9",
+                automargin: true,
+              },
+              yaxis: {
+                title: { text: yAxisLabel, font: { size: 11 } },
+                showgrid: true,
+                gridcolor: "#f1f5f9",
+                tickformat: ".4f",
+                automargin: true,
+                rangemode: "tozero",
+              },
+              margin: { t: 40, r: 20, b: 30, l: 60 },
+              plot_bgcolor: "white",
+              paper_bgcolor: "white",
+              font: { family: "Inter, sans-serif", size: 11 },
+            }
+          }
+          config={{
+            responsive: true,
+            displayModeBar: false,
+          }}
+          useResizeHandler={true}
+          style={{ width: "100%", height: "100%" }}
+        />
+        <div className="absolute top-12 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-white px-3 py-2 rounded-lg shadow">
+          <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: color }} />
+          <span className="text-gray-600 text-sm">Syncing {title} data...</span>
         </div>
       </div>
     )
   }
 
-  const safeCount = Array.isArray(data)
-    ? data.filter((d) => typeof d[dataKey] === "number" && !isNaN(d[dataKey])).length
-    : 0
-
+  // No data at all and not loading
   if (safeCount === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
         <span className="text-gray-500 text-sm">No data available for {title}</span>
-      </div>
-    )
-  }
-
-  if (!isClient) {
-    return (
-      <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
-        <span className="text-gray-500 text-sm">Initializing chart...</span>
       </div>
     )
   }
