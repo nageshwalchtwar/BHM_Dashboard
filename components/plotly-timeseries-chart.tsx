@@ -100,17 +100,22 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
-    // ── Primary trace: filled area ──────────────────────────────────────────
+    // ── Primary trace: filled area with markers ──────────────────────────────────────────
     const primaryTrace: any = {
       x: timestamps,
       y: values,
       type: "scatter",
-      mode: "lines",
+      mode: "lines+markers",
       name: title,
       line: {
         color,        // teal/green line on top
-        width: 2.5,   // increased for better visibility of spikes
+        width: 1.5,
         shape: "linear",
+      },
+      marker: {
+        size: 4,
+        color: color,
+        opacity: 0.7,
       },
       connectgaps: false,
       hovertemplate:
