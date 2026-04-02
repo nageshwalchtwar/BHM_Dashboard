@@ -63,11 +63,10 @@ function calculateMean(values: number[]): number {
   if (!values.length) return 0;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
-// Calculate RMS for a numeric array (with zero-baseline: subtract mean first)
-function calculateRMS(values: number[]): number {
+// Calculate RMS for a numeric array with provided global mean (global zero-baseline)
+function calculateRMSWithGlobalMean(values: number[], globalMean: number): number {
   if (!values.length) return 0;
-  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-  const zeroBased = values.map(v => v - mean);
+  const zeroBased = values.map(v => v - globalMean);
   return Math.sqrt(zeroBased.reduce((sum, v) => sum + v * v, 0) / values.length);
 }
 
@@ -174,6 +173,41 @@ export function streamParseCSVToRMS(
     if (startIdx < 0) startIdx = 0;
   }
 
+  // ── Calculate global means for zero-baseline (matching Python script) ──
+  let globalAxAdxl = 0, globalAyAdxl = 0, globalAzAdxl = 0;
+  let globalAxWt = 0, globalAyWt = 0, globalAzWt = 0;
+  let globalAx = 0, globalAy = 0, globalAz = 0;
+  
+  if (rows.length > startIdx) {
+    let axAdxlSum = 0, ayAdxlSum = 0, azAdxlSum = 0;
+    let axWtSum = 0, ayWtSum = 0, azWtSum = 0;
+    let axSum = 0, aySum = 0, azSum = 0;
+    
+    for (let i = startIdx; i < rows.length; i++) {
+      const vals = rows[i].vals;
+      axAdxlSum += pf(vals, axAdxlIdx);
+      ayAdxlSum += pf(vals, ayAdxlIdx);
+      azAdxlSum += pf(vals, azAdxlIdx);
+      axWtSum += pf(vals, axWt901Idx);
+      ayWtSum += pf(vals, ayWt901Idx);
+      azWtSum += pf(vals, azWt901Idx);
+      axSum += pf(vals, accelXIdx) || pf(vals, axAdxlIdx);
+      aySum += pf(vals, accelYIdx) || pf(vals, ayAdxlIdx);
+      azSum += pf(vals, accelZIdx) || pf(vals, azAdxlIdx);
+    }
+    
+    const count = rows.length - startIdx;
+    globalAxAdxl = axAdxlSum / count;
+    globalAyAdxl = ayAdxlSum / count;
+    globalAzAdxl = azAdxlSum / count;
+    globalAxWt = axWtSum / count;
+    globalAyWt = ayWtSum / count;
+    globalAzWt = azWtSum / count;
+    globalAx = axSum / count;
+    globalAy = aySum / count;
+    globalAz = azSum / count;
+  }
+
   // ── Second pass: window-based RMS aggregation ──
   const rmsData: CSVSensorData[] = [];
 
@@ -187,15 +221,15 @@ export function streamParseCSVToRMS(
 
   const flushWindow = () => {
     if (wAx.length === 0 && wAxAdxl.length === 0) return;
-    const ax_adxl_rms = calculateRMS(wAxAdxl);
-    const ay_adxl_rms = calculateRMS(wAyAdxl);
-    const az_adxl_rms = calculateRMS(wAzAdxl);
-    const ax_wt_rms = calculateRMS(wAxWt);
-    const ay_wt_rms = calculateRMS(wAyWt);
-    const az_wt_rms = calculateRMS(wAzWt);
-    const ax_rms = calculateRMS(wAx);
-    const ay_rms = calculateRMS(wAy);
-    const az_rms = calculateRMS(wAz);
+    const ax_adxl_rms = calculateRMSWithGlobalMean(wAxAdxl, globalAxAdxl);
+    const ay_adxl_rms = calculateRMSWithGlobalMean(wAyAdxl, globalAyAdxl);
+    const az_adxl_rms = calculateRMSWithGlobalMean(wAzAdxl, globalAzAdxl);
+    const ax_wt_rms = calculateRMSWithGlobalMean(wAxWt, globalAxWt);
+    const ay_wt_rms = calculateRMSWithGlobalMean(wAyWt, globalAyWt);
+    const az_wt_rms = calculateRMSWithGlobalMean(wAzWt, globalAzWt);
+    const ax_rms = calculateRMSWithGlobalMean(wAx, globalAx);
+    const ay_rms = calculateRMSWithGlobalMean(wAy, globalAy);
+    const az_rms = calculateRMSWithGlobalMean(wAz, globalAz);
     const stroke_avg = wStroke.length ? calculateMean(wStroke) : 0;
     const temp_last = wTemp.length ? wTemp[wTemp.length - 1] : 0;
 

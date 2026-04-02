@@ -760,22 +760,30 @@ export class SimpleGoogleDriveAPI {
     let wAx: number[] = [], wAy: number[] = [], wAz: number[] = [];
     let wSt: number[] = [], wTp: number[] = [];
 
-    // RMS with zero-baseline (subtract mean first)
-    const rms = (a: number[]) => {
-      if (!a.length) return 0;
-      const mean = a.reduce((s, v) => s + v, 0) / a.length;
-      const zeroBased = a.map(v => v - mean);
-      return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / a.length);
+    // Collect ALL raw values to compute global means (matching Python script)
+    let allAxA: number[] = [], allAyA: number[] = [], allAzA: number[] = [];
+    let allAxW: number[] = [], allAyW: number[] = [], allAzW: number[] = [];
+    let allAx: number[] = [], allAy: number[] = [], allAz: number[] = [];
+
+    // RMS with global zero-baseline (like Python: subtract global mean)
+    const rmsWithGlobalMean = (values: number[], globalMean: number) => {
+      if (!values.length) return 0;
+      const zeroBased = values.map(v => v - globalMean);
+      return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / values.length);
     };
     const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
 
-    const flushWindow = () => {
+    const flushWindow = (globalAxA: number, globalAyA: number, globalAzA: number,
+                         globalAxW: number, globalAyW: number, globalAzW: number,
+                         globalAx: number, globalAy: number, globalAz: number) => {
       if (!wAx.length && !wAxA.length) return;
-      const axR = rms(wAx) || rms(wAxA), ayR = rms(wAy) || rms(wAyA), azR = rms(wAz) || rms(wAzA);
+      const axR = rmsWithGlobalMean(wAx, globalAx) || rmsWithGlobalMean(wAxA, globalAxA);
+      const ayR = rmsWithGlobalMean(wAy, globalAy) || rmsWithGlobalMean(wAyA, globalAyA);
+      const azR = rmsWithGlobalMean(wAz, globalAz) || rmsWithGlobalMean(wAzA, globalAzA);
       rmsData.push({
         timestamp: wStart, rawTimestamp: wFirstRaw,
-        ax_adxl: rms(wAxA), ay_adxl: rms(wAyA), az_adxl: rms(wAzA),
-        ax_wt901: rms(wAxW), ay_wt901: rms(wAyW), az_wt901: rms(wAzW),
+        ax_adxl: rmsWithGlobalMean(wAxA, globalAxA), ay_adxl: rmsWithGlobalMean(wAyA, globalAyA), az_adxl: rmsWithGlobalMean(wAzA, globalAzA),
+        ax_wt901: rmsWithGlobalMean(wAxW, globalAxW), ay_wt901: rmsWithGlobalMean(wAyW, globalAyW), az_wt901: rmsWithGlobalMean(wAzW, globalAzW),
         accel_x: axR, accel_y: ayR, accel_z: azR,
         x: axR, y: ayR, z: azR, vibration: axR, acceleration: ayR,
         stroke_mm: mean(wSt), strain: mean(wSt),
@@ -819,19 +827,51 @@ export class SimpleGoogleDriveAPI {
       const ts = parseTs(vals[tsIdx]);
       if (ts === 0) return;
 
+      const axAVal = pf(vals, axAIdx);
+      const ayAVal = pf(vals, ayAIdx);
+      const azAVal = pf(vals, azAIdx);
+      const axWVal = pf(vals, axWIdx);
+      const ayWVal = pf(vals, ayWIdx);
+      const azWVal = pf(vals, azWIdx);
+      const axVal = pf(vals, acxIdx) || axAVal;
+      const ayVal = pf(vals, acyIdx) || ayAVal;
+      const azVal = pf(vals, aczIdx) || azAVal;
+
+      // Collect for global mean calculation
+      allAxA.push(axAVal);
+      allAyA.push(ayAVal);
+      allAzA.push(azAVal);
+      allAxW.push(axWVal);
+      allAyW.push(ayWVal);
+      allAzW.push(azWVal);
+      allAx.push(axVal);
+      allAy.push(ayVal);
+      allAz.push(azVal);
+
       if (wStart === 0) resetWindow(ts, vals[tsIdx]?.trim() || '');
 
       if (ts - wStart >= windowMs) {
-        flushWindow();
+        // Calculate global means before flushing
+        const globalAxA = allAxA.length ? allAxA.reduce((s, v) => s + v, 0) / allAxA.length : 0;
+        const globalAyA = allAyA.length ? allAyA.reduce((s, v) => s + v, 0) / allAyA.length : 0;
+        const globalAzA = allAzA.length ? allAzA.reduce((s, v) => s + v, 0) / allAzA.length : 0;
+        const globalAxW = allAxW.length ? allAxW.reduce((s, v) => s + v, 0) / allAxW.length : 0;
+        const globalAyW = allAyW.length ? allAyW.reduce((s, v) => s + v, 0) / allAyW.length : 0;
+        const globalAzW = allAzW.length ? allAzW.reduce((s, v) => s + v, 0) / allAzW.length : 0;
+        const globalAx = allAx.length ? allAx.reduce((s, v) => s + v, 0) / allAx.length : 0;
+        const globalAy = allAy.length ? allAy.reduce((s, v) => s + v, 0) / allAy.length : 0;
+        const globalAz = allAz.length ? allAz.reduce((s, v) => s + v, 0) / allAz.length : 0;
+
+        flushWindow(globalAxA, globalAyA, globalAzA, globalAxW, globalAyW, globalAzW, globalAx, globalAy, globalAz);
         resetWindow(ts, vals[tsIdx]?.trim() || '');
       }
 
       rawRowCount++;
-      wAxA.push(pf(vals, axAIdx)); wAyA.push(pf(vals, ayAIdx)); wAzA.push(pf(vals, azAIdx));
-      wAxW.push(pf(vals, axWIdx)); wAyW.push(pf(vals, ayWIdx)); wAzW.push(pf(vals, azWIdx));
-      wAx.push(pf(vals, acxIdx) || pf(vals, axAIdx));
-      wAy.push(pf(vals, acyIdx) || pf(vals, ayAIdx));
-      wAz.push(pf(vals, aczIdx) || pf(vals, azAIdx));
+      wAxA.push(axAVal); wAyA.push(ayAVal); wAzA.push(azAVal);
+      wAxW.push(axWVal); wAyW.push(ayWVal); wAzW.push(azWVal);
+      wAx.push(axVal);
+      wAy.push(ayVal);
+      wAz.push(azVal);
       wSt.push(pf(vals, strIdx));
       wTp.push(pf(vals, tmpIdx));
     };
@@ -841,7 +881,17 @@ export class SimpleGoogleDriveAPI {
         const { done, value } = await reader.read();
         if (done) {
           if (buf.trim()) processLine(buf.trim());
-          flushWindow(); // flush last window
+          // Calculate global means for final flush
+          const globalAxA = allAxA.length ? allAxA.reduce((s, v) => s + v, 0) / allAxA.length : 0;
+          const globalAyA = allAyA.length ? allAyA.reduce((s, v) => s + v, 0) / allAyA.length : 0;
+          const globalAzA = allAzA.length ? allAzA.reduce((s, v) => s + v, 0) / allAzA.length : 0;
+          const globalAxW = allAxW.length ? allAxW.reduce((s, v) => s + v, 0) / allAxW.length : 0;
+          const globalAyW = allAyW.length ? allAyW.reduce((s, v) => s + v, 0) / allAyW.length : 0;
+          const globalAzW = allAzW.length ? allAzW.reduce((s, v) => s + v, 0) / allAzW.length : 0;
+          const globalAx = allAx.length ? allAx.reduce((s, v) => s + v, 0) / allAx.length : 0;
+          const globalAy = allAy.length ? allAy.reduce((s, v) => s + v, 0) / allAy.length : 0;
+          const globalAz = allAz.length ? allAz.reduce((s, v) => s + v, 0) / allAz.length : 0;
+          flushWindow(globalAxA, globalAyA, globalAzA, globalAxW, globalAyW, globalAzW, globalAx, globalAy, globalAz);
           break;
         }
         buf += decoder.decode(value, { stream: true });
@@ -1573,14 +1623,44 @@ function computeRMSFromChunks(header: string, chunks: string[], fileDate?: strin
     if (i < 0 || i >= v.length) return 0;
     const n = parseFloat(v[i]?.trim() || ''); return isNaN(n) ? 0 : n;
   };
-  // RMS with zero-baseline (subtract mean first)
-  const rms = (a: number[]) => {
-    if (!a.length) return 0;
-    const mean = a.reduce((s, v) => s + v, 0) / a.length;
-    const zeroBased = a.map(v => v - mean);
-    return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / a.length);
+  // RMS with global zero-baseline (like Python: subtract global mean)
+  const rmsWithGlobalMean = (values: number[], globalMean: number) => {
+    if (!values.length) return 0;
+    const zeroBased = values.map(v => v - globalMean);
+    return Math.sqrt(zeroBased.reduce((s, v) => s + v * v, 0) / values.length);
   };
   const mean = (a: number[]) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+
+  // First pass: collect all values to compute global means
+  const allAxA: number[] = [], allAyA: number[] = [], allAzA: number[] = [];
+  const allAxW: number[] = [], allAyW: number[] = [], allAzW: number[] = [];
+  const allAcx: number[] = [], allAcy: number[] = [], allAcz: number[] = [];
+
+  for (const chunk of chunks) {
+    const lines = chunk.split('\n').filter(l => l.length > 5);
+    if (!lines.length) continue;
+    for (const line of lines) {
+      const v = line.split(',');
+      if (v.length < h.length - 1) continue;
+      const axAVal = pf(v, axAIdx), ayAVal = pf(v, ayAIdx), azAVal = pf(v, azAIdx);
+      const axWVal = pf(v, axWIdx), ayWVal = pf(v, ayWIdx), azWVal = pf(v, azWIdx);
+      const acxVal = pf(v, acxIdx) || axAVal, acyVal = pf(v, acyIdx) || ayAVal, aczVal = pf(v, aczIdx) || azAVal;
+      
+      allAxA.push(axAVal); allAyA.push(ayAVal); allAzA.push(azAVal);
+      allAxW.push(axWVal); allAyW.push(ayWVal); allAzW.push(azWVal);
+      allAcx.push(acxVal); allAcy.push(acyVal); allAcz.push(aczVal);
+    }
+  }
+
+  const globalAxA = allAxA.length ? allAxA.reduce((s, v) => s + v, 0) / allAxA.length : 0;
+  const globalAyA = allAyA.length ? allAyA.reduce((s, v) => s + v, 0) / allAyA.length : 0;
+  const globalAzA = allAzA.length ? allAzA.reduce((s, v) => s + v, 0) / allAzA.length : 0;
+  const globalAxW = allAxW.length ? allAxW.reduce((s, v) => s + v, 0) / allAxW.length : 0;
+  const globalAyW = allAyW.length ? allAyW.reduce((s, v) => s + v, 0) / allAyW.length : 0;
+  const globalAzW = allAzW.length ? allAzW.reduce((s, v) => s + v, 0) / allAzW.length : 0;
+  const globalAcx = allAcx.length ? allAcx.reduce((s, v) => s + v, 0) / allAcx.length : 0;
+  const globalAcy = allAcy.length ? allAcy.reduce((s, v) => s + v, 0) / allAcy.length : 0;
+  const globalAcz = allAcz.length ? allAcz.reduce((s, v) => s + v, 0) / allAcz.length : 0;
 
   const result: any[] = [];
   for (const chunk of chunks) {
@@ -1604,11 +1684,13 @@ function computeRMSFromChunks(header: string, chunks: string[], fileDate?: strin
       st.push(pf(v, strIdx)); tp.push(pf(v, tmpIdx));
     }
     if (!firstTs) continue;
-    const axR = rms(acx) || rms(axA), ayR = rms(acy) || rms(ayA), azR = rms(acz) || rms(azA);
+    const axR = rmsWithGlobalMean(acx, globalAcx) || rmsWithGlobalMean(axA, globalAxA);
+    const ayR = rmsWithGlobalMean(acy, globalAcy) || rmsWithGlobalMean(ayA, globalAyA);
+    const azR = rmsWithGlobalMean(acz, globalAcz) || rmsWithGlobalMean(azA, globalAzA);
     result.push({
       timestamp: firstTs, rawTimestamp: '',
-      ax_adxl: rms(axA), ay_adxl: rms(ayA), az_adxl: rms(azA),
-      ax_wt901: rms(axW), ay_wt901: rms(ayW), az_wt901: rms(azW),
+      ax_adxl: rmsWithGlobalMean(axA, globalAxA), ay_adxl: rmsWithGlobalMean(ayA, globalAyA), az_adxl: rmsWithGlobalMean(azA, globalAzA),
+      ax_wt901: rmsWithGlobalMean(axW, globalAxW), ay_wt901: rmsWithGlobalMean(ayW, globalAyW), az_wt901: rmsWithGlobalMean(azW, globalAzW),
       accel_x: axR, accel_y: ayR, accel_z: azR,
       x: axR, y: ayR, z: azR, vibration: axR, acceleration: ayR,
       stroke_mm: mean(st), strain: mean(st),
