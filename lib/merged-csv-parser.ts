@@ -18,13 +18,26 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
   const headerLine = lines[0]
   const headers = headerLine.split('\t').map((h) => h.trim().toLowerCase())
 
-  const azIndex = headers.findIndex((h) => h.includes('az_adxl_rms'))
-  const tempIndex = headers.findIndex((h) => h.includes('temp_avg'))
-  const lvdtIndex = headers.findIndex((h) => h.includes('lvdt_avg'))
-  const tsIndex = headers.findIndex((h) => h.includes('timestamp'))
+  console.log('📋 Merged CSV Headers:', headers)
+
+  // Flexible column detection
+  const azIndex = headers.findIndex((h) => 
+    h.includes('az') && (h.includes('adxl') || h.includes('rms'))
+  )
+  const tempIndex = headers.findIndex((h) => 
+    h.includes('temp') || h.includes('temperature')
+  )
+  const lvdtIndex = headers.findIndex((h) => 
+    h.includes('lvdt') || h.includes('stroke') || h.includes('displacement')
+  )
+  const tsIndex = headers.findIndex((h) => 
+    h.includes('timestamp') || h.includes('time') || h.includes('date')
+  )
+
+  console.log(`🔍 Column indices - timestamp:${tsIndex}, az:${azIndex}, temp:${tempIndex}, lvdt:${lvdtIndex}`)
 
   if (azIndex === -1 || tempIndex === -1 || lvdtIndex === -1 || tsIndex === -1) {
-    console.error('Missing required columns in merged CSV', {
+    console.error('❌ Missing required columns in merged CSV', {
       hasAz: azIndex !== -1,
       hasTemp: tempIndex !== -1,
       hasLvdt: lvdtIndex !== -1,
@@ -42,13 +55,19 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
     if (!line) continue
 
     const cols = line.split('\t')
-    if (cols.length <= Math.max(azIndex, tempIndex, lvdtIndex, tsIndex)) continue
+    if (cols.length <= Math.max(azIndex, tempIndex, lvdtIndex, tsIndex)) {
+      console.warn(`⚠️ Row ${i} has insufficient columns:`, cols.length)
+      continue
+    }
 
     try {
       const tsStr = cols[tsIndex].trim()
       // Parse ISO datetime: "2026-02-27 16:19:40"
       const ts = new Date(tsStr).getTime()
-      if (isNaN(ts)) continue
+      if (isNaN(ts)) {
+        console.warn(`⚠️ Invalid timestamp at row ${i}: "${tsStr}"`)
+        continue
+      }
 
       const az = parseFloat(cols[azIndex])
       const temp = parseFloat(cols[tempIndex])
@@ -61,12 +80,15 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
           temperature_c: temp,
           stroke_mm: lvdt,
         })
+      } else {
+        console.warn(`⚠️ Row ${i} has NaN values:`, { az, temp, lvdt })
       }
     } catch (e) {
       // Skip malformed rows
-      console.warn(`Failed to parse row ${i}:`, e)
+      console.warn(`⚠️ Failed to parse row ${i}:`, e)
     }
   }
 
+  console.log(`✅ Parsed ${result.length} valid rows from merged CSV`)
   return result
 }
