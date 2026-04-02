@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
           console.log(`📈 ${result.rawRowCount} raw rows → ${result.rmsData.length} RMS points (1-second windows)`);
         }
       }
+    }
 
     // ── No data? Return clear error ──────────────────────────────────────
     if (allData.length === 0) {
