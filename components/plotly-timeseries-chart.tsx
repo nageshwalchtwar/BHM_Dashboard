@@ -136,7 +136,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       stemValues.push(values[i]) // Go up to actual value
     }
 
-    // Vertical stems trace
+    // Vertical stems trace - thin, crisp lines
     const stemsTrace: any = {
       x: stemTimestamps,
       y: stemValues,
@@ -145,7 +145,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       name: title,
       line: {
         color: color,
-        width: 2,
+        width: 1.2,
         shape: "linear",
       },
       connectgaps: false,
@@ -154,21 +154,25 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         `Time: %{x|${hoverFmt}}<br>` +
         `Value: %{y:.4f} ${unit}<br>` +
         "<extra></extra>",
+      showlegend: true,
     }
 
     traces.push(stemsTrace)
 
-    // Add markers at the peak of each stem
+    // Add prominent markers at the peak of each stem (lollipop style)
     const markersTrace: any = {
       x: timestamps,
       y: values,
       type: "scatter",
       mode: "markers",
-      name: `${title} (peaks)`,
       marker: {
-        size: 6,
+        size: 9,
         color: color,
-        opacity: 0.9,
+        opacity: 1.0,
+        line: {
+          color: "white",
+          width: 1,
+        },
       },
       hovertemplate:
         `<b>${title}</b><br>` +
