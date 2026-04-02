@@ -34,6 +34,11 @@ interface PlotlyTimeSeriesChartProps {
    * Example: "rgba(0,200,150,0.35)"
    */
   fillColor?: string
+  /**
+   * When true, renders a simple line plot instead of stem plot.
+   * Defaults to false (stem plot for acceleration data).
+   */
+  basicLineplot?: boolean
 }
 
 export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
@@ -49,6 +54,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   timeRange,
   filled = true,
   fillColor,
+  basicLineplot = false,
 }: PlotlyTimeSeriesChartProps) {
   const [isClient, setIsClient] = useState(false)
 
@@ -122,69 +128,94 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
-    // ── Primary trace: stem plot (vertical lines from each point to zero) ──────────────────
+    // ── Primary trace: basic line plot or stem plot ──────────────────────────
     const traces: any[] = []
 
-    // Create vertical stems: for each point, add a vertical line from 0 to value (separated by nulls)
-    const stemTimestamps: (string | null)[] = []
-    const stemValues: (number | null)[] = []
-
-    for (let i = 0; i < timestamps.length; i++) {
-      stemTimestamps.push(timestamps[i])
-      stemValues.push(0) // Start from baseline
-      stemTimestamps.push(timestamps[i])
-      stemValues.push(values[i]) // Go up to actual value
-      stemTimestamps.push(null) // Separator to prevent horizontal connection
-      stemValues.push(null)
-    }
-
-    // Vertical stems trace - thin, crisp lines with no horizontal connections
-    const stemsTrace: any = {
-      x: stemTimestamps,
-      y: stemValues,
-      type: "scatter",
-      mode: "lines",
-      name: title,
-      line: {
-        color: color,
-        width: 1.5,
-        shape: "linear",
-      },
-      connectgaps: false,
-      hovertemplate:
-        `<b>${title}</b><br>` +
-        `Time: %{x|${hoverFmt}}<br>` +
-        `Value: %{y:.4f} ${unit}<br>` +
-        "<extra></extra>",
-      showlegend: true,
-    }
-
-    traces.push(stemsTrace)
-
-    // Add prominent markers at the peak of each stem
-    const markersTrace: any = {
-      x: timestamps,
-      y: values,
-      type: "scatter",
-      mode: "markers",
-      marker: {
-        size: 7,
-        color: color,
-        opacity: 1.0,
+    if (basicLineplot) {
+      // ── Simple, smooth line plot for temperature and LVDT data ──────────────
+      const lineTrace: any = {
+        x: timestamps,
+        y: values,
+        type: "scatter",
+        mode: "lines",
+        name: title,
         line: {
-          color: "white",
-          width: 1.5,
+          color: color,
+          width: 2.5,
+          shape: "linear",
         },
-      },
-      hovertemplate:
-        `<b>${title}</b><br>` +
-        `Time: %{x|${hoverFmt}}<br>` +
-        `Value: %{y:.4f} ${unit}<br>` +
-        "<extra></extra>",
-      showlegend: false,
-    }
+        connectgaps: false,
+        hovertemplate:
+          `<b>${title}</b><br>` +
+          `Time: %{x|${hoverFmt}}<br>` +
+          `Value: %{y:.4f} ${unit}<br>` +
+          "<extra></extra>",
+        showlegend: true,
+      }
+      traces.push(lineTrace)
+    } else {
+      // ── Stem plot: vertical lines from each point to zero ──────────────────
+      // Create vertical stems: for each point, add a vertical line from 0 to value (separated by nulls)
+      const stemTimestamps: (string | null)[] = []
+      const stemValues: (number | null)[] = []
 
-    traces.push(markersTrace)
+      for (let i = 0; i < timestamps.length; i++) {
+        stemTimestamps.push(timestamps[i])
+        stemValues.push(0) // Start from baseline
+        stemTimestamps.push(timestamps[i])
+        stemValues.push(values[i]) // Go up to actual value
+        stemTimestamps.push(null) // Separator to prevent horizontal connection
+        stemValues.push(null)
+      }
+
+      // Vertical stems trace - thin, crisp lines with no horizontal connections
+      const stemsTrace: any = {
+        x: stemTimestamps,
+        y: stemValues,
+        type: "scatter",
+        mode: "lines",
+        name: title,
+        line: {
+          color: color,
+          width: 1.5,
+          shape: "linear",
+        },
+        connectgaps: false,
+        hovertemplate:
+          `<b>${title}</b><br>` +
+          `Time: %{x|${hoverFmt}}<br>` +
+          `Value: %{y:.4f} ${unit}<br>` +
+          "<extra></extra>",
+        showlegend: true,
+      }
+
+      traces.push(stemsTrace)
+
+      // Add prominent markers at the peak of each stem
+      const markersTrace: any = {
+        x: timestamps,
+        y: values,
+        type: "scatter",
+        mode: "markers",
+        marker: {
+          size: 7,
+          color: color,
+          opacity: 1.0,
+          line: {
+            color: "white",
+            width: 1.5,
+          },
+        },
+        hovertemplate:
+          `<b>${title}</b><br>` +
+          `Time: %{x|${hoverFmt}}<br>` +
+          `Value: %{y:.4f} ${unit}<br>` +
+          "<extra></extra>",
+        showlegend: false,
+      }
+
+      traces.push(markersTrace)
+    }
 
     // ── RMS dashed reference line ───────────────────────────────────────────
     const firstTs = timestamps.find((t) => t !== null)
@@ -271,7 +302,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
 
     return { plotData: traces, plotLayout: layout }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange, filled, fillColor])
+  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange, filled, fillColor, basicLineplot])
 
   const config = useMemo(
     () => ({
