@@ -622,24 +622,33 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            {/* System Status */}
+            {/* Device Status - Online/Offline */}
             <div className="bg-white border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
-                  <p className="text-lg font-bold text-green-600">
-                    {stats?.healthStatus === 'healthy' ? 'Healthy' :
-                      stats?.healthStatus === 'warning' ? 'Warning' : 'Error'}
-                  </p>
-                  <p className="text-xs text-gray-400">{mounted && stats?.lastUpdate ? new Date(stats.lastUpdate).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">Device Status</p>
+                  {(() => {
+                    const lastUpdateTime = stats?.lastUpdate ? new Date(stats.lastUpdate).getTime() : 0
+                    const now = Date.now()
+                    const hoursAgo = (now - lastUpdateTime) / (1000 * 60 * 60)
+                    const isOnline = hoursAgo < 6
+                    return (
+                      <>
+                        <p className={`text-lg font-bold ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
+                          {isOnline ? 'Online' : 'Offline'}
+                        </p>
+                        <p className="text-xs text-gray-400">{mounted && stats?.lastUpdate ? new Date(stats.lastUpdate).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                      </>
+                    )
+                  })()}
                 </div>
-                {stats?.healthStatus === 'healthy' ? (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                ) : stats?.healthStatus === 'warning' ? (
-                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-500" />
-                )}
+                {(() => {
+                  const lastUpdateTime = stats?.lastUpdate ? new Date(stats.lastUpdate).getTime() : 0
+                  const now = Date.now()
+                  const hoursAgo = (now - lastUpdateTime) / (1000 * 60 * 60)
+                  const isOnline = hoursAgo < 6
+                  return isOnline ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />
+                })()}
               </div>
             </div>
 
@@ -659,12 +668,41 @@ export default function BHMDashboard() {
                 <TrendingUp className="h-5 w-5 text-purple-500" />
               </div>
             </div>
-            {/* RMS Acceleration (1s window) */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2 md:col-span-2 overflow-hidden">
-              <div className="flex flex-col gap-1">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">ADXL Z RMS (1s)</p>
-                <div className="flex flex-col text-xs">
-                  <span className="font-bold text-blue-700">Z: {rms ? Math.abs(rms.accel_z_rms).toFixed(4) : 'N/A'} g</span>
+            {/* Bridge Health Status */}
+            <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2 md:col-span-2">
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-gray-500 uppercase tracking-wide font-bold">Bridge Health</p>
+                
+                {/* Vibration Status */}
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Vibration:</span>
+                    {(() => {
+                      const vibValue = rms ? Math.abs(rms.accel_z_rms) : 0
+                      let statusColor = 'text-green-600'
+                      let statusText = 'Good'
+                      if (vibValue > 0.1) { statusColor = 'text-red-600'; statusText = 'Critical' }
+                      else if (vibValue > 0.05) { statusColor = 'text-yellow-600'; statusText = 'Warning' }
+                      return <span className={`font-bold ${statusColor}`}>{vibValue.toFixed(4)}g {statusText}</span>
+                    })()}
+                  </div>
+                  <div className="text-gray-500">Limits: ⚠️ 0.05g | 🔴 0.1g</div>
+                </div>
+
+                {/* Deflection Status */}
+                <div className="text-xs space-y-1 border-t pt-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Deflection:</span>
+                    {(() => {
+                      const lvdtValue = sensorData.length > 0 ? sensorData[sensorData.length-1].stroke_mm || 0 : 0
+                      let statusColor = 'text-green-600'
+                      let statusText = 'Good'
+                      if (lvdtValue > 100) { statusColor = 'text-red-600'; statusText = 'Critical L/600' }
+                      else if (lvdtValue > 75) { statusColor = 'text-yellow-600'; statusText = 'Warning L/800' }
+                      return <span className={`font-bold ${statusColor}`}>{lvdtValue.toFixed(1)}mm {statusText}</span>
+                    })()}
+                  </div>
+                  <div className="text-gray-500">Limits: ⚠️ 75mm (L/800) | 🔴 100mm (L/600)</div>
                 </div>
               </div>
             </div>
