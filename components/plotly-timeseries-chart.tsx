@@ -24,6 +24,16 @@ interface PlotlyTimeSeriesChartProps {
   rms?: number
   referenceLines?: { y: number; color: string; label: string }[]
   timeRange?: string // minutes as string: "1", "60", "1440", "10080"
+  /**
+   * When true, renders the trace as a filled area chart (like the green ADXL chart).
+   * Defaults to true for the primary trace.
+   */
+  filled?: boolean
+  /**
+   * Fill color (rgba string). Defaults to a semi-transparent version of `color`.
+   * Example: "rgba(0,200,150,0.35)"
+   */
+  fillColor?: string
 }
 
 export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
@@ -37,12 +47,31 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   rms,
   referenceLines,
   timeRange,
+  filled = true,
+  fillColor,
 }: PlotlyTimeSeriesChartProps) {
   const [isClient, setIsClient] = useState(false)
 
   React.useEffect(() => {
     setIsClient(true)
   }, [])
+
+  /** Convert a hex or named color to an rgba string for the fill */
+  const resolveFillColor = (baseColor: string): string => {
+    if (fillColor) return fillColor
+    // If already rgba/rgb, just lower opacity
+    if (baseColor.startsWith("rgba")) return baseColor.replace(/[\d.]+\)$/, "0.30)")
+    if (baseColor.startsWith("rgb(")) return baseColor.replace("rgb(", "rgba(").replace(")", ", 0.30)")
+    // Hex → rgba
+    const hex = baseColor.replace("#", "")
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16)
+      const g = parseInt(hex.slice(2, 4), 16)
+      const b = parseInt(hex.slice(4, 6), 16)
+      return `rgba(${r},${g},${b},0.30)`
+    }
+    return "rgba(0,200,150,0.30)"
+  }
 
   const { plotData, plotLayout } = useMemo(() => {
     const safeData = Array.isArray(data)
@@ -58,54 +87,50 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     // Sort by timestamp ascending for Plotly
     const sorted = [...safeData].sort((a, b) => a.timestamp - b.timestamp)
 
-    // Build arrays with null gaps where time jumps significantly
-    // This prevents Plotly from drawing spikes across data gaps
     const timestamps: (string | null)[] = []
     const values: (number | null)[] = []
 
-    // Detect typical interval from first few points
-    let medianGap = 10000 // default 10s
-    if (sorted.length > 2) {
-      const gaps: number[] = []
-      for (let i = 1; i < Math.min(sorted.length, 50); i++) {
-        gaps.push(sorted[i].timestamp - sorted[i - 1].timestamp)
-      }
-      gaps.sort((a, b) => a - b)
-      medianGap = gaps[Math.floor(gaps.length / 2)]
-    }
-    const gapThreshold = Math.max(medianGap * 3, 30000) // 3x median or 30s minimum
-
     for (let i = 0; i < sorted.length; i++) {
-      // Always push timestamp and value, do not insert nulls for gaps
       timestamps.push(new Date(sorted[i].timestamp).toISOString().slice(0, -1))
       values.push(sorted[i][dataKey])
     }
 
     // Dynamic time format based on range
-    const mins = parseInt(timeRange || "1", 10) || 10080 // 'custom' parses to NaN → treat as multi-day
+    const mins = parseInt(timeRange || "1", 10) || 10080
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
-    const traces: any[] = [
-      {
-        x: timestamps,
-        y: values,
-        type: "scattergl",
-        mode: "lines",
-        name: title,
-        line: { color, width: 1.5 },
-        connectgaps: false,
-        hovertemplate:
-          `<b>${title}</b><br>` +
-          `Time: %{x|${hoverFmt}}<br>` +
-          `Value: %{y:.4f} ${unit}<br>` +
-          "<extra></extra>",
+    // ── Primary trace: filled area ──────────────────────────────────────────
+    const primaryTrace: any = {
+      x: timestamps,
+      y: values,
+      type: "scattergl",
+      mode: "lines",
+      name: title,
+      line: {
+        color,        // teal/green line on top
+        width: 1.5,
+        shape: "linear",
       },
-    ]
+      connectgaps: false,
+      hovertemplate:
+        `<b>${title}</b><br>` +
+        `Time: %{x|${hoverFmt}}<br>` +
+        `Value: %{y:.4f} ${unit}<br>` +
+        "<extra></extra>",
+    }
 
-    // Add RMS reference line
-    const firstTs = timestamps.find(t => t !== null)
-    const lastTs = [...timestamps].reverse().find(t => t !== null)
+    if (filled) {
+      primaryTrace.fill = "tozeroy"                   // fill down to y=0
+      primaryTrace.fillcolor = resolveFillColor(color) // semi-transparent fill
+    }
+
+    const traces: any[] = [primaryTrace]
+
+    // ── RMS dashed reference line ───────────────────────────────────────────
+    const firstTs = timestamps.find((t) => t !== null)
+    const lastTs = [...timestamps].reverse().find((t) => t !== null)
+
     if (typeof rms === "number" && firstTs && lastTs) {
       traces.push({
         x: [firstTs, lastTs],
@@ -118,7 +143,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       })
     }
 
-    // Add custom reference lines (e.g., warning/critical for temperature)
+    // ── Custom reference lines ──────────────────────────────────────────────
     if (referenceLines && firstTs && lastTs) {
       referenceLines.forEach((ref) => {
         traces.push({
@@ -133,6 +158,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       })
     }
 
+    // ── Layout ──────────────────────────────────────────────────────────────
     const layout: any = {
       title: {
         text: title,
@@ -162,7 +188,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hoverformat: ".6f",
         automargin: true,
         fixedrange: false,
-        rangemode: "tozero",
+        rangemode: "tozero", // y-axis always starts at 0 — matches the screenshot
       },
       margin: { t: 40, r: 20, b: 30, l: 60 },
       hovermode: "x unified",
@@ -185,7 +211,8 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     }
 
     return { plotData: traces, plotLayout: layout }
-  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange, filled, fillColor])
 
   const config = useMemo(
     () => ({
@@ -193,10 +220,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
       displayModeBar: true,
       displaylogo: false,
       scrollZoom: true,
-      modeBarButtonsToAdd: [
-        "select2d",
-        "lasso2d",
-      ] as any[],
+      modeBarButtonsToAdd: ["select2d", "lasso2d"] as any[],
       modeBarButtonsToRemove: ["toImage", "sendDataToCloud"] as any[],
       doubleClick: "reset+autosize" as const,
       toImageButtonOptions: {
@@ -222,9 +246,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   }
 
   const safeCount = Array.isArray(data)
-    ? data.filter(
-        (d) => typeof d[dataKey] === "number" && !isNaN(d[dataKey])
-      ).length
+    ? data.filter((d) => typeof d[dataKey] === "number" && !isNaN(d[dataKey])).length
     : 0
 
   if (safeCount === 0) {
@@ -253,7 +275,9 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         style={{ width: "100%", height: "100%" }}
       />
       <div className="absolute bottom-0 left-0 right-0 flex gap-4 text-xs text-gray-500 px-2 pb-1">
-        <span><b>Points:</b> {safeCount}</span>
+        <span>
+          <b>Points:</b> {safeCount}
+        </span>
         <span className="text-gray-400">Drag to zoom • Scroll to zoom • Double-click to reset</span>
       </div>
     </div>
