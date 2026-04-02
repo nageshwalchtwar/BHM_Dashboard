@@ -95,7 +95,7 @@ export default function BHMDashboard() {
   const [isRMSData, setIsRMSData] = useState(false)
 
   // UI state
-  const [activeTab, setActiveTab] = useState('adxl-x')
+  const [activeTab, setActiveTab] = useState('adxl-z')
 
   // Effective minutes for chart tick formatting
   const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
@@ -674,22 +674,11 @@ export default function BHMDashboard() {
               </div>
             </div>
             {/* RMS Acceleration (1s window) */}
-            <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2 md:col-span-2 flex gap-4 overflow-hidden">
-              <div className="flex flex-col gap-1 w-1/2">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">ADXL RMS (1s)</p>
+            <div className="bg-white border border-gray-200 rounded-lg p-3 col-span-2 md:col-span-2 overflow-hidden">
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">ADXL Z RMS (1s)</p>
                 <div className="flex flex-col text-xs">
-                  <span className="font-bold text-red-700">X: {rms ? Math.abs(rms.accel_x_rms).toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-green-700">Y: {rms ? Math.abs(rms.accel_y_rms).toFixed(4) : 'N/A'} g</span>
                   <span className="font-bold text-blue-700">Z: {rms ? Math.abs(rms.accel_z_rms).toFixed(4) : 'N/A'} g</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1 w-1/2 border-l border-gray-100 pl-4">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">WT901 RMS (1s)</p>
-                <div className="flex flex-col text-xs">
-                  <span className="font-bold text-amber-600">X: {rms ? Math.abs(rms.wt901_x_rms).toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-purple-600">Y: {rms ? Math.abs(rms.wt901_y_rms).toFixed(4) : 'N/A'} g</span>
-                  <span className="font-bold text-cyan-600">Z: {rms ? Math.abs(rms.wt901_z_rms).toFixed(4) : 'N/A'} g</span>
                 </div>
               </div>
             </div>
@@ -698,17 +687,12 @@ export default function BHMDashboard() {
 
         {/* Charts Section - Interactive Plotly */}
         <div className="bg-white border border-gray-200 rounded-lg">
-          <Tabs defaultValue="adxl-x" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="adxl-z" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-200 px-4 py-2 flex items-center gap-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
                 <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temp</TabsTrigger>
                 <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
-                <TabsTrigger value="adxl-x" className="text-xs px-3 py-1.5">ADXL X</TabsTrigger>
-                <TabsTrigger value="adxl-y" className="text-xs px-3 py-1.5">ADXL Y</TabsTrigger>
                 <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
-                <TabsTrigger value="wt901-x" className="text-xs px-3 py-1.5">WT901 X</TabsTrigger>
-                <TabsTrigger value="wt901-y" className="text-xs px-3 py-1.5">WT901 Y</TabsTrigger>
-                <TabsTrigger value="wt901-z" className="text-xs px-3 py-1.5">WT901 Z</TabsTrigger>
               </TabsList>
               <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
                 1 sample/sec
@@ -757,46 +741,6 @@ export default function BHMDashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="adxl-x" className="p-4">
-              <div className="h-[500px]">
-                <ChartErrorBoundary fallbackMessage="ADXL X chart failed to render">
-                  {activeTab === 'adxl-x' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="ax_adxl"
-                      title="ADXL X-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#ef4444"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.accel_x_rms : undefined}
-                      timeRange={effectiveMinutes}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="adxl-y" className="p-4">
-              <div className="h-[500px]">
-                <ChartErrorBoundary fallbackMessage="ADXL Y chart failed to render">
-                  {activeTab === 'adxl-y' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="ay_adxl"
-                      title="ADXL Y-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#22c55e"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.accel_y_rms : undefined}
-                      timeRange={effectiveMinutes}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
             <TabsContent value="adxl-z" className="p-4">
               <div className="h-[500px]">
                 <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
@@ -810,66 +754,6 @@ export default function BHMDashboard() {
                       color="#3b82f6"
                       unit="g"
                       rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
-                      timeRange={effectiveMinutes}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="wt901-x" className="p-4">
-              <div className="h-[500px]">
-                <ChartErrorBoundary fallbackMessage="WT901 X chart failed to render">
-                  {activeTab === 'wt901-x' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="ax_wt901"
-                      title="WT901 X-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#f59e0b"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.wt901_x_rms : undefined}
-                      timeRange={effectiveMinutes}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="wt901-y" className="p-4">
-              <div className="h-[500px]">
-                <ChartErrorBoundary fallbackMessage="WT901 Y chart failed to render">
-                  {activeTab === 'wt901-y' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="ay_wt901"
-                      title="WT901 Y-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#8b5cf6"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.wt901_y_rms : undefined}
-                      timeRange={effectiveMinutes}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="wt901-z" className="p-4">
-              <div className="h-[500px]">
-                <ChartErrorBoundary fallbackMessage="WT901 Z chart failed to render">
-                  {activeTab === 'wt901-z' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="az_wt901"
-                      title="WT901 Z-Axis Acceleration"
-                      yAxisLabel="Acceleration (g)"
-                      color="#06b6d4"
-                      unit="g"
-                      rms={rms ? rms.wt901_z_rms : undefined}
                       timeRange={effectiveMinutes}
                     />
                   )}
