@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseCSVToSensorData } from "@/lib/csv-handler"
+import { parseCSVToSensorData, downsampleToRMSPerSecond } from "@/lib/csv-handler"
 import { streamCSVByDateAsRMS, streamCSVByDateAsSampled, getCSVBatchTail } from '@/lib/simple-google-api'
 import { getFolderIdForDevice, getLatestFolderIdForDevice, deviceConfig } from '@/lib/device-config'
 
@@ -69,9 +69,12 @@ export async function GET(request: NextRequest) {
       const windowMs = mode === '1min' ? 60_000 : 300_000;
       const latestTs = parsedData[parsedData.length - 1].timestamp;
       const cutoff = latestTs - windowMs;
-      allData = parsedData.filter((row: any) => row.timestamp >= cutoff);
+      const filteredData = parsedData.filter((row: any) => row.timestamp >= cutoff);
 
-      console.log(`📈 Live: ${parsedData.length} parsed → ${allData.length} rows in last ${mode === '1min' ? '1' : '5'} min`);
+      // Compute 1-second RMS windows on the live data (matching historical view)
+      allData = downsampleToRMSPerSecond(filteredData, 1000);
+
+      console.log(`📈 Live: ${parsedData.length} parsed → ${filteredData.length} rows in last ${mode === '1min' ? '1' : '5'} min → ${allData.length} RMS windows`);
 
     } else {
       // ── Historical (date) — use RMS-windowed aggregation instead of sampling ──

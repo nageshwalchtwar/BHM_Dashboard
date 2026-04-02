@@ -1,6 +1,7 @@
 /**
  * Downsample data to RMS values per window for each acceleration axis,
  * and mean for temperature/stroke.
+ * Uses **global** mean subtraction before RMS (zero-baseline, matching Python reference).
  * @param data CSVSensorData[] (any sort order)
  * @param windowMs Window size in milliseconds (default 1000 = 1 second)
  * @returns CSVSensorData[] with 1 data point per window
@@ -11,13 +12,35 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number
   const sorted = [...data].sort((a, b) => a.timestamp - b.timestamp);
   const result: CSVSensorData[] = [];
 
+  // ── FIRST PASS: Calculate global means across entire dataset ──
+  let globalAxAdxl = 0, globalAyAdxl = 0, globalAzAdxl = 0;
+  let globalAxWt = 0, globalAyWt = 0, globalAzWt = 0;
+  if (sorted.length > 0) {
+    let axAdxlSum = 0, ayAdxlSum = 0, azAdxlSum = 0;
+    let axWtSum = 0, ayWtSum = 0, azWtSum = 0;
+    for (const s of sorted) {
+      axAdxlSum += s.ax_adxl ?? 0;
+      ayAdxlSum += s.ay_adxl ?? 0;
+      azAdxlSum += s.az_adxl ?? 0;
+      axWtSum += s.ax_wt901 ?? 0;
+      ayWtSum += s.ay_wt901 ?? 0;
+      azWtSum += s.az_wt901 ?? 0;
+    }
+    globalAxAdxl = axAdxlSum / sorted.length;
+    globalAyAdxl = ayAdxlSum / sorted.length;
+    globalAzAdxl = azAdxlSum / sorted.length;
+    globalAxWt = axWtSum / sorted.length;
+    globalAyWt = ayWtSum / sorted.length;
+    globalAzWt = azWtSum / sorted.length;
+  }
+
+  // ── SECOND PASS: Window with fixed global means ──
   let window: CSVSensorData[] = [];
   let windowStart = sorted[0].timestamp;
-  let lastSample: CSVSensorData | null = null;
 
   const flushWindow = () => {
     if (window.length > 0) {
-      // Compute RMS for each axis in the window
+      // Compute RMS for each axis in the window using global means
       const ax_adxl_vals = window.map(s => s.ax_adxl ?? 0);
       const ay_adxl_vals = window.map(s => s.ay_adxl ?? 0);
       const az_adxl_vals = window.map(s => s.az_adxl ?? 0);
@@ -27,20 +50,19 @@ export function downsampleToRMSPerSecond(data: CSVSensorData[], windowMs: number
       result.push({
         timestamp: windowStart,
         rawTimestamp: window[0].rawTimestamp,
-        ax_adxl: calculateRMS(ax_adxl_vals),
-        ay_adxl: calculateRMS(ay_adxl_vals),
-        az_adxl: calculateRMS(az_adxl_vals),
-        ax_wt901: calculateRMS(ax_wt901_vals),
-        ay_wt901: calculateRMS(ay_wt901_vals),
-        az_wt901: calculateRMS(az_wt901_vals),
+        ax_adxl: calculateRMSWithGlobalMean(ax_adxl_vals, globalAxAdxl),
+        ay_adxl: calculateRMSWithGlobalMean(ay_adxl_vals, globalAyAdxl),
+        az_adxl: calculateRMSWithGlobalMean(az_adxl_vals, globalAzAdxl),
+        ax_wt901: calculateRMSWithGlobalMean(ax_wt901_vals, globalAxWt),
+        ay_wt901: calculateRMSWithGlobalMean(ay_wt901_vals, globalAyWt),
+        az_wt901: calculateRMSWithGlobalMean(az_wt901_vals, globalAzWt),
         id: window[0].id,
         created_at: window[0].created_at,
       } as CSVSensorData);
     }
-    // If no sample for this second, do nothing (no gap filling)
   };
 
-  // Fill every second from start to end, using previous value for gaps
+  // Fill every second from start to end
   let i = 0;
   let startTs = sorted[0].timestamp;
   let endTs = sorted[sorted.length - 1].timestamp;
