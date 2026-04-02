@@ -122,22 +122,31 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const tickFmt = mins >= 1440 ? "%b %d %H:%M" : mins >= 60 ? "%H:%M" : "%H:%M:%S"
     const hoverFmt = mins >= 1440 ? "%b %d %H:%M:%S" : "%H:%M:%S.%L"
 
-    // ── Primary trace: line plot ──────────────────────────────────────────────────────────
-    const primaryTrace: any = {
-      x: timestamps,
-      y: values,
+    // ── Primary trace: stem plot (vertical lines from each point to zero) ──────────────────
+    const traces: any[] = []
+
+    // Create vertical stems: for each point, add a vertical line from 0 to value
+    const stemTimestamps: (string | null)[] = []
+    const stemValues: (number | null)[] = []
+
+    for (let i = 0; i < timestamps.length; i++) {
+      stemTimestamps.push(timestamps[i])
+      stemValues.push(0) // Start from baseline
+      stemTimestamps.push(timestamps[i])
+      stemValues.push(values[i]) // Go up to actual value
+    }
+
+    // Vertical stems trace
+    const stemsTrace: any = {
+      x: stemTimestamps,
+      y: stemValues,
       type: "scatter",
-      mode: "lines+markers",
+      mode: "lines",
       name: title,
       line: {
         color: color,
         width: 2,
         shape: "linear",
-      },
-      marker: {
-        size: 5,
-        color: color,
-        opacity: 0.8,
       },
       connectgaps: false,
       hovertemplate:
@@ -147,12 +156,29 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         "<extra></extra>",
     }
 
-    if (filled) {
-      primaryTrace.fill = "tozeroy"
-      primaryTrace.fillcolor = resolveFillColor(color)
+    traces.push(stemsTrace)
+
+    // Add markers at the peak of each stem
+    const markersTrace: any = {
+      x: timestamps,
+      y: values,
+      type: "scatter",
+      mode: "markers",
+      name: `${title} (peaks)`,
+      marker: {
+        size: 6,
+        color: color,
+        opacity: 0.9,
+      },
+      hovertemplate:
+        `<b>${title}</b><br>` +
+        `Time: %{x|${hoverFmt}}<br>` +
+        `Value: %{y:.4f} ${unit}<br>` +
+        "<extra></extra>",
+      showlegend: false,
     }
 
-    const traces: any[] = [primaryTrace]
+    traces.push(markersTrace)
 
     // ── RMS dashed reference line ───────────────────────────────────────────
     const firstTs = timestamps.find((t) => t !== null)
