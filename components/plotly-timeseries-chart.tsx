@@ -162,6 +162,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hoverformat: ".6f",
         automargin: true,
         fixedrange: false,
+        rangemode: "tozero",
       },
       margin: { t: 40, r: 20, b: 30, l: 60 },
       hovermode: "x unified",
