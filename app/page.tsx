@@ -425,22 +425,23 @@ export default function BHMDashboard() {
           </div>
 
           {/* User Info and Controls */}
-          <div className="flex items-center space-x-4">
-            {/* Node Status Indicator */}
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-900">Node: Connected</span>
-            </div>
+          <div className="flex items-center space-x-6 flex-wrap">
+            {/* Status Indicators - Always Visible */}
+            <div className="flex items-center space-x-3">
+              {/* Node Status Indicator */}
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-900">Node: Connected</span>
+              </div>
 
-            {/* Bridge Health Alert */}
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-900">Bridge: Alert</span>
-            </div>
+              {/* Bridge Health Alert */}
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-900">Bridge: Alert</span>
+              </div>
 
-            <div className="flex items-center space-x-4">
               {/* Connection Status */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
                 {connectionStatus === 'connected' ? (
                   <Wifi className="h-5 w-5 text-green-500" />
                 ) : connectionStatus === 'connecting' ? (
@@ -453,9 +454,12 @@ export default function BHMDashboard() {
                     connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
                 </span>
               </div>
+            </div>
 
+            {/* Controls Section */}
+            <div className="flex items-center space-x-3">
               {/* View Mode Buttons */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5 ml-2">
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
                 {[
                   { value: '1min', label: '1 Min' },
                   { value: '5min', label: '5 Min' },
@@ -492,27 +496,29 @@ export default function BHMDashboard() {
                 </Button>
               )}
 
-              {/* Date picker for 1 Day mode */}
-              {viewMode === 'date' && (
-                <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-40 h-10 text-base">
-                    <SelectValue placeholder={datesLoading ? 'Loading dates...' : 'Select date'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDates.length === 0 ? (
-                      <SelectItem value="no-dates" disabled>
-                        {datesLoading ? 'Loading...' : 'No dates found'}
-                      </SelectItem>
-                    ) : (
-                      availableDates.map((date) => (
-                        <SelectItem key={date} value={date}>
-                          {date}
+              {/* Date picker for 1 Day mode - Fixed Width Container */}
+              <div className="w-48">
+                {viewMode === 'date' && (
+                  <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
+                    <SelectTrigger className="w-full h-10 text-base">
+                      <SelectValue placeholder={datesLoading ? 'Loading dates...' : 'Select date'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDates.length === 0 ? (
+                        <SelectItem value="no-dates" disabled>
+                          {datesLoading ? 'Loading...' : 'No dates found'}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
+                      ) : (
+                        availableDates.map((date) => (
+                          <SelectItem key={date} value={date}>
+                            {date}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
               {/* Auto Refresh */}
               <div className="flex items-center space-x-2">
@@ -532,7 +538,8 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-2">
               <Button
                 onClick={fetchData}
                 disabled={loading}

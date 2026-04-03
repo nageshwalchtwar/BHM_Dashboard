@@ -401,7 +401,13 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   if (safeCount === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-50 rounded-lg">
-        <span className="text-gray-500 text-sm">No data available for {title}</span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative w-10 h-10">
+            <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-500 border-r-blue-500 animate-spin"></div>
+          </div>
+          <span className="text-gray-600 font-medium">Loading {title} data...</span>
+        </div>
       </div>
     )
   }
