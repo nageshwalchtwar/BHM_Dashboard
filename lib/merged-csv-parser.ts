@@ -14,23 +14,31 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
   const lines = csvContent.split('\n').filter((line) => line.trim())
   if (lines.length === 0) return []
 
-  // Parse header
+  // Parse header - detect delimiter (tab or comma)
   const headerLine = lines[0]
-  const headers = headerLine.split('\t').map((h) => h.trim().toLowerCase())
+  const delimiter = headerLine.includes('\t') ? '\t' : ','
+  const headers = headerLine.split(delimiter).map((h) => h.trim().toLowerCase())
 
   console.log('📋 Merged CSV Headers:', headers)
+  console.log(`📝 Using delimiter: '${delimiter === '\t' ? 'TAB' : 'COMMA'}'`)
 
-  // Flexible column detection
-  const azIndex = headers.findIndex((h) => 
-    h.includes('az') && (h.includes('adxl') || h.includes('rms'))
+  // Flexible column detection - try multiple patterns
+  let azIndex = headers.findIndex((h) => 
+    (h.includes('az') && (h.includes('adxl') || h.includes('rms'))) ||
+    h === 'az_adxl_rms'
   )
-  const tempIndex = headers.findIndex((h) => 
-    h.includes('temp') || h.includes('temperature')
+  let tempIndex = headers.findIndex((h) => 
+    h.includes('temp') || 
+    h.includes('temperature') ||
+    h === 'temp_avg_10s'
   )
-  const lvdtIndex = headers.findIndex((h) => 
-    h.includes('lvdt') || h.includes('stroke') || h.includes('displacement')
+  let lvdtIndex = headers.findIndex((h) => 
+    h.includes('lvdt') || 
+    h.includes('stroke') || 
+    h.includes('displacement') ||
+    h === 'lvdt_avg_10s'
   )
-  const tsIndex = headers.findIndex((h) => 
+  let tsIndex = headers.findIndex((h) => 
     h.includes('timestamp') || h.includes('time') || h.includes('date')
   )
 
@@ -44,6 +52,8 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
       hasTimestamp: tsIndex !== -1,
       headers,
     })
+    console.error('📋 Full headers:', headers)
+    console.error('💾 CSV Preview:', csvContent.slice(0, 500))
     return []
   }
 
@@ -54,9 +64,9 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
     const line = lines[i].trim()
     if (!line) continue
 
-    const cols = line.split('\t')
+    const cols = line.split(delimiter)
     if (cols.length <= Math.max(azIndex, tempIndex, lvdtIndex, tsIndex)) {
-      console.warn(`⚠️ Row ${i} has insufficient columns:`, cols.length)
+      console.warn(`⚠️ Row ${i} has insufficient columns: ${cols.length}`)
       continue
     }
 
