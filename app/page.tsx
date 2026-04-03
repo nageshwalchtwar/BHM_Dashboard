@@ -106,7 +106,8 @@ export default function BHMDashboard() {
     const latestData = sensorData[sensorData.length - 1]
     const temp = latestData.temperature_c || 0
     const deflection = latestData.stroke_mm || 0
-    const vibration = rms?.accel_z_rms || 0
+    // Only use RMS vibration data in live modes (1min, 5min), not in date view
+    const vibration = (viewMode !== 'date' && rms?.accel_z_rms) ? rms.accel_z_rms : 0
     
     // Critical thresholds
     if (temp > 35 || deflection > 100 || vibration > 0.1) {
