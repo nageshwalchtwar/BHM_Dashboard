@@ -95,6 +95,7 @@ export default function BHMDashboard() {
 
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-z')
+  const [isChartFullscreen, setIsChartFullscreen] = useState(false)
 
   // Effective minutes for chart tick formatting
   const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
@@ -605,96 +606,112 @@ export default function BHMDashboard() {
           </Alert>
         )}
 
-        {/* Charts Section - Interactive Plotly */}
-        <div className="bg-white border border-gray-200 rounded-lg flex-1 flex flex-col overflow-hidden">
-          <Tabs defaultValue="adxl-z" value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
-            <div className="border-b border-gray-200 px-4 py-2 flex items-center gap-2">
-              <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
-                <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temp</TabsTrigger>
-                <TabsTrigger value="stroke" className="text-xs px-3 py-1.5">LVDT</TabsTrigger>
-                <TabsTrigger value="adxl-z" className="text-xs px-3 py-1.5">ADXL Z</TabsTrigger>
-              </TabsList>
-              <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-                {viewMode === 'date' ? '10s average' : '1 sample/sec'}
-              </span>
+        {/* Charts Section - LVDT and ADXL Side by Side */}
+        {isChartFullscreen ? (
+          // Fullscreen mode - show single chart
+          <div className="fixed inset-0 z-40 bg-white flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold">Sensor Data - Fullscreen</h2>
+              <button
+                onClick={() => setIsChartFullscreen(false)}
+                className="text-gray-500 hover:text-gray-900 text-2xl"
+              >
+                ✕
+              </button>
             </div>
-
-            <TabsContent value="temperature" className="p-4 flex flex-col flex-1 overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-                <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
-                  {activeTab === 'temperature' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="temperature_c"
-                      title="Temperature"
-                      yAxisLabel="Temperature (°C)"
-                      color="#ea580c"
-                      unit="°C"
-                      timeRange={effectiveMinutes}
-                      basicLineplot={true}
-                      scaleFromZero={true}
-                      referenceLines={[
-                        { y: 35, color: "#ef4444", label: "Critical (35°C)" },
-                        { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
-                      ]}
-                    />
-                  )}
-                </ChartErrorBoundary>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="stroke" className="p-4 flex flex-col flex-1 overflow-hidden">
-              <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden p-4">
+              <div className="w-full h-full">
                 <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
-                  {activeTab === 'stroke' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey="stroke_mm"
-                      title="LVDT Displacement"
-                      yAxisLabel="Stroke (mm)"
-                      color="#7c3aed"
-                      unit="mm"
-                      timeRange={effectiveMinutes}
-                      basicLineplot={true}
-                      scaleFromZero={true}
-                      referenceLines={[
-                        { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                        { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
-                      ]}
-                    />
-                  )}
+                  <PlotlyTimeSeriesChart
+                    data={sensorData}
+                    isLoading={loading}
+                    dataKey="stroke_mm"
+                    title="LVDT Displacement"
+                    yAxisLabel="Stroke (mm)"
+                    color="#7c3aed"
+                    unit="mm"
+                    timeRange={effectiveMinutes}
+                    basicLineplot={true}
+                    scaleFromZero={true}
+                    referenceLines={[
+                      { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                      { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                    ]}
+                  />
                 </ChartErrorBoundary>
               </div>
-            </TabsContent>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-2 h-full gap-3 p-3">
+                {/* LVDT Chart */}
+                <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden">
+                  <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                    LVDT Displacement
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                      <PlotlyTimeSeriesChart
+                        data={sensorData}
+                        isLoading={loading}
+                        dataKey="stroke_mm"
+                        title="LVDT Displacement"
+                        yAxisLabel="Stroke (mm)"
+                        color="#7c3aed"
+                        unit="mm"
+                        timeRange={effectiveMinutes}
+                        basicLineplot={true}
+                        scaleFromZero={true}
+                        referenceLines={[
+                          { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                          { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                        ]}
+                      />
+                    </ChartErrorBoundary>
+                  </div>
+                </div>
 
-            <TabsContent value="adxl-z" className="p-4 flex flex-col flex-1 overflow-hidden">
-              <div className="flex-1 overflow-hidden">
-                <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
-                  {activeTab === 'adxl-z' && (
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                      title={viewMode === 'date' ? "ADXL Z Acceleration (Pre-computed RMS)" : "ADXL RMS Vibration vs Time (1 Second RMS)"}
-                      yAxisLabel="RMS Acceleration (g)"
-                      color="#10b981"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
-                      timeRange={effectiveMinutes}
-                      basicLineplot={true}
-                      referenceLines={[
-                        { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                        { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
-                      ]}
-                    />
-                  )}
-                </ChartErrorBoundary>
+                {/* ADXL Chart */}
+                <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
+                  <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                    ADXL RMS Vibration
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
+                      <PlotlyTimeSeriesChart
+                        data={sensorData}
+                        isLoading={loading}
+                        dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
+                        title="ADXL RMS Vibration vs Time"
+                        yAxisLabel="RMS Acceleration (g)"
+                        color="#10b981"
+                        unit="g"
+                        rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                        timeRange={effectiveMinutes}
+                        basicLineplot={true}
+                        referenceLines={[
+                          { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                          { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
+                        ]}
+                      />
+                    </ChartErrorBoundary>
+                  </div>
+
+                  {/* Fullscreen Button */}
+                  <button
+                    onClick={() => setIsChartFullscreen(true)}
+                    className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded transition-colors flex items-center gap-1"
+                  >
+                    <span>⛶</span>
+                    <span>Fullscreen</span>
+                  </button>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Footer Info */}
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-2 text-xs">
