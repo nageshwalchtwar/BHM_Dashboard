@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, Settings, Server } from 'lucide-react'
+import { RefreshCw, Server } from 'lucide-react'
 
 interface Device {
   id: string
@@ -27,14 +27,12 @@ interface DeviceStats {
 interface DeviceSelectorProps {
   selectedDevice?: string
   onDeviceChange: (deviceId: string | undefined) => void
-  onAdminClick?: () => void
   className?: string
 }
 
 export function DeviceSelector({ 
   selectedDevice, 
   onDeviceChange, 
-  onAdminClick,
   className 
 }: DeviceSelectorProps) {
   const [devices, setDevices] = useState<Device[]>([])
@@ -101,66 +99,38 @@ export function DeviceSelector({
     )
   }
 
-  const currentDevice = selectedDevice 
-    ? devices.find(d => d.id === selectedDevice) || null
-    : defaultDevice
-
   return (
-    <div className="flex items-center justify-between space-x-4">
-      <div className="flex items-center space-x-3 flex-1">
-        <div className="flex items-center space-x-2">
-          <Server className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium text-gray-900">Device:</span>
-          {stats && (
-            <Badge variant="secondary" className="text-xs">
-              {stats.totalDevices}
-            </Badge>
-          )}
-        </div>
-        
-        <Select
-          value={selectedDevice || defaultDevice?.id || ''}
-          onValueChange={handleDeviceSelect}
-        >
-          <SelectTrigger className="w-48 h-8">
-            <SelectValue placeholder="Select device..." />
-          </SelectTrigger>
-          <SelectContent>
-            {devices.map((device) => (
-              <SelectItem key={device.id} value={device.id}>
-                <div className="flex items-center space-x-2">
-                  <span>{device.name}</span>
-                  {device.id === defaultDevice?.id && (
-                    <Badge variant="outline" className="text-xs">Default</Badge>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="flex items-center justify-start space-x-3">
+      <div className="flex items-center space-x-2">
+        <Server className="h-4 w-4 text-blue-600" />
+        <span className="text-sm font-medium text-gray-900">Device:</span>
+        {stats && (
+          <Badge variant="secondary" className="text-xs">
+            {stats.totalDevices}
+          </Badge>
+        )}
       </div>
-
-      {onAdminClick && (
-        <div className="flex space-x-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAdminClick}
-            className="h-8 px-3"
-          >
-            <Settings className="h-3 w-3 mr-1" />
-            Admin
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchDevices}
-            className="h-8 px-2"
-          >
-            <RefreshCw className="h-3 w-3" />
-          </Button>
-        </div>
-      )}
+      
+      <Select
+        value={selectedDevice || defaultDevice?.id || ''}
+        onValueChange={handleDeviceSelect}
+      >
+        <SelectTrigger className="w-48 h-9 text-sm">
+          <SelectValue placeholder="Select device..." />
+        </SelectTrigger>
+        <SelectContent>
+          {devices.map((device) => (
+            <SelectItem key={device.id} value={device.id}>
+              <div className="flex items-center space-x-2">
+                <span>{device.name}</span>
+                {device.id === defaultDevice?.id && (
+                  <Badge variant="outline" className="text-xs">Default</Badge>
+                )}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

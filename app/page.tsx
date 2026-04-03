@@ -96,6 +96,8 @@ export default function BHMDashboard() {
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-z')
   const [isChartFullscreen, setIsChartFullscreen] = useState(false)
+  const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'adxl'>('lvdt')
+  const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
 
   // Effective minutes for chart tick formatting
   const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
@@ -404,7 +406,7 @@ export default function BHMDashboard() {
         <div className="flex items-center justify-between py-2 border-b border-gray-200">
           <div className="flex items-center space-x-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900">
                 Bridge Health Monitor
               </h1>
               <p className="text-sm text-gray-600">
@@ -414,7 +416,19 @@ export default function BHMDashboard() {
           </div>
 
           {/* User Info and Controls */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
+            {/* Node Status Indicator */}
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-sm font-medium text-gray-900">Node: Connected</span>
+            </div>
+
+            {/* Bridge Health Alert */}
+            <div className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+              <span className="text-sm font-medium text-gray-900">Bridge: Alert</span>
+            </div>
+
             <div className="flex items-center space-x-3 text-sm">
               {/* Connection Status */}
               <div className="flex items-center space-x-1">
@@ -425,14 +439,14 @@ export default function BHMDashboard() {
                 ) : (
                   <WifiOff className="h-4 w-4 text-red-500" />
                 )}
-                <span className="text-xs text-gray-600">
+                <span className="text-sm font-medium text-gray-600">
                   {connectionStatus === 'connected' ? 'Live' :
                     connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
                 </span>
               </div>
 
               {/* View Mode Buttons */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5 ml-2">
                 {[
                   { value: '1min', label: '1 Min' },
                   { value: '5min', label: '5 Min' },
@@ -441,7 +455,7 @@ export default function BHMDashboard() {
                   <button
                     key={value}
                     onClick={() => handleViewModeChange(value)}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                       viewMode === value
                         ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -452,10 +466,27 @@ export default function BHMDashboard() {
                 ))}
               </div>
 
+              {/* Chart View Toggle Buttons */}
+              {chartView === 'default' ? (
+                <Button
+                  onClick={() => setChartView('temperature')}
+                  className="text-sm px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors"
+                >
+                  Temperature
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setChartView('default')}
+                  className="text-sm px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors"
+                >
+                  Back to LVDT/ADXL
+                </Button>
+              )}
+
               {/* Date picker for 1 Day mode */}
               {viewMode === 'date' && (
                 <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-40 h-8">
+                  <SelectTrigger className="w-40 h-9 text-sm">
                     <SelectValue placeholder={datesLoading ? 'Loading dates...' : 'Select date'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -475,10 +506,10 @@ export default function BHMDashboard() {
               )}
 
               {/* Auto Refresh */}
-              <div className="flex items-center space-x-1">
-                <span className="text-xs text-gray-500">Auto:</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-600">Auto:</span>
                 <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
-                  <SelectTrigger className="w-20 h-8">
+                  <SelectTrigger className="w-24 h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -498,9 +529,9 @@ export default function BHMDashboard() {
                 disabled={loading}
                 size="sm"
                 variant="outline"
-                className="h-8"
+                className="h-9 px-3 text-sm"
               >
-                <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
 
               <Button
@@ -542,7 +573,6 @@ export default function BHMDashboard() {
           <DeviceSelector
             selectedDevice={selectedDevice}
             onDeviceChange={handleDeviceChange}
-            onAdminClick={handleAdminClick}
             className=""
           />
         </div>
@@ -611,7 +641,9 @@ export default function BHMDashboard() {
           // Fullscreen mode - show single chart
           <div className="fixed inset-0 z-40 bg-white flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Sensor Data - Fullscreen</h2>
+              <h2 className="text-lg font-semibold">
+                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 'ADXL RMS Vibration'} - Fullscreen
+              </h2>
               <button
                 onClick={() => setIsChartFullscreen(false)}
                 className="text-gray-500 hover:text-gray-900 text-2xl"
@@ -621,94 +653,151 @@ export default function BHMDashboard() {
             </div>
             <div className="flex-1 overflow-hidden p-4">
               <div className="w-full h-full">
-                <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
-                  <PlotlyTimeSeriesChart
-                    data={sensorData}
-                    isLoading={loading}
-                    dataKey="stroke_mm"
-                    title="LVDT Displacement"
-                    yAxisLabel="Stroke (mm)"
-                    color="#7c3aed"
-                    unit="mm"
-                    timeRange={effectiveMinutes}
-                    basicLineplot={true}
-                    scaleFromZero={true}
-                    referenceLines={[
-                      { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                      { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
-                    ]}
-                  />
-                </ChartErrorBoundary>
+                {fullscreenChart === 'lvdt' ? (
+                  <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="stroke_mm"
+                      title="LVDT Displacement"
+                      yAxisLabel="Stroke (mm)"
+                      color="#7c3aed"
+                      unit="mm"
+                      timeRange={effectiveMinutes}
+                      basicLineplot={true}
+                      scaleFromZero={true}
+                      referenceLines={[
+                        { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                        { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                      ]}
+                    />
+                  </ChartErrorBoundary>
+                ) : (
+                  <ChartErrorBoundary fallbackMessage="ADXL chart failed to render">
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
+                      title="ADXL RMS Vibration vs Time"
+                      yAxisLabel="RMS Acceleration (g)"
+                      color="#10b981"
+                      unit="g"
+                      rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                      timeRange={effectiveMinutes}
+                      basicLineplot={true}
+                      referenceLines={[
+                        { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                        { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
+                      ]}
+                    />
+                  </ChartErrorBoundary>
+                )}
               </div>
             </div>
           </div>
         ) : (
           <>
             <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="grid grid-cols-2 h-full gap-3 p-3">
-                {/* LVDT Chart */}
-                <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden">
+              {chartView === 'temperature' ? (
+                // Temperature Chart View
+                <div className="w-full h-full flex flex-col">
                   <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
-                    LVDT Displacement
+                    Temperature
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                    <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
                       <PlotlyTimeSeriesChart
                         data={sensorData}
                         isLoading={loading}
-                        dataKey="stroke_mm"
-                        title="LVDT Displacement"
-                        yAxisLabel="Stroke (mm)"
-                        color="#7c3aed"
-                        unit="mm"
+                        dataKey="temperature_c"
+                        title="Temperature vs Time"
+                        yAxisLabel="Temperature (°C)"
+                        color="#f59e0b"
+                        unit="°C"
                         timeRange={effectiveMinutes}
                         basicLineplot={true}
-                        scaleFromZero={true}
                         referenceLines={[
-                          { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                          { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                          { y: 35, color: "#ef4444", label: "Critical (35°C)" },
+                          { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
                         ]}
                       />
                     </ChartErrorBoundary>
                   </div>
                 </div>
-
-                {/* ADXL Chart */}
-                <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
-                  <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
-                    ADXL RMS Vibration
+              ) : (
+                // Default Side-by-Side LVDT and ADXL View
+                <div className="grid grid-cols-2 h-full gap-3 p-3">
+                  {/* LVDT Chart */}
+                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
+                    <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                      LVDT Displacement
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                        <PlotlyTimeSeriesChart
+                          data={sensorData}
+                          isLoading={loading}
+                          dataKey="stroke_mm"
+                          title="LVDT Displacement"
+                          yAxisLabel="Stroke (mm)"
+                          color="#7c3aed"
+                          unit="mm"
+                          timeRange={effectiveMinutes}
+                          basicLineplot={true}
+                          scaleFromZero={true}
+                          referenceLines={[
+                            { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                            { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                          ]}
+                        />
+                      </ChartErrorBoundary>
+                    </div>
+                    
+                    {/* Fullscreen Button - LVDT */}
+                    <button
+                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('lvdt')}}
+                      className="absolute top-10 right-2 bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded transition-colors"
+                    >
+                      ⛶
+                    </button>
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
-                      <PlotlyTimeSeriesChart
-                        data={sensorData}
-                        isLoading={loading}
-                        dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                        title="ADXL RMS Vibration vs Time"
-                        yAxisLabel="RMS Acceleration (g)"
-                        color="#10b981"
-                        unit="g"
-                        rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
-                        timeRange={effectiveMinutes}
-                        basicLineplot={true}
-                        referenceLines={[
-                          { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                          { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
-                        ]}
-                      />
-                    </ChartErrorBoundary>
-                  </div>
 
-                  {/* Fullscreen Button */}
-                  <button
-                    onClick={() => setIsChartFullscreen(true)}
-                    className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded transition-colors flex items-center gap-1"
-                  >
-                    <span>⛶</span>
-                    <span>Fullscreen</span>
-                  </button>
+                  {/* ADXL Chart */}
+                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
+                    <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                      ADXL RMS Vibration
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
+                        <PlotlyTimeSeriesChart
+                          data={sensorData}
+                          isLoading={loading}
+                          dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
+                          title="ADXL RMS Vibration vs Time"
+                          yAxisLabel="RMS Acceleration (g)"
+                          color="#10b981"
+                          unit="g"
+                          rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                          timeRange={effectiveMinutes}
+                          basicLineplot={true}
+                          referenceLines={[
+                            { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                            { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
+                          ]}
+                        />
+                      </ChartErrorBoundary>
+                    </div>
+
+                    {/* Fullscreen Button - ADXL */}
+                    <button
+                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('adxl')}}
+                      className="absolute top-10 right-2 bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded transition-colors"
+                    >
+                      ⛶
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </>
         )}
