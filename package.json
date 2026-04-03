@@ -6,7 +6,7 @@
     "build": "node node_modules/next/dist/bin/next build",
     "dev": "node node_modules/next/dist/bin/next dev",
     "lint": "node node_modules/next/dist/bin/next lint",
-    "start": "node node_modules/next/dist/bin/next start"
+    "start": "node node_modules/next/dist/bin/next start -H 0.0.0.0"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "1.1.4",
