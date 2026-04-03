@@ -12,7 +12,10 @@ export interface MergedDayData {
 
 export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
   const lines = csvContent.split('\n').filter((line) => line.trim())
-  if (lines.length === 0) return []
+  if (lines.length === 0) {
+    console.error('❌ CSV is empty')
+    return []
+  }
 
   // Parse header - detect delimiter (tab or comma)
   const headerLine = lines[0]
@@ -21,43 +24,30 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
 
   console.log('📋 Merged CSV Headers:', headers)
   console.log(`📝 Using delimiter: '${delimiter === '\t' ? 'TAB' : 'COMMA'}'`)
+  console.log(`📊 Total lines in CSV: ${lines.length}`)
 
-  // Flexible column detection - try multiple patterns
-  let azIndex = headers.findIndex((h) => 
-    (h.includes('az') && (h.includes('adxl') || h.includes('rms'))) ||
-    h === 'az_adxl_rms'
-  )
-  let tempIndex = headers.findIndex((h) => 
-    h.includes('temp') || 
-    h.includes('temperature') ||
-    h === 'temp_avg_10s'
-  )
-  let lvdtIndex = headers.findIndex((h) => 
-    h.includes('lvdt') || 
-    h.includes('stroke') || 
-    h.includes('displacement') ||
-    h === 'lvdt_avg_10s'
-  )
-  let tsIndex = headers.findIndex((h) => 
-    h.includes('timestamp') || h.includes('time') || h.includes('date')
-  )
+  // Exact column matching for the merged CSV format
+  const tsIndex = headers.indexOf('timestamp')
+  const azIndex = headers.indexOf('az_adxl_rms')
+  const tempIndex = headers.indexOf('temp_avg_10s')
+  const lvdtIndex = headers.indexOf('lvdt_avg_10s')
 
-  console.log(`🔍 Column indices - timestamp:${tsIndex}, az:${azIndex}, temp:${tempIndex}, lvdt:${lvdtIndex}`)
+  console.log(`🔍 Column indices - timestamp:${tsIndex}, az_adxl_rms:${azIndex}, temp_avg_10s:${tempIndex}, lvdt_avg_10s:${lvdtIndex}`)
 
   if (azIndex === -1 || tempIndex === -1 || lvdtIndex === -1 || tsIndex === -1) {
     console.error('❌ Missing required columns in merged CSV', {
-      hasAz: azIndex !== -1,
-      hasTemp: tempIndex !== -1,
-      hasLvdt: lvdtIndex !== -1,
       hasTimestamp: tsIndex !== -1,
-      headers,
+      hasAzAdxlRms: azIndex !== -1,
+      hasTempAvg10s: tempIndex !== -1,
+      hasLvdtAvg10s: lvdtIndex !== -1,
+      providedHeaders: headers,
     })
-    console.error('📋 Full headers:', headers)
-    console.error('💾 CSV Preview:', csvContent.slice(0, 500))
+    console.error('💾 CSV Preview (first 800 chars):', csvContent.slice(0, 800))
     return []
   }
 
   const result: MergedDayData[] = []
+  let parseErrors = 0
 
   // Parse data rows (skip header)
   for (let i = 1; i < lines.length; i++) {
@@ -66,16 +56,18 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
 
     const cols = line.split(delimiter)
     if (cols.length <= Math.max(azIndex, tempIndex, lvdtIndex, tsIndex)) {
-      console.warn(`⚠️ Row ${i} has insufficient columns: ${cols.length}`)
+      console.warn(`⚠️ Row ${i} has insufficient columns: ${cols.length} (expected at least ${Math.max(azIndex, tempIndex, lvdtIndex, tsIndex) + 1})`)
+      parseErrors++
       continue
     }
 
     try {
       const tsStr = cols[tsIndex].trim()
-      // Parse ISO datetime: "2026-02-27 16:19:40"
+      // Parse datetime: "2026-02-12 0:00:00" or "2026-02-12 00:00:00"
       const ts = new Date(tsStr).getTime()
       if (isNaN(ts)) {
         console.warn(`⚠️ Invalid timestamp at row ${i}: "${tsStr}"`)
+        parseErrors++
         continue
       }
 
@@ -91,14 +83,21 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
           stroke_mm: lvdt,
         })
       } else {
-        console.warn(`⚠️ Row ${i} has NaN values:`, { az, temp, lvdt })
+        console.warn(`⚠️ Row ${i} has NaN values:`, { 
+          raw: [cols[azIndex], cols[tempIndex], cols[lvdtIndex]],
+          parsed: { az, temp, lvdt } 
+        })
+        parseErrors++
       }
     } catch (e) {
-      // Skip malformed rows
       console.warn(`⚠️ Failed to parse row ${i}:`, e)
+      parseErrors++
     }
   }
 
-  console.log(`✅ Parsed ${result.length} valid rows from merged CSV`)
+  console.log(`✅ Parsed ${result.length} valid rows from merged CSV (${parseErrors} errors)`)
+  if (result.length === 0 && parseErrors > 0) {
+    console.error('💥 All rows failed to parse! Check data format.')
+  }
   return result
 }

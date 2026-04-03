@@ -60,11 +60,19 @@ export async function GET(request: NextRequest) {
     // Parse merged CSV with pre-computed RMS and averages
     const mergedData = parseMergedDayCSV(csvContent)
     if (mergedData.length === 0) {
-      // Log first 500 characters of CSV for debugging
-      console.log('📄 CSV Preview (first 500 chars):', csvContent.slice(0, 500))
+      // More detailed error logging
+      console.error('❌ Failed to parse CSV for date:', date)
+      console.log('📄 CSV Preview (first 1000 chars):', csvContent.slice(0, 1000))
+      console.log('📊 CSV line count:', csvContent.split('\n').length)
+      console.log('📋 CSV header:', csvContent.split('\n')[0])
       return NextResponse.json({
         success: false,
-        error: `Failed to parse merged CSV for date: ${date}. Check server logs for details.`,
+        error: `Failed to parse merged CSV for date: ${date}. CSV may have unexpected format. Check server logs for details.`,
+        debug: {
+          hasContent: csvContent.length > 0,
+          lineCount: csvContent.split('\n').length,
+          header: csvContent.split('\n')[0],
+        }
       }, { status: 422 })
     }
 
