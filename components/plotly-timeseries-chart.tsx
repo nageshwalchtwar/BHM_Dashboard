@@ -158,7 +158,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hovertemplate:
           `<b>${title}</b><br>` +
           `Time: %{x|${hoverFmt}}<br>` +
-          `Value: %{y:.4f} ${unit}<br>` +
+          `Value: %{y:.2f} ${unit}<br>` +
           "<extra></extra>",
         showlegend: true,
       }
@@ -194,7 +194,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hovertemplate:
           `<b>${title}</b><br>` +
           `Time: %{x|${hoverFmt}}<br>` +
-          `Value: %{y:.4f} ${unit}<br>` +
+          `Value: %{y:.2f} ${unit}<br>` +
           "<extra></extra>",
         showlegend: true,
       }
@@ -219,7 +219,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hovertemplate:
           `<b>${title}</b><br>` +
           `Time: %{x|${hoverFmt}}<br>` +
-          `Value: %{y:.4f} ${unit}<br>` +
+          `Value: %{y:.2f} ${unit}<br>` +
           "<extra></extra>",
         showlegend: false,
       }
@@ -237,9 +237,9 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         y: [rms, rms],
         type: "scatter",
         mode: "lines",
-        name: `RMS: ${rms.toFixed(4)} ${unit}`,
+        name: `RMS: ${rms.toFixed(2)} ${unit}`,
         line: { color: "#6366f1", width: 1.5, dash: "dash" },
-        hovertemplate: `RMS: ${rms.toFixed(4)} ${unit}<extra></extra>`,
+        hovertemplate: `RMS: ${rms.toFixed(2)} ${unit}<extra></extra>`,
       })
     }
 
@@ -284,8 +284,8 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         title: { text: yAxisLabel, font: { size: 13 } },
         showgrid: true,
         gridcolor: "#f1f5f9",
-        tickformat: ".4f",
-        hoverformat: ".6f",
+        tickformat: ".2f",
+        hoverformat: ".2f",
         automargin: true,
         fixedrange: false,
         rangemode: scaleFromZero ? "tozero" : "normal",
@@ -372,7 +372,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
                 title: { text: yAxisLabel, font: { size: 11 } },
                 showgrid: true,
                 gridcolor: "#f1f5f9",
-                tickformat: ".4f",
+                tickformat: ".2f",
                 automargin: true,
                 rangemode: "tozero",
               },

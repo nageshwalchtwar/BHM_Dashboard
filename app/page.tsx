@@ -99,6 +99,28 @@ export default function BHMDashboard() {
   const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
 
+  // Calculate bridge health status dynamically based on actual data
+  const bridgeHealthStatus = (() => {
+    if (!sensorData || sensorData.length === 0) return 'healthy'
+    
+    const latestData = sensorData[sensorData.length - 1]
+    const temp = latestData.temperature_c || 0
+    const deflection = latestData.stroke_mm || 0
+    const vibration = rms?.accel_z_rms || 0
+    
+    // Critical thresholds
+    if (temp > 35 || deflection > 100 || vibration > 0.1) {
+      return 'critical'
+    }
+    
+    // Warning thresholds
+    if (temp > 30 || deflection > 75 || vibration > 0.05) {
+      return 'warning'
+    }
+    
+    return 'healthy'
+  })()
+
   // Effective minutes for chart tick formatting
   const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
   const isLiveMode = viewMode === '1min' || viewMode === '5min'
@@ -434,11 +456,21 @@ export default function BHMDashboard() {
                 <span className="text-sm font-medium text-gray-900">Node: Connected</span>
               </div>
 
-              {/* Bridge Health Alert */}
-              <div className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
-                <span className="text-sm font-medium text-gray-900">Bridge: Alert</span>
+            {/* Bridge Health Alert */}
+            {bridgeHealthStatus !== 'healthy' && (
+              <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border ${
+                bridgeHealthStatus === 'critical' 
+                  ? 'bg-red-50 border-red-200' 
+                  : 'bg-yellow-50 border-yellow-200'
+              }`}>
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  bridgeHealthStatus === 'critical' ? 'bg-red-500' : 'bg-yellow-500'
+                }`}></div>
+                <span className="text-sm font-medium text-gray-900">
+                  Bridge: {bridgeHealthStatus === 'critical' ? 'Critical' : 'Alert'}
+                </span>
               </div>
+            )}
 
               {/* Connection Status */}
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
