@@ -39,6 +39,10 @@ interface PlotlyTimeSeriesChartProps {
    * Defaults to false (stem plot for acceleration data).
    */
   basicLineplot?: boolean
+  /**
+   * When true, forces y-axis to start from zero. Defaults to false (normal auto-scaling).
+   */
+  scaleFromZero?: boolean
 }
 
 export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
@@ -55,6 +59,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
   filled = true,
   fillColor,
   basicLineplot = false,
+  scaleFromZero = false,
 }: PlotlyTimeSeriesChartProps) {
   const [isClient, setIsClient] = useState(false)
 
@@ -278,9 +283,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hoverformat: ".6f",
         automargin: true,
         fixedrange: false,
-        // For RMS/acceleration data (stem plot), auto-scale naturally.
-        // For temperature/LVDT (line plot), start from zero for context.
-        rangemode: basicLineplot ? "tozero" : "normal",
+        rangemode: scaleFromZero ? "tozero" : "normal",
       },
       margin: { t: 40, r: 20, b: 30, l: 60 },
       hovermode: "x unified",
@@ -304,7 +307,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
 
     return { plotData: traces, plotLayout: layout }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange, filled, fillColor, basicLineplot])
+  }, [data, dataKey, title, yAxisLabel, color, unit, rms, referenceLines, timeRange, filled, fillColor, basicLineplot, scaleFromZero])
 
   const config = useMemo(
     () => ({

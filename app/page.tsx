@@ -737,6 +737,7 @@ export default function BHMDashboard() {
                       unit="°C"
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
+                      scaleFromZero={true}
                       referenceLines={[
                         { y: 35, color: "#ef4444", label: "Critical (35°C)" },
                         { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
@@ -761,6 +762,7 @@ export default function BHMDashboard() {
                       unit="mm"
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
+                      scaleFromZero={true}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -781,6 +783,7 @@ export default function BHMDashboard() {
                       unit="g"
                       rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                       timeRange={effectiveMinutes}
+                      basicLineplot={true}
                     />
                   )}
                 </ChartErrorBoundary>
