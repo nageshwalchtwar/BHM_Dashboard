@@ -404,14 +404,23 @@ export default function BHMDashboard() {
       <div className="w-full h-screen p-3 space-y-3 overflow-auto flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between py-2 border-b border-gray-200">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-4xl font-bold text-gray-900">
                 Bridge Health Monitor
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-base text-gray-600">
                 Real-time structural monitoring system
               </p>
+            </div>
+            
+            {/* Device Selector - Top Integrated */}
+            <div className="border-l border-gray-300 pl-6">
+              <DeviceSelector
+                selectedDevice={selectedDevice}
+                onDeviceChange={handleDeviceChange}
+                className=""
+              />
             </div>
           </div>
 
@@ -566,15 +575,6 @@ export default function BHMDashboard() {
               </Button>
             </div>
           </div>
-        </div>
-
-        {/* Device Selector - Compact */}
-        <div className="bg-white border border-gray-200 rounded-lg p-3">
-          <DeviceSelector
-            selectedDevice={selectedDevice}
-            onDeviceChange={handleDeviceChange}
-            className=""
-          />
         </div>
 
         {/* Connection Error Alert - Compact */}
