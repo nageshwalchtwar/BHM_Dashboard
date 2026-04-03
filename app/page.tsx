@@ -84,7 +84,7 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [viewMode, setViewMode] = useState<string>('date') // 'date' | 'week'
+  const [viewMode, setViewMode] = useState<string>('5min') // Default to 5 minutes
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const d = new Date(); return d.toISOString().split('T')[0]
   })
@@ -365,7 +365,7 @@ export default function BHMDashboard() {
   const latestValues = getLatestValues()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* BHM Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900/95 via-blue-950/95 to-slate-900/95 backdrop-blur-sm flex items-center justify-center transition-opacity">
@@ -398,7 +398,7 @@ export default function BHMDashboard() {
           </div>
         </div>
       )}
-      <div className="container mx-auto p-4 space-y-4">
+      <div className="w-full h-screen p-3 space-y-3 overflow-auto flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between py-2 border-b border-gray-200">
           <div className="flex items-center space-x-4">
@@ -606,8 +606,8 @@ export default function BHMDashboard() {
         )}
 
         {/* Charts Section - Interactive Plotly */}
-        <div className="bg-white border border-gray-200 rounded-lg">
-          <Tabs defaultValue="adxl-z" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="bg-white border border-gray-200 rounded-lg flex-1 flex flex-col overflow-hidden">
+          <Tabs defaultValue="adxl-z" value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
             <div className="border-b border-gray-200 px-4 py-2 flex items-center gap-2">
               <TabsList className="flex flex-wrap gap-1 bg-gray-50 p-1">
                 <TabsTrigger value="temperature" className="text-xs px-3 py-1.5">Temp</TabsTrigger>
@@ -619,8 +619,8 @@ export default function BHMDashboard() {
               </span>
             </div>
 
-            <TabsContent value="temperature" className="p-4">
-              <div className="h-[500px]">
+            <TabsContent value="temperature" className="p-4 flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
                   {activeTab === 'temperature' && (
                     <PlotlyTimeSeriesChart
@@ -644,8 +644,8 @@ export default function BHMDashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="stroke" className="p-4">
-              <div className="h-[500px]">
+            <TabsContent value="stroke" className="p-4 flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
                   {activeTab === 'stroke' && (
                     <PlotlyTimeSeriesChart
@@ -659,14 +659,18 @@ export default function BHMDashboard() {
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
                       scaleFromZero={true}
+                      referenceLines={[
+                        { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                        { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
+                      ]}
                     />
                   )}
                 </ChartErrorBoundary>
               </div>
             </TabsContent>
 
-            <TabsContent value="adxl-z" className="p-4">
-              <div className="h-[500px]">
+            <TabsContent value="adxl-z" className="p-4 flex flex-col flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden">
                 <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
                   {activeTab === 'adxl-z' && (
                     <PlotlyTimeSeriesChart
@@ -680,6 +684,10 @@ export default function BHMDashboard() {
                       rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
+                      referenceLines={[
+                        { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                        { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
+                      ]}
                     />
                   )}
                 </ChartErrorBoundary>
@@ -689,16 +697,13 @@ export default function BHMDashboard() {
         </div>
 
         {/* Footer Info */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-2 text-xs">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-blue-800">Bridge Health Monitoring System</h3>
-              <p className="text-sm text-blue-600">
-                Real-time monitoring with automatic data synchronization from Google Drive
+              <p className="text-xs text-blue-600">
+                Real-time monitoring with automatic data synchronization
               </p>
-            </div>
-            <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
-              Live Data
             </div>
           </div>
         </div>

@@ -262,12 +262,12 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const layout: any = {
       title: {
         text: title,
-        font: { size: 14, family: "Inter, sans-serif" },
+        font: { size: 16, family: "Inter, sans-serif" },
         x: 0.02,
         xanchor: "left",
       },
       xaxis: {
-        title: { text: "Time", font: { size: 11 } },
+        title: { text: "Time", font: { size: 13 } },
         type: "date",
         tickformat: tickFmt,
         showgrid: true,
@@ -281,7 +281,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         automargin: true,
       },
       yaxis: {
-        title: { text: yAxisLabel, font: { size: 11 } },
+        title: { text: yAxisLabel, font: { size: 13 } },
         showgrid: true,
         gridcolor: "#f1f5f9",
         tickformat: ".4f",
@@ -290,11 +290,11 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         fixedrange: false,
         rangemode: scaleFromZero ? "tozero" : "normal",
       },
-      margin: { t: 40, r: 20, b: 30, l: 60 },
+      margin: { t: 50, r: 20, b: 40, l: 70 },
       hovermode: "x unified",
       plot_bgcolor: "white",
       paper_bgcolor: "white",
-      font: { family: "Inter, sans-serif", size: 11 },
+      font: { family: "Inter, sans-serif", size: 12 },
       showlegend: traces.length > 1,
       legend: {
         x: 1,
@@ -304,7 +304,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         bgcolor: "rgba(255,255,255,0.85)",
         bordercolor: "#e2e8f0",
         borderwidth: 1,
-        font: { size: 10 },
+        font: { size: 11 },
       },
       dragmode: "zoom",
       selectdirection: "h",
