@@ -96,7 +96,7 @@ export default function BHMDashboard() {
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-z')
   const [isChartFullscreen, setIsChartFullscreen] = useState(false)
-  const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'adxl'>('lvdt')
+  const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
 
   // Effective minutes for chart tick formatting
@@ -438,17 +438,17 @@ export default function BHMDashboard() {
               <span className="text-sm font-medium text-gray-900">Bridge: Alert</span>
             </div>
 
-            <div className="flex items-center space-x-3 text-sm">
+            <div className="flex items-center space-x-4">
               {/* Connection Status */}
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-2">
                 {connectionStatus === 'connected' ? (
-                  <Wifi className="h-4 w-4 text-green-500" />
+                  <Wifi className="h-5 w-5 text-green-500" />
                 ) : connectionStatus === 'connecting' ? (
-                  <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />
+                  <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
                 ) : (
-                  <WifiOff className="h-4 w-4 text-red-500" />
+                  <WifiOff className="h-5 w-5 text-red-500" />
                 )}
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-base font-semibold text-gray-700">
                   {connectionStatus === 'connected' ? 'Live' :
                     connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
                 </span>
@@ -464,7 +464,7 @@ export default function BHMDashboard() {
                   <button
                     key={value}
                     onClick={() => handleViewModeChange(value)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-4 py-2 text-base font-semibold rounded-md transition-colors ${
                       viewMode === value
                         ? 'bg-white text-blue-700 shadow-sm'
                         : 'text-gray-600 hover:text-gray-900'
@@ -479,23 +479,23 @@ export default function BHMDashboard() {
               {chartView === 'default' ? (
                 <Button
                   onClick={() => setChartView('temperature')}
-                  className="text-sm px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors"
+                  className="text-base px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition-colors"
                 >
                   Temperature
                 </Button>
               ) : (
                 <Button
                   onClick={() => setChartView('default')}
-                  className="text-sm px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors"
+                  className="text-base px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
                 >
-                  Back to LVDT/ADXL
+                  Back to LVDT/Accelerometer
                 </Button>
               )}
 
               {/* Date picker for 1 Day mode */}
               {viewMode === 'date' && (
                 <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-40 h-9 text-sm">
+                  <SelectTrigger className="w-40 h-10 text-base">
                     <SelectValue placeholder={datesLoading ? 'Loading dates...' : 'Select date'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -516,9 +516,9 @@ export default function BHMDashboard() {
 
               {/* Auto Refresh */}
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-600">Auto:</span>
+                <span className="text-base font-semibold text-gray-700">Auto:</span>
                 <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
-                  <SelectTrigger className="w-24 h-9 text-sm">
+                  <SelectTrigger className="w-28 h-10 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -532,15 +532,15 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Button
                 onClick={fetchData}
                 disabled={loading}
                 size="sm"
                 variant="outline"
-                className="h-9 px-3 text-sm"
+                className="h-10 px-4 text-base font-semibold"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
               </Button>
 
               <Button
@@ -641,8 +641,8 @@ export default function BHMDashboard() {
           // Fullscreen mode - show single chart
           <div className="fixed inset-0 z-40 bg-white flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">
-                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 'ADXL RMS Vibration'} - Fullscreen
+              <h2 className="text-2xl font-bold">
+                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 'Accelerometer RMS Vibration'} - Fullscreen
               </h2>
               <button
                 onClick={() => setIsChartFullscreen(false)}
@@ -673,12 +673,12 @@ export default function BHMDashboard() {
                     />
                   </ChartErrorBoundary>
                 ) : (
-                  <ChartErrorBoundary fallbackMessage="ADXL chart failed to render">
+                  <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
                     <PlotlyTimeSeriesChart
                       data={sensorData}
                       isLoading={loading}
                       dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                      title="ADXL RMS Vibration vs Time"
+                      title="Accelerometer RMS Vibration vs Time"
                       yAxisLabel="RMS Acceleration (g)"
                       color="#10b981"
                       unit="g"
@@ -701,7 +701,7 @@ export default function BHMDashboard() {
               {chartView === 'temperature' ? (
                 // Temperature Chart View
                 <div className="w-full h-full flex flex-col">
-                  <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                  <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
                     Temperature
                   </div>
                   <div className="flex-1 overflow-hidden">
@@ -725,11 +725,11 @@ export default function BHMDashboard() {
                   </div>
                 </div>
               ) : (
-                // Default Side-by-Side LVDT and ADXL View
+                // Default Side-by-Side LVDT and Accelerometer View
                 <div className="grid grid-cols-2 h-full gap-3 p-3">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
-                    <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
+                    <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
                       LVDT Displacement
                     </div>
                     <div className="flex-1 overflow-hidden">
@@ -762,10 +762,10 @@ export default function BHMDashboard() {
                     </button>
                   </div>
 
-                  {/* ADXL Chart */}
+                  {/* Accelerometer Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
-                    <div className="text-sm font-semibold text-gray-900 px-3 py-2 border-b border-gray-200">
-                      ADXL RMS Vibration
+                    <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
+                      Accelerometer RMS Vibration
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
@@ -773,7 +773,7 @@ export default function BHMDashboard() {
                           data={sensorData}
                           isLoading={loading}
                           dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                          title="ADXL RMS Vibration vs Time"
+                          title="Accelerometer RMS Vibration vs Time"
                           yAxisLabel="RMS Acceleration (g)"
                           color="#10b981"
                           unit="g"
@@ -788,9 +788,9 @@ export default function BHMDashboard() {
                       </ChartErrorBoundary>
                     </div>
 
-                    {/* Fullscreen Button - ADXL */}
+                    {/* Fullscreen Button - Accelerometer */}
                     <button
-                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('adxl')}}
+                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('accelerometer')}}
                       className="absolute top-10 right-2 bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded transition-colors"
                     >
                       ⛶

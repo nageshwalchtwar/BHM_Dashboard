@@ -78,9 +78,9 @@ export function DeviceSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center space-x-2 py-2">
-        <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
-        <span className="text-sm text-gray-600">Loading devices...</span>
+      <div className="flex items-center space-x-3 py-2">
+        <RefreshCw className="h-5 w-5 animate-spin text-blue-500" />
+        <span className="text-base font-semibold text-gray-700">Loading devices...</span>
       </div>
     )
   }
@@ -89,10 +89,10 @@ export function DeviceSelector({
     return (
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center space-x-2 text-red-600">
-          <Server className="h-4 w-4" />
-          <span className="text-sm">Error loading devices</span>
+          <Server className="h-5 w-5" />
+          <span className="text-base font-semibold">Error loading devices</span>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchDevices} className="h-8">
+        <Button variant="outline" size="sm" onClick={fetchDevices} className="h-10 text-base">
           Retry
         </Button>
       </div>
@@ -102,10 +102,10 @@ export function DeviceSelector({
   return (
     <div className="flex items-center justify-start space-x-3">
       <div className="flex items-center space-x-2">
-        <Server className="h-4 w-4 text-blue-600" />
-        <span className="text-sm font-medium text-gray-900">Device:</span>
+        <Server className="h-5 w-5 text-blue-600" />
+        <span className="text-base font-semibold text-gray-900">Device:</span>
         {stats && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="secondary" className="text-sm font-semibold">
             {stats.totalDevices}
           </Badge>
         )}
@@ -115,7 +115,7 @@ export function DeviceSelector({
         value={selectedDevice || defaultDevice?.id || ''}
         onValueChange={handleDeviceSelect}
       >
-        <SelectTrigger className="w-48 h-9 text-sm">
+        <SelectTrigger className="w-56 h-10 text-base font-medium">
           <SelectValue placeholder="Select device..." />
         </SelectTrigger>
         <SelectContent>
