@@ -137,18 +137,25 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const traces: any[] = []
 
     if (basicLineplot) {
-      // ── Simple, smooth line plot for temperature and LVDT data ──────────────
+      // ── Simple line plot with filled area under the line ──────────────────
       const lineTrace: any = {
         x: timestamps,
         y: values,
         type: "scatter",
-        mode: "lines",
+        mode: "lines+markers",
         name: title,
         line: {
           color: color,
-          width: 2.5,
+          width: 2,
           shape: "linear",
         },
+        marker: {
+          size: 3,
+          color: color,
+          opacity: 0.6,
+        },
+        fill: "tozeroy",
+        fillcolor: resolveFillColor(color),
         connectgaps: false,
         hovertemplate:
           `<b>${title}</b><br>` +
