@@ -1518,12 +1518,26 @@ export async function getAvailableDates(
 
     if (!files || files.length === 0) return [];
 
-    return files.map(f => {
-      const nameMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/);
-      if (nameMatch) return nameMatch[1];
-      return f.modifiedTime.split('T')[0];
-    }).filter((d, i, arr) => arr.indexOf(d) === i); // unique dates
-  } catch {
+    const dates = files
+      .map(f => {
+        // First try to extract date from filename: MERGED_2026-02-12_S_10s_rms.csv
+        const nameMatch = f.name.match(/(\d{4}-\d{2}-\d{2})/);
+        if (nameMatch) {
+          console.log(`✅ Extracted date from filename ${f.name}: ${nameMatch[1]}`);
+          return nameMatch[1];
+        }
+        
+        // Fallback to modifiedTime if no date in filename
+        console.log(`⚠️ No date in filename ${f.name}, using modifiedTime: ${f.modifiedTime}`);
+        return f.modifiedTime.split('T')[0];
+      })
+      .filter((d, i, arr) => arr.indexOf(d) === i) // unique dates only
+      .sort((a, b) => b.localeCompare(a)); // newest first
+
+    console.log(`📅 Available dates: ${dates.join(', ')}`);
+    return dates;
+  } catch (error) {
+    console.error('❌ Error getting available dates:', error);
     return [];
   }
 }
