@@ -573,16 +573,6 @@ export default function BHMDashboard() {
             {/* Action Buttons */}
             <div className="flex items-center space-x-2">
               <Button
-                onClick={fetchData}
-                disabled={loading}
-                size="sm"
-                variant="outline"
-                className="h-10 px-4 text-base font-semibold"
-              >
-                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-
-              <Button
                 onClick={runDebugTest}
                 disabled={loading}
                 size="sm"
@@ -590,17 +580,6 @@ export default function BHMDashboard() {
                 className="h-8"
               >
                 <AlertTriangle className="h-3 w-3" />
-              </Button>
-
-              {/* Account Management */}
-              <Button
-                onClick={handleAccountManagement}
-                size="sm"
-                variant="ghost"
-                className="h-8 flex items-center space-x-1"
-              >
-                <UserCog className="h-3 w-3" />
-                <span className="text-xs">Account</span>
               </Button>
 
               <Button
@@ -704,7 +683,7 @@ export default function BHMDashboard() {
                       unit="mm"
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
-                      scaleFromZero={true}
+                      scaleFromZero={false}
                       referenceLines={[
                         { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
                         { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
@@ -783,7 +762,7 @@ export default function BHMDashboard() {
                           unit="mm"
                           timeRange={effectiveMinutes}
                           basicLineplot={true}
-                          scaleFromZero={true}
+                          scaleFromZero={false}
                           referenceLines={[
                             { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
                             { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
