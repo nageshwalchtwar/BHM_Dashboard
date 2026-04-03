@@ -278,7 +278,9 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
         hoverformat: ".6f",
         automargin: true,
         fixedrange: false,
-        rangemode: "tozero", // y-axis always starts at 0 — matches the screenshot
+        // For RMS/acceleration data (stem plot), auto-scale naturally.
+        // For temperature/LVDT (line plot), start from zero for context.
+        rangemode: basicLineplot ? "tozero" : "normal",
       },
       margin: { t: 40, r: 20, b: 30, l: 60 },
       hovermode: "x unified",
