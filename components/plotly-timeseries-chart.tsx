@@ -137,7 +137,7 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
     const traces: any[] = []
 
     if (basicLineplot) {
-      // ── Simple line plot with filled area under the line ──────────────────
+      // ── Simple line plot with markers ──────────────────────────────────────
       const lineTrace: any = {
         x: timestamps,
         y: values,
@@ -154,8 +154,6 @@ export const PlotlyTimeSeriesChart = React.memo(function PlotlyTimeSeriesChart({
           color: color,
           opacity: 0.6,
         },
-        fill: "tozeroy",
-        fillcolor: resolveFillColor(color),
         connectgaps: false,
         hovertemplate:
           `<b>${title}</b><br>` +
