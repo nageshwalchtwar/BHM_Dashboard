@@ -96,7 +96,7 @@ export default function BHMDashboard() {
   // UI state
   const [activeTab, setActiveTab] = useState('adxl-z')
   const [isChartFullscreen, setIsChartFullscreen] = useState(false)
-  const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer'>('lvdt')
+  const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer' | 'temperature' | 'fft'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
 
@@ -490,7 +490,7 @@ export default function BHMDashboard() {
           </div>
         </div>
       )}
-      <div className="w-full h-screen p-5 space-y-4 overflow-auto flex flex-col">
+      <div className="w-full h-screen p-4 space-y-3 overflow-auto flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between py-3 border-b border-gray-200">
           <div className="flex items-center space-x-6">
@@ -539,8 +539,8 @@ export default function BHMDashboard() {
         </div>
 
         {/* Row 2: Status Indicators, Controls, and Time Selection */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="flex items-center space-x-4 flex-wrap gap-2">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <div className="flex items-center space-x-3 flex-wrap gap-1">
             {/* Node Status Indicator */}
             <div className="flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
@@ -579,7 +579,7 @@ export default function BHMDashboard() {
             </div>
 
             {/* View Mode Buttons (Time Selection) */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1.5 gap-1.5">
               {[
                 { value: '1min', label: '1 Min' },
                 { value: '5min', label: '5 Min' },
@@ -588,7 +588,7 @@ export default function BHMDashboard() {
                 <button
                   key={value}
                   onClick={() => handleViewModeChange(value)}
-                  className={`px-4 py-2 text-base font-bold rounded-md transition-colors ${
+                  className={`px-5 py-2.5 text-base font-bold rounded-md transition-colors ${
                     viewMode === value
                       ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -603,14 +603,14 @@ export default function BHMDashboard() {
             {chartView === 'default' ? (
               <Button
                 onClick={() => setChartView('temperature')}
-                className="text-base px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold transition-colors"
+                className="text-base px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold transition-colors"
               >
                 Temperature
               </Button>
             ) : (
               <Button
                 onClick={() => setChartView('default')}
-                className="text-base px-5 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-bold transition-colors"
+                className="text-base px-6 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-bold transition-colors"
               >
                 Back
               </Button>
@@ -618,9 +618,9 @@ export default function BHMDashboard() {
 
             {/* Date picker for 1 Day mode */}
             {viewMode === 'date' && (
-              <div className="w-48">
+              <div className="w-56">
                 <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-full h-10 text-base font-semibold">
+                  <SelectTrigger className="w-full h-11 text-base font-bold">
                     <SelectValue placeholder={datesLoading ? 'Loading...' : 'Select date'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -642,9 +642,9 @@ export default function BHMDashboard() {
 
             {/* Auto Refresh */}
             <div className="flex items-center space-x-2 ml-auto">
-              <span className="text-base font-semibold text-gray-700">Auto:</span>
+              <span className="text-base font-bold text-gray-700">Auto:</span>
               <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
-                <SelectTrigger className="w-24 h-10 text-base font-semibold">
+                <SelectTrigger className="w-28 h-11 text-base font-bold">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -724,7 +724,10 @@ export default function BHMDashboard() {
           <div className="fixed inset-0 z-40 bg-white flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold">
-                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 'Accelerometer RMS Vibration'} - Fullscreen
+                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 
+                 fullscreenChart === 'accelerometer' ? 'Accelerometer RMS Vibration' :
+                 fullscreenChart === 'temperature' ? 'Temperature vs Time' :
+                 'FFT - Acceleration Envelope Spectrum'} - Fullscreen
               </h2>
               <button
                 onClick={() => setIsChartFullscreen(false)}
@@ -753,7 +756,7 @@ export default function BHMDashboard() {
                       ]}
                     />
                   </ChartErrorBoundary>
-                ) : (
+                ) : fullscreenChart === 'accelerometer' ? (
                   <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
                     <PlotlyTimeSeriesChart
                       data={sensorData}
@@ -771,6 +774,44 @@ export default function BHMDashboard() {
                         { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
                       ]}
                     />
+                  </ChartErrorBoundary>
+                ) : fullscreenChart === 'temperature' ? (
+                  <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
+                    <PlotlyTimeSeriesChart
+                      data={sensorData}
+                      isLoading={loading}
+                      dataKey="temperature_c"
+                      title="Temperature vs Time"
+                      yAxisLabel="Temperature (°C)"
+                      color="#f59e0b"
+                      unit="°C"
+                      timeRange={effectiveMinutes}
+                      basicLineplot={true}
+                      scaleFromZero={autoScale}
+                      referenceLines={[
+                        { y: 35, color: "#ef4444", label: "Critical (35°C)" },
+                      ]}
+                    />
+                  </ChartErrorBoundary>
+                ) : (
+                  <ChartErrorBoundary fallbackMessage="FFT chart failed to render">
+                    {sensorData.length > 0 ? (
+                      <PlotlyTimeSeriesChart
+                        data={generateFFTData(sensorData)}
+                        isLoading={loading}
+                        dataKey="accel_x"
+                        title="Frequency Domain Analysis"
+                        yAxisLabel="Amplitude"
+                        color="#ef4444"
+                        unit="m/s²"
+                        basicLineplot={true}
+                        scaleFromZero={autoScale}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        No data available for FFT analysis
+                      </div>
+                    )}
                   </ChartErrorBoundary>
                 )}
               </div>
@@ -807,7 +848,7 @@ export default function BHMDashboard() {
                 </div>
               ) : (
                 // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-[600px] gap-4 p-6">
+                <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
                     <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
@@ -883,7 +924,7 @@ export default function BHMDashboard() {
         )}
 
         {/* Bottom Row: Temperature Chart (Left) and FFT Chart (Right) */}
-        <div className="grid grid-cols-2 h-[500px] gap-4 p-6">
+        <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
           {/* Temperature Chart */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
             <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
@@ -908,6 +949,14 @@ export default function BHMDashboard() {
                 />
               </ChartErrorBoundary>
             </div>
+            
+            {/* Fullscreen Button - Temperature */}
+            <button
+              onClick={() => {setIsChartFullscreen(true); setFullscreenChart('temperature')}}
+              className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
+            >
+              ⛶
+            </button>
           </div>
 
           {/* FFT Chart (10 Minute Frequency Analysis) */}
@@ -936,6 +985,14 @@ export default function BHMDashboard() {
                 )}
               </ChartErrorBoundary>
             </div>
+            
+            {/* Fullscreen Button - FFT */}
+            <button
+              onClick={() => {setIsChartFullscreen(true); setFullscreenChart('fft')}}
+              className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
+            >
+              ⛶
+            </button>
           </div>
         </div>
 
