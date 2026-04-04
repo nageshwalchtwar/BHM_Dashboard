@@ -98,6 +98,7 @@ export default function BHMDashboard() {
   const [isChartFullscreen, setIsChartFullscreen] = useState(false)
   const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
+  const [autoScale, setAutoScale] = useState(false)
 
   // Calculate bridge health status dynamically based on actual data
   const bridgeHealthStatus = (() => {
@@ -571,6 +572,19 @@ export default function BHMDashboard() {
               </div>
             </div>
 
+            {/* Auto Scale Toggle - Second Row */}
+            <div className="flex items-center space-x-4 pl-0">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoScale}
+                  onChange={(e) => setAutoScale(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                />
+                <span className="text-base font-semibold text-gray-700">Auto-Scale Axes</span>
+              </label>
+            </div>
+
             {/* Action Buttons */}
             <div className="flex items-center space-x-2">
               <Button
@@ -684,7 +698,7 @@ export default function BHMDashboard() {
                       unit="mm"
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
-                      scaleFromZero={false}
+                      scaleFromZero={autoScale}
                       referenceLines={[
                         { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
                         { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
@@ -704,6 +718,7 @@ export default function BHMDashboard() {
                       rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                       timeRange={effectiveMinutes}
                       basicLineplot={true}
+                      scaleFromZero={autoScale}
                       referenceLines={[
                         { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
                         { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
@@ -716,14 +731,14 @@ export default function BHMDashboard() {
           </div>
         ) : (
           <>
-            <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
               {chartView === 'temperature' ? (
                 // Temperature Chart View
                 <div className="w-full h-full flex flex-col">
                   <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
                     Temperature
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-hidden p-4">
                     <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
                       <PlotlyTimeSeriesChart
                         data={sensorData}
@@ -734,8 +749,7 @@ export default function BHMDashboard() {
                         color="#f59e0b"
                         unit="°C"
                         timeRange={effectiveMinutes}
-                        basicLineplot={true}
-                        referenceLines={[
+                        basicLineplot={true}                          scaleFromZero={autoScale}                        referenceLines={[
                           { y: 35, color: "#ef4444", label: "Critical (35°C)" },
                           { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
                         ]}
@@ -745,13 +759,13 @@ export default function BHMDashboard() {
                 </div>
               ) : (
                 // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-full gap-3 p-3">
+                <div className="grid grid-cols-2 h-full gap-3 p-6">
                   {/* LVDT Chart */}
-                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
+                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
                     <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
                       LVDT Displacement
                     </div>
-                    <div className="flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-hidden p-4">
                       <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
                         <PlotlyTimeSeriesChart
                           data={sensorData}
@@ -786,7 +800,7 @@ export default function BHMDashboard() {
                     <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
                       Accelerometer RMS Vibration
                     </div>
-                    <div className="flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-hidden p-4">
                       <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
                         <PlotlyTimeSeriesChart
                           data={sensorData}
