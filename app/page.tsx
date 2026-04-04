@@ -473,15 +473,15 @@ export default function BHMDashboard() {
           </div>
         </div>
       )}
-      <div className="w-full h-screen p-3 space-y-3 overflow-auto flex flex-col">
+      <div className="w-full h-screen p-5 space-y-4 overflow-auto flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between py-2 border-b border-gray-200">
+        <div className="flex items-center justify-between py-3 border-b border-gray-200">
           <div className="flex items-center space-x-6">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900">
+              <h1 className="text-5xl font-bold text-gray-900">
                 Bridge Health Monitor
               </h1>
-              <p className="text-base text-gray-600">
+              <p className="text-lg text-gray-600">
                 Real-time structural monitoring system
               </p>
             </div>
@@ -496,81 +496,72 @@ export default function BHMDashboard() {
             </div>
           </div>
 
-          {/* User Info and Controls - Row 1 (Device Selector Only) */}
-          <div className="flex items-center space-x-6 flex-wrap">
-            {/* Device Selector */}
-            <div className="flex items-center space-x-2">
-              <span className="text-base font-semibold text-gray-700">Device:</span>
-              <DeviceSelector onDeviceChange={handleDeviceChange} />
-            </div>
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-2 ml-auto">
+            <Button
+              onClick={runDebugTest}
+              disabled={loading}
+              size="sm"
+              variant="ghost"
+              className="h-10 w-10"
+            >
+              <AlertTriangle className="h-5 w-5" />
+            </Button>
 
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2 ml-auto">
-              <Button
-                onClick={runDebugTest}
-                disabled={loading}
-                size="sm"
-                variant="ghost"
-                className="h-8"
-              >
-                <AlertTriangle className="h-3 w-3" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="h-8 flex items-center space-x-1"
-              >
-                <User className="h-3 w-3" />
-                <LogOut className="h-3 w-3" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="h-10 flex items-center space-x-1 px-3"
+            >
+              <User className="h-5 w-5" />
+              <LogOut className="h-5 w-5" />
+            </Button>
           </div>
         </div>
 
         {/* Row 2: Status Indicators, Controls, and Time Selection */}
-        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-          <div className="flex items-center space-x-3 flex-wrap">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div className="flex items-center space-x-4 flex-wrap gap-2">
             {/* Node Status Indicator */}
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-sm font-medium text-gray-900">Node: Connected</span>
+            <div className="flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-base font-semibold text-gray-900">Node: Connected</span>
             </div>
 
             {/* Bridge Health Alert */}
             {bridgeHealthStatus !== 'healthy' && (
-              <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border ${
+              <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${
                 bridgeHealthStatus === 'critical' 
                   ? 'bg-red-50 border-red-200' 
                   : 'bg-yellow-50 border-yellow-200'
               }`}>
-                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                <div className={`w-3 h-3 rounded-full animate-pulse ${
                   bridgeHealthStatus === 'critical' ? 'bg-red-500' : 'bg-yellow-500'
                 }`}></div>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-base font-semibold text-gray-900">
                   Bridge: {bridgeHealthStatus === 'critical' ? 'Critical' : 'Alert'}
                 </span>
               </div>
             )}
 
             {/* Connection Status (Live Button) */}
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
               {connectionStatus === 'connected' ? (
-                <Wifi className="h-5 w-5 text-green-500" />
+                <Wifi className="h-6 w-6 text-green-500" />
               ) : connectionStatus === 'connecting' ? (
-                <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
               ) : (
-                <WifiOff className="h-5 w-5 text-red-500" />
+                <WifiOff className="h-6 w-6 text-red-500" />
               )}
-              <span className="text-sm font-semibold text-gray-700">
+              <span className="text-base font-semibold text-gray-700">
                 {connectionStatus === 'connected' ? 'Live' :
                   connectionStatus === 'connecting' ? 'Syncing...' : 'Offline'}
               </span>
             </div>
 
             {/* View Mode Buttons (Time Selection) */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
               {[
                 { value: '1min', label: '1 Min' },
                 { value: '5min', label: '5 Min' },
@@ -579,7 +570,7 @@ export default function BHMDashboard() {
                 <button
                   key={value}
                   onClick={() => handleViewModeChange(value)}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                  className={`px-4 py-2 text-base font-bold rounded-md transition-colors ${
                     viewMode === value
                       ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -594,24 +585,24 @@ export default function BHMDashboard() {
             {chartView === 'default' ? (
               <Button
                 onClick={() => setChartView('temperature')}
-                className="text-sm px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition-colors"
+                className="text-base px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold transition-colors"
               >
                 Temperature
               </Button>
             ) : (
               <Button
                 onClick={() => setChartView('default')}
-                className="text-sm px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
+                className="text-base px-5 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-bold transition-colors"
               >
-                Back to LVDT/Accel
+                Back
               </Button>
             )}
 
             {/* Date picker for 1 Day mode */}
             {viewMode === 'date' && (
-              <div className="w-40">
+              <div className="w-48">
                 <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-full h-8 text-sm">
+                  <SelectTrigger className="w-full h-10 text-base font-semibold">
                     <SelectValue placeholder={datesLoading ? 'Loading...' : 'Select date'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -633,9 +624,9 @@ export default function BHMDashboard() {
 
             {/* Auto Refresh */}
             <div className="flex items-center space-x-2 ml-auto">
-              <span className="text-sm font-semibold text-gray-700">Auto:</span>
+              <span className="text-base font-semibold text-gray-700">Auto:</span>
               <Select value={autoRefreshInterval} onValueChange={setAutoRefreshInterval}>
-                <SelectTrigger className="w-20 h-8 text-sm">
+                <SelectTrigger className="w-24 h-10 text-base font-semibold">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -798,10 +789,10 @@ export default function BHMDashboard() {
                 </div>
               ) : (
                 // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-[600px] gap-3 p-6">
+                <div className="grid grid-cols-2 h-[600px] gap-4 p-6">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
+                    <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
                       LVDT Displacement
                     </div>
                     <div className="flex-1 overflow-hidden p-4">
@@ -827,15 +818,15 @@ export default function BHMDashboard() {
                     {/* Fullscreen Button - LVDT */}
                     <button
                       onClick={() => {setIsChartFullscreen(true); setFullscreenChart('lvdt')}}
-                      className="absolute top-10 right-2 bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded transition-colors"
+                      className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
                     >
                       ⛶
                     </button>
                   </div>
 
                   {/* Accelerometer Chart */}
-                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative">
-                    <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
+                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
+                    <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
                       Accelerometer RMS Vibration
                     </div>
                     <div className="flex-1 overflow-hidden p-4">
@@ -862,7 +853,7 @@ export default function BHMDashboard() {
                     {/* Fullscreen Button - Accelerometer */}
                     <button
                       onClick={() => {setIsChartFullscreen(true); setFullscreenChart('accelerometer')}}
-                      className="absolute top-10 right-2 bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1 rounded transition-colors"
+                      className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
                     >
                       ⛶
                     </button>
@@ -874,10 +865,10 @@ export default function BHMDashboard() {
         )}
 
         {/* Bottom Row: Temperature Chart (Left) and FFT Chart (Right) */}
-        <div className="grid grid-cols-2 h-[400px] gap-3 p-6">
+        <div className="grid grid-cols-2 h-[450px] gap-4 p-6">
           {/* Temperature Chart */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
+            <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
               Temperature vs Time
             </div>
             <div className="flex-1 overflow-hidden p-4">
@@ -903,8 +894,8 @@ export default function BHMDashboard() {
 
           {/* FFT Chart (10 Minute Frequency Analysis) */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
-              FFT - Acceleration Envelope Spectrum (10 Min)
+            <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+              FFT - Acceleration Envelope Spectrum
             </div>
             <div className="flex-1 overflow-hidden p-4">
               <ChartErrorBoundary fallbackMessage="FFT chart failed to render">
