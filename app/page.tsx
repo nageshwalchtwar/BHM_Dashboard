@@ -406,14 +406,15 @@ export default function BHMDashboard() {
 
     // Convert to SensorData format for plotting
     const fftData: SensorData[] = fft.map((magnitude, index) => {
-      // Frequency = index * (samplingRate / N)
-      // But scale frequencies to be more visible (0-2 Hz range)
-      const freq = (index / numBins) * 2 // 0 to 2 Hz
+      // Create timestamps that span over 10 minutes (600 seconds) for x-axis
+      // This gives a proper time range for plotting
+      const secondsOffset = (index / numBins) * 600 // 0 to 600 seconds
+      const timestamp = new Date(new Date().getTime() - 600000 + secondsOffset * 1000)
       
       return {
-        timestamp: new Date(new Date().getTime() - (numBins - index) * 1000).toISOString(), // Pseudo timestamps for x-axis
+        timestamp: timestamp.toISOString(),
         accel_x: magnitude,
-        accel_y: freq, // Store frequency for reference
+        accel_y: 0,
         accel_z: 0,
         stroke_mm: 0,
         temperature_c: 0
@@ -503,11 +504,12 @@ export default function BHMDashboard() {
             </div>
             
             {/* Device Selector - Top Integrated */}
-            <div className="border-l border-gray-300 pl-6">
+            <div className="border-l border-gray-300 pl-8 py-2">
+              <div className="text-base font-semibold text-gray-700 mb-2">Device:</div>
               <DeviceSelector
                 selectedDevice={selectedDevice}
                 onDeviceChange={handleDeviceChange}
-                className=""
+                className="text-base font-semibold"
               />
             </div>
           </div>
@@ -881,7 +883,7 @@ export default function BHMDashboard() {
         )}
 
         {/* Bottom Row: Temperature Chart (Left) and FFT Chart (Right) */}
-        <div className="grid grid-cols-2 h-[450px] gap-4 p-6">
+        <div className="grid grid-cols-2 h-[500px] gap-4 p-6">
           {/* Temperature Chart */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
             <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
@@ -937,17 +939,7 @@ export default function BHMDashboard() {
           </div>
         </div>
 
-        {/* Footer Info */}
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-blue-800">Bridge Health Monitoring System</h3>
-              <p className="text-xs text-blue-600">
-                Real-time monitoring with automatic data synchronization
-              </p>
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   )
