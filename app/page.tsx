@@ -492,24 +492,24 @@ export default function BHMDashboard() {
       )}
       <div className="w-full h-screen p-4 space-y-3 overflow-auto flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between py-2 border-b border-gray-200">
-          <div className="flex items-center space-x-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+        <div className="flex items-center justify-between py-1 gap-4 border-b border-gray-200">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-0">
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
                 Bridge Health Monitor
               </h1>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500">
                 Real-time structural monitoring
               </p>
             </div>
             
             {/* Device Selector - Top Integrated */}
-            <div className="border-l border-gray-300 pl-8 py-1">
-              <div className="text-lg font-bold text-gray-900 mb-1.5">Device:</div>
+            <div className="border-l border-gray-300 pl-6">
+              <div className="text-sm font-bold text-gray-900">Device:</div>
               <DeviceSelector
                 selectedDevice={selectedDevice}
                 onDeviceChange={handleDeviceChange}
-                className="text-lg font-bold"
+                className="text-sm font-bold"
               />
             </div>
           </div>
@@ -547,21 +547,25 @@ export default function BHMDashboard() {
               <span className="text-base font-semibold text-gray-900">Node: Connected</span>
             </div>
 
-            {/* Bridge Health Alert */}
-            {bridgeHealthStatus !== 'healthy' && (
-              <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${
+            {/* Bridge Health Status */}
+            <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${
+              bridgeHealthStatus === 'critical' 
+                ? 'bg-red-50 border-red-200' 
+                : bridgeHealthStatus === 'warning'
+                  ? 'bg-yellow-50 border-yellow-200'
+                  : 'bg-green-50 border-green-200'
+            }`}>
+              <div className={`w-3 h-3 rounded-full ${
                 bridgeHealthStatus === 'critical' 
-                  ? 'bg-red-50 border-red-200' 
-                  : 'bg-yellow-50 border-yellow-200'
-              }`}>
-                <div className={`w-3 h-3 rounded-full animate-pulse ${
-                  bridgeHealthStatus === 'critical' ? 'bg-red-500' : 'bg-yellow-500'
-                }`}></div>
-                <span className="text-base font-semibold text-gray-900">
-                  Bridge: {bridgeHealthStatus === 'critical' ? 'Critical' : 'Alert'}
-                </span>
-              </div>
-            )}
+                  ? 'bg-red-500 animate-pulse' 
+                  : bridgeHealthStatus === 'warning'
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-green-500'
+              }`}></div>
+              <span className="text-base font-semibold text-gray-900">
+                Bridge: {bridgeHealthStatus === 'critical' ? 'Critical' : bridgeHealthStatus === 'warning' ? 'Alert' : 'Good'}
+              </span>
+            </div>
 
             {/* Connection Status (Live Button) */}
             <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg">
