@@ -572,19 +572,6 @@ export default function BHMDashboard() {
               </div>
             </div>
 
-            {/* Auto Scale Toggle - Second Row */}
-            <div className="flex items-center space-x-4 pl-0">
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoScale}
-                  onChange={(e) => setAutoScale(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                />
-                <span className="text-base font-semibold text-gray-700">Auto-Scale Axes</span>
-              </label>
-            </div>
-
             {/* Action Buttons */}
             <div className="flex items-center space-x-2">
               <Button
@@ -608,6 +595,20 @@ export default function BHMDashboard() {
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Auto-Scale Axes Toggle - Separate Row */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4 flex items-center space-x-3 shadow-sm">
+          <input
+            type="checkbox"
+            id="autoScale"
+            checked={autoScale}
+            onChange={(e) => setAutoScale(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+          />
+          <label htmlFor="autoScale" className="text-base font-medium text-gray-700 cursor-pointer">
+            ☑ Auto-Scale Axes
+          </label>
         </div>
 
         {/* Connection Error Alert - Compact */}
@@ -758,7 +759,7 @@ export default function BHMDashboard() {
                 </div>
               ) : (
                 // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-full gap-3 p-6">
+                <div className="grid grid-cols-2 h-96 gap-3 p-6">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
                     <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
