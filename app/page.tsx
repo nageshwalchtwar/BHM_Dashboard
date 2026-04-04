@@ -361,48 +361,64 @@ export default function BHMDashboard() {
 
   // Generate FFT data for frequency domain visualization
   const generateFFTData = (data: SensorData[]) => {
-    // Use only last 10 minutes of data (or all available)
-    const tenMinDataPoints = 60 // 10 minutes * 6 samples/min for 10s intervals
-    const recentData = data.slice(0, Math.min(tenMinDataPoints, data.length))
-    
-    if (recentData.length < 2) {
-      return [{timestamp: '0', amplitude: 0}]
+    if (!data || data.length < 2) {
+      return []
     }
-
-    // Extract acceleration values and compute RMS for envelope
-    const accelValues = recentData.map(d => {
+    
+    // Use all available 10-minute data (first 60 points is ~10 min at 10s intervals)
+    const tenMinDataPoints = Math.min(60, data.length)
+    const recentData = data.slice(0, tenMinDataPoints)
+    
+    // Extract acceleration envelope (RMS of 3-axis)
+    const signal: number[] = recentData.map(d => {
       const ax = d.accel_x || 0
       const ay = d.accel_y || 0
       const az = d.accel_z || 0
       return Math.sqrt(ax*ax + ay*ay + az*az)
     })
 
-    // Simple frequency bins (0-5 Hz in 0.1 Hz steps)
-    const fftData: SensorData[] = []
-    const sampleRate = 1 // one sample per 10 seconds ≈ 0.1 Hz
-    const nyquist = sampleRate / 2
-    const bins = 50 // 50 frequency bins up to ~5 Hz
+    // Compute simple DFT (Discrete Fourier Transform) for frequency analysis
+    // Sampling interval = 10 seconds, so sampling rate = 0.1 Hz
+    const samplingRate = 0.1 // samples per second (1 sample per 10 seconds)
+    const N = signal.length
+    const fft: number[] = []
+    
+    // Calculate magnitude for frequency bins (0 to Nyquist)
+    // Nyquist frequency = samplingRate / 2 = 0.05 Hz
+    // But we'll extend to show meaningful frequencies
+    const numBins = 50
+    
+    for (let k = 0; k < numBins; k++) {
+      let real = 0
+      let imag = 0
+      
+      // DFT formula: X[k] = sum(x[n] * exp(-j*2*pi*k*n/N))
+      for (let n = 0; n < N; n++) {
+        const angle = (-2 * Math.PI * k * n) / N
+        real += signal[n] * Math.cos(angle)
+        imag += signal[n] * Math.sin(angle)
+      }
+      
+      // Magnitude spectrum
+      const magnitude = Math.sqrt(real * real + imag * imag) / N
+      fft.push(magnitude)
+    }
 
-    for (let i = 0; i < bins; i++) {
-      const freq = (i / bins) * nyquist * 10 // Scale to visible frequency range
+    // Convert to SensorData format for plotting
+    const fftData: SensorData[] = fft.map((magnitude, index) => {
+      // Frequency = index * (samplingRate / N)
+      // But scale frequencies to be more visible (0-2 Hz range)
+      const freq = (index / numBins) * 2 // 0 to 2 Hz
       
-      // Create synthetic amplitude based on data characteristics
-      // This is a simplified representation
-      const baseAmplitude = accelValues.reduce((a, b) => a + b, 0) / accelValues.length
-      const variance = accelValues.reduce((sum, v) => sum + Math.pow(v - baseAmplitude, 2), 0) / accelValues.length
-      
-      // Create frequency response with peaks at characteristic frequencies
-      const amp = baseAmplitude * (1 + 0.5 * Math.sin(freq * Math.PI) * Math.sqrt(variance))
-      
-      fftData.push({
-        timestamp: freq.toFixed(1),
-        accel_x: amp,
-        accel_y: 0,
+      return {
+        timestamp: new Date(new Date().getTime() - (numBins - index) * 1000).toISOString(), // Pseudo timestamps for x-axis
+        accel_x: magnitude,
+        accel_y: freq, // Store frequency for reference
         accel_z: 0,
         stroke_mm: 0,
         temperature_c: 0
-      })
-    }
+      }
+    })
 
     return fftData
   }
