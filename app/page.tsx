@@ -492,24 +492,24 @@ export default function BHMDashboard() {
       )}
       <div className="w-full h-screen p-4 space-y-3 overflow-auto flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between py-3 border-b border-gray-200">
-          <div className="flex items-center space-x-6">
+        <div className="flex items-center justify-between py-2 border-b border-gray-200">
+          <div className="flex items-center space-x-8">
             <div>
-              <h1 className="text-5xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900">
                 Bridge Health Monitor
               </h1>
-              <p className="text-lg text-gray-600">
-                Real-time structural monitoring system
+              <p className="text-xs text-gray-500 mt-0.5">
+                Real-time structural monitoring
               </p>
             </div>
             
             {/* Device Selector - Top Integrated */}
-            <div className="border-l border-gray-300 pl-8 py-2">
-              <div className="text-base font-semibold text-gray-700 mb-2">Device:</div>
+            <div className="border-l border-gray-300 pl-8 py-1">
+              <div className="text-lg font-bold text-gray-900 mb-1.5">Device:</div>
               <DeviceSelector
                 selectedDevice={selectedDevice}
                 onDeviceChange={handleDeviceChange}
-                className="text-base font-semibold"
+                className="text-lg font-bold"
               />
             </div>
           </div>
@@ -851,7 +851,7 @@ export default function BHMDashboard() {
                 <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+                    <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
                       LVDT Displacement
                     </div>
                     <div className="flex-1 overflow-hidden p-4">
@@ -885,7 +885,7 @@ export default function BHMDashboard() {
 
                   {/* Accelerometer Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+                    <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
                       Accelerometer RMS Vibration
                     </div>
                     <div className="flex-1 overflow-hidden p-4">
@@ -927,7 +927,7 @@ export default function BHMDashboard() {
         <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
           {/* Temperature Chart */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+            <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
               Temperature vs Time
             </div>
             <div className="flex-1 overflow-hidden p-4">
@@ -961,7 +961,7 @@ export default function BHMDashboard() {
 
           {/* FFT Chart (10 Minute Frequency Analysis) */}
           <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-lg font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+            <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
               FFT - Acceleration Envelope Spectrum
             </div>
             <div className="flex-1 overflow-hidden p-4">
