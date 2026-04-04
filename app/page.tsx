@@ -759,7 +759,7 @@ export default function BHMDashboard() {
                 </div>
               ) : (
                 // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-96 gap-3 p-6">
+                <div className="grid grid-cols-2 h-[600px] gap-3 p-6">
                   {/* LVDT Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
                     <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
