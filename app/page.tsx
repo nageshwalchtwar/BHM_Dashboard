@@ -701,7 +701,6 @@ export default function BHMDashboard() {
                       scaleFromZero={autoScale}
                       referenceLines={[
                         { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                        { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
                       ]}
                     />
                   </ChartErrorBoundary>
@@ -721,7 +720,6 @@ export default function BHMDashboard() {
                       scaleFromZero={autoScale}
                       referenceLines={[
                         { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                        { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
                       ]}
                     />
                   </ChartErrorBoundary>
@@ -749,9 +747,10 @@ export default function BHMDashboard() {
                         color="#f59e0b"
                         unit="°C"
                         timeRange={effectiveMinutes}
-                        basicLineplot={true}                          scaleFromZero={autoScale}                        referenceLines={[
+                        basicLineplot={true}
+                        scaleFromZero={autoScale}
+                        referenceLines={[
                           { y: 35, color: "#ef4444", label: "Critical (35°C)" },
-                          { y: 30, color: "#f59e0b", label: "Warning (30°C)" },
                         ]}
                       />
                     </ChartErrorBoundary>
@@ -777,10 +776,9 @@ export default function BHMDashboard() {
                           unit="mm"
                           timeRange={effectiveMinutes}
                           basicLineplot={true}
-                          scaleFromZero={false}
+                          scaleFromZero={autoScale}
                           referenceLines={[
                             { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                            { y: 75, color: "#f59e0b", label: "Warning (75mm L/800)" },
                           ]}
                         />
                       </ChartErrorBoundary>
@@ -813,9 +811,9 @@ export default function BHMDashboard() {
                           rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                           timeRange={effectiveMinutes}
                           basicLineplot={true}
+                          scaleFromZero={autoScale}
                           referenceLines={[
                             { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                            { y: 0.05, color: "#f59e0b", label: "Warning (0.05g)" },
                           ]}
                         />
                       </ChartErrorBoundary>
