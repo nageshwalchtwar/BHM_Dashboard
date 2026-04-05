@@ -79,6 +79,27 @@ function getDevicesFromEnv(): Device[] {
     });
   }
   
+  // Add Device_S support (merged 1-day CSV with pre-computed RMS)
+  const deviceSFolderId = process.env['DEVICE_S_FOLDER_ID'] || '';
+  const deviceSLatestFolderId = process.env['DEVICE_S_LATEST_FOLDER_ID'] || '';
+  const hasSFolderId = deviceSFolderId && !isPlaceholderValue(deviceSFolderId);
+  const hasSLatestFolderId = deviceSLatestFolderId && !isPlaceholderValue(deviceSLatestFolderId);
+
+  if (hasSFolderId || hasSLatestFolderId) {
+    const effectiveSFolderId = hasSFolderId ? deviceSFolderId : deviceSLatestFolderId;
+    devices.push({
+      id: 'Device_S',
+      name: process.env['DEVICE_S_NAME'] || 'Device_S',
+      description: 'Device S - 1-day merged CSV with pre-computed RMS (ADXL_Z, Temp, LVDT)',
+      folderId: effectiveSFolderId,
+      folderUrl: folderIdToUrl(effectiveSFolderId),
+      latestDataFolderId: hasSLatestFolderId ? deviceSLatestFolderId : undefined,
+      latestDataFolderUrl: hasSLatestFolderId ? folderIdToUrl(deviceSLatestFolderId) : undefined,
+      isActive: true,
+      addedAt: new Date('2024-01-01')
+    });
+  }
+  
   return devices;
 }
 
