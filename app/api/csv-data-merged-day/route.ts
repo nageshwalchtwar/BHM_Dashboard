@@ -100,6 +100,19 @@ export async function GET(request: NextRequest) {
       stroke_mm: row.stroke_mm,  // lvdt_avg_10s
     }))
 
+    // Diagnostic: Check if any field is all NaN
+    const accelZCount = transformedData.filter(d => !isNaN(d.accel_z)).length;
+    const tempCount = transformedData.filter(d => !isNaN(d.temperature_c)).length;
+    const lvdtCount = transformedData.filter(d => !isNaN(d.stroke_mm)).length;
+
+    if (accelZCount === 0) {
+      console.error('🚨 CRITICAL: All accel_z values are NaN!');
+      console.error('📊 Sample row:', JSON.stringify(transformedData[0]));
+      console.error('📋 Data count: accel_z=', accelZCount, ', temp=', tempCount, ', lvdt=', lvdtCount);
+    } else {
+      console.log(`✅ Data quality: accel_z=${accelZCount}/${transformedData.length}, temp=${tempCount}/${transformedData.length}, lvdt=${lvdtCount}/${transformedData.length}`)
+    }
+
     const responseRMS = {
       accel_z_rms: Math.abs(transformedData[transformedData.length - 1]?.accel_z ?? 0),
     }

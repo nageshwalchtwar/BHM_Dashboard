@@ -39,6 +39,8 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
 
   // Flexible column matching for the merged CSV format
   // Look for: timestamp, az with rms, temp with avg, lvdt with avg
+  console.log('🔎 Starting column detection. Headers:', headers)
+  
   let tsIndex = headers.findIndex(h => h.includes('timestamp'));
   let azIndex = headers.findIndex(h => h.includes('az') && h.includes('rms')) || 
                   headers.findIndex(h => h.includes('accel') && h.includes('z'));
@@ -47,17 +49,19 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
   let lvdtIndex = headers.findIndex(h => h.includes('lvdt') && h.includes('avg')) || 
                     headers.findIndex(h => h.includes('stroke'));
 
+  console.log(`🔍 Name-based detection: ts=${tsIndex}, az=${azIndex}, temp=${tempIndex}, lvdt=${lvdtIndex}`)
+
   // Fallback: Use positional matching if standard names not found
   // Expected order: timestamp, ax_rms, ay_rms, az_rms, temp_avg, lvdt_avg
-  if (tsIndex === -1 && headers.length >= 6) {
+  if (tsIndex === -1 && headers.length >= 1) {
     tsIndex = 0;
     console.log('📌 Using positional fallback for timestamp (position 0)')
   }
-  if (azIndex === -1 && headers.length >= 6) {
+  if (azIndex === -1 && headers.length >= 4) {
     azIndex = 3; // Assuming: [timestamp, ax_rms, ay_rms, az_rms, temp, lvdt]
     console.log('📌 Using positional fallback for az_rms (position 3)')
   }
-  if (tempIndex === -1 && headers.length >= 6) {
+  if (tempIndex === -1 && headers.length >= 5) {
     tempIndex = 4;
     console.log('📌 Using positional fallback for temp_avg (position 4)')
   }
@@ -66,12 +70,12 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
     console.log('📌 Using positional fallback for lvdt_avg (position 5)')
   }
 
-  console.log(`🔍 Column indices - timestamp:${tsIndex}, az_rms:${azIndex}, temp_avg:${tempIndex}, lvdt_avg:${lvdtIndex}`)
-  console.log(`📋 Headers found:`, {
-    timestamp: tsIndex >= 0 && tsIndex < headers.length ? headers[tsIndex] : 'NOT FOUND',
-    az_rms: azIndex >= 0 && azIndex < headers.length ? headers[azIndex] : 'NOT FOUND',
-    temp_avg: tempIndex >= 0 && tempIndex < headers.length ? headers[tempIndex] : 'NOT FOUND',
-    lvdt_avg: lvdtIndex >= 0 && lvdtIndex < headers.length ? headers[lvdtIndex] : 'NOT FOUND',
+  console.log(`✅ Final column indices - timestamp:${tsIndex}, az_rms:${azIndex}, temp_avg:${tempIndex}, lvdt_avg:${lvdtIndex}`)
+  console.log(`📋 Actual headers at those indices:`, {
+    timestamp: headers[tsIndex] || 'INDEX OUT OF RANGE',
+    az_rms: headers[azIndex] || 'INDEX OUT OF RANGE',
+    temp_avg: headers[tempIndex] || 'INDEX OUT OF RANGE',
+    lvdt_avg: headers[lvdtIndex] || 'INDEX OUT OF RANGE',
   })
 
   if (azIndex === -1 || tempIndex === -1 || lvdtIndex === -1 || tsIndex === -1) {
@@ -132,6 +136,10 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
       const temp = parseFloat(cols[tempIndex])
       const lvdt = parseFloat(cols[lvdtIndex])
 
+      if (rowsProcessed <= 2) {
+        console.log(`📊 Row ${i}: az=${az} (raw="${cols[azIndex]}"), temp=${temp} (raw="${cols[tempIndex]}"), lvdt=${lvdt} (raw="${cols[lvdtIndex]}")`)
+      }
+
       if (!isNaN(az) && !isNaN(temp) && !isNaN(lvdt)) {
         result.push({
           timestamp: ts,
@@ -140,10 +148,12 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
           stroke_mm: lvdt,
         })
       } else {
-        if (rowsProcessed <= 3) { // Log first 3 errors only
+        if (rowsProcessed <= 5) { // Log first 5 errors only
           console.warn(`⚠️ Row ${i} has NaN values:`, { 
+            indices: { az: azIndex, temp: tempIndex, lvdt: lvdtIndex },
             raw: [cols[azIndex], cols[tempIndex], cols[lvdtIndex]],
-            parsed: { az, temp, lvdt } 
+            parsed: { az, temp, lvdt },
+            colCount: cols.length
           })
         }
         parseErrors++

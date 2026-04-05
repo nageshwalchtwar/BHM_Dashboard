@@ -208,6 +208,7 @@ export default function BHMDashboard() {
       const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
         const text = await response.text()
+        console.error(`❌ API returned non-JSON response:`, text.slice(0, 100))
         throw new Error(text.slice(0, 100) || `Server returned ${response.status}`)
       }
       
@@ -215,6 +216,20 @@ export default function BHMDashboard() {
 
       if (result.success && result.data) {
         setSensorData(result.data)
+        
+        // Diagnostic: Check for missing columns
+        if (result.data.length > 0) {
+          const hasAccel = result.data.some((d: any) => typeof d.accel_z === 'number' && !isNaN(d.accel_z))
+          const hasTemp = result.data.some((d: any) => typeof d.temperature_c === 'number' && !isNaN(d.temperature_c))
+          const hasLVDT = result.data.some((d: any) => typeof d.stroke_mm === 'number' && !isNaN(d.stroke_mm))
+          
+          console.log(`📊 Data fields status: accel_z=${hasAccel ? '✅' : '❌'}, temperature=${hasTemp ? '✅' : '❌'}, lvdt=${hasLVDT ? '✅' : '❌'}`)
+          
+          if (!hasAccel && viewMode === 'date') {
+            console.warn('⚠️ WARNING: accel_z values are missing or NaN. Check CSV parsing in server logs.')
+          }
+        }
+
         setStats({
           totalDataPoints: result.metadata.totalPoints,
           latestTimestamp: result.data.length > 0 && result.data[0].rawTimestamp ?
@@ -255,25 +270,39 @@ export default function BHMDashboard() {
       }
 
       const response = await fetch(url)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ Dates API HTTP ${response.status}:`, errorText.slice(0, 200))
+        setError(`Failed to load dates (HTTP ${response.status}). Check that device is properly configured.`)
+        setAvailableDates([])
+        setSelectedDate('')
+        return
+      }
+
       const result = await response.json()
 
       if (result.success && Array.isArray(result.dates)) {
         const dates = result.dates as string[]
-        console.log(`✅ Got ${dates.length} dates: ${dates.slice(0, 3).join(', ')}${dates.length > 3 ? '...' : ''}`)
+        console.log(`✅ Got ${dates.length} dates from device ${result.device?.name || 'unknown'}: ${dates.slice(0, 3).join(', ')}${dates.length > 3 ? '...' : ''}`)
         setAvailableDates(dates)
 
         if (dates.length === 0) {
           setSelectedDate('')
+          setError('No dates found in device folder. Check folder ID and ensure CSV files exist.')
         } else if (!dates.includes(selectedDate)) {
           setSelectedDate(dates[0])
+          setError(null)
         }
       } else {
-        console.error('❌ Dates API error:', result.error)
+        console.error('❌ Dates API error:', result.error || 'Unknown error')
+        setError(`Date loading failed: ${result.error || 'No dates returned'}`)
         setAvailableDates([])
         setSelectedDate('')
       }
     } catch (err) {
       console.error('❌ Failed to fetch dates:', err)
+      setError(`Network error: ${err instanceof Error ? err.message : String(err)}`)
       setAvailableDates([])
       setSelectedDate('')
     } finally {
