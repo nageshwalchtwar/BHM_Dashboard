@@ -18,32 +18,43 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Get device configuration
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice()
+    
+    console.log(`📱 Device lookup: ${deviceId || 'default'} → ${device?.name || 'NOT FOUND'}`)
+    
+    if (!device) {
+      return NextResponse.json({
+        success: false,
+        error: `Device not found: ${deviceId}`,
+      }, { status: 404 })
+    }
+
     let csvContent = null
     let folderId = null
 
     // Strategy 1: Try merged folder first
     try {
-      folderId = getFolderIdForDevice(deviceId || undefined)
-      console.log(`📂 [1] Trying merged folder=${folderId}`)
+      folderId = device.folderId
+      console.log(`📂 [1] Trying primary folder=${folderId}`)
       const result = await getCSVByDate(date, folderId)
       if (result) {
         csvContent = result.content
-        console.log(`✅ Found merged CSV: ${result.filename}`)
+        console.log(`✅ Found merged CSV: ${result.filename} (${csvContent.length} bytes)`)
       }
     } catch (e) {
-      console.log(`⚠️ Merged folder failed:`, (e as Error).message)
+      console.log(`⚠️ Primary folder failed:`, (e as Error).message)
     }
 
     // Strategy 2: Fallback to LATEST folder
-    if (!csvContent) {
+    if (!csvContent && device.latestDataFolderId) {
       try {
-        folderId = getLatestFolderIdForDevice(deviceId || undefined)
+        folderId = device.latestDataFolderId
         console.log(`📂 [2] Trying LATEST folder=${folderId}`)
         const result = await getCSVByDate(date, folderId)
         if (result) {
           csvContent = result.content
-          console.log(`✅ Found merged CSV in LATEST: ${result.filename}`)
+          console.log(`✅ Found merged CSV in LATEST: ${result.filename} (${csvContent.length} bytes)`)
         }
       } catch (e) {
         console.log(`⚠️ LATEST folder failed:`, (e as Error).message)
@@ -53,12 +64,14 @@ export async function GET(request: NextRequest) {
     if (!csvContent) {
       return NextResponse.json({
         success: false,
-        error: `No merged CSV found for date: ${date}`,
+        error: `No merged CSV found for date: ${date} in device ${device.name}`,
       }, { status: 404 })
     }
 
     // Parse merged CSV with pre-computed RMS and averages
+    console.log(`🔄 Parsing CSV: ${csvContent.length} bytes, ${csvContent.split('\n').length} lines`)
     const mergedData = parseMergedDayCSV(csvContent)
+    
     if (mergedData.length === 0) {
       // More detailed error logging
       console.error('❌ Failed to parse CSV for date:', date)
@@ -72,6 +85,8 @@ export async function GET(request: NextRequest) {
           hasContent: csvContent.length > 0,
           lineCount: csvContent.split('\n').length,
           header: csvContent.split('\n')[0],
+          device: device.name,
+          folder: folderId,
         }
       }, { status: 422 })
     }

@@ -35,15 +35,44 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
   console.log('📋 Merged CSV Headers:', headers)
   console.log(`📝 Using delimiter: '${delimiter === '\t' ? 'TAB' : 'COMMA'}'`)
   console.log(`📊 Total lines in CSV: ${lines.length}`)
+  console.log(`📊 Header count: ${headers.length}`)
 
-  // Exact column matching for the merged CSV format
-  // Pattern: timestamp, ax_adxl_rms, ay_adxl_rms, az_adxl_rms, temp_avg_10s, lvdt_avg_10s
-  const tsIndex = headers.findIndex(h => h.includes('timestamp'));
-  const azIndex = headers.findIndex(h => h.includes('az') && h.includes('rms'));
-  const tempIndex = headers.findIndex(h => h.includes('temp') && h.includes('avg'));
-  const lvdtIndex = headers.findIndex(h => h.includes('lvdt') && h.includes('avg'));
+  // Flexible column matching for the merged CSV format
+  // Look for: timestamp, az with rms, temp with avg, lvdt with avg
+  let tsIndex = headers.findIndex(h => h.includes('timestamp'));
+  let azIndex = headers.findIndex(h => h.includes('az') && h.includes('rms')) || 
+                  headers.findIndex(h => h.includes('accel') && h.includes('z'));
+  let tempIndex = headers.findIndex(h => h.includes('temp') && h.includes('avg')) || 
+                    headers.findIndex(h => h.includes('temperature'));
+  let lvdtIndex = headers.findIndex(h => h.includes('lvdt') && h.includes('avg')) || 
+                    headers.findIndex(h => h.includes('stroke'));
+
+  // Fallback: Use positional matching if standard names not found
+  // Expected order: timestamp, ax_rms, ay_rms, az_rms, temp_avg, lvdt_avg
+  if (tsIndex === -1 && headers.length >= 6) {
+    tsIndex = 0;
+    console.log('📌 Using positional fallback for timestamp (position 0)')
+  }
+  if (azIndex === -1 && headers.length >= 6) {
+    azIndex = 3; // Assuming: [timestamp, ax_rms, ay_rms, az_rms, temp, lvdt]
+    console.log('📌 Using positional fallback for az_rms (position 3)')
+  }
+  if (tempIndex === -1 && headers.length >= 6) {
+    tempIndex = 4;
+    console.log('📌 Using positional fallback for temp_avg (position 4)')
+  }
+  if (lvdtIndex === -1 && headers.length >= 6) {
+    lvdtIndex = 5;
+    console.log('📌 Using positional fallback for lvdt_avg (position 5)')
+  }
 
   console.log(`🔍 Column indices - timestamp:${tsIndex}, az_rms:${azIndex}, temp_avg:${tempIndex}, lvdt_avg:${lvdtIndex}`)
+  console.log(`📋 Headers found:`, {
+    timestamp: tsIndex >= 0 && tsIndex < headers.length ? headers[tsIndex] : 'NOT FOUND',
+    az_rms: azIndex >= 0 && azIndex < headers.length ? headers[azIndex] : 'NOT FOUND',
+    temp_avg: tempIndex >= 0 && tempIndex < headers.length ? headers[tempIndex] : 'NOT FOUND',
+    lvdt_avg: lvdtIndex >= 0 && lvdtIndex < headers.length ? headers[lvdtIndex] : 'NOT FOUND',
+  })
 
   if (azIndex === -1 || tempIndex === -1 || lvdtIndex === -1 || tsIndex === -1) {
     console.error('❌ Missing required columns in merged CSV', {
@@ -52,9 +81,11 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
       hasTempAvg: tempIndex !== -1,
       hasLvdtAvg: lvdtIndex !== -1,
       providedHeaders: headers,
+      availableColumns: headers.length,
     })
-    console.error('💾 CSV Preview (first 1000 chars):', csvContent.slice(0, 1000))
-    console.error('🔤 First line:', headerLine)
+    console.error('💾 CSV Preview (first 500 chars):', csvContent.slice(0, 500))
+    console.error('🔤 First 3 lines:')
+    lines.slice(0, 3).forEach((line, i) => console.error(`   Line ${i}: ${line.substring(0, 100)}...`))
     return []
   }
 
@@ -78,9 +109,21 @@ export function parseMergedDayCSV(csvContent: string): MergedDayData[] {
     try {
       const tsStr = cols[tsIndex].trim()
       // Parse datetime: "2026-02-12 0:00:00", "2026-02-12 00:00:00", or ISO format
-      const ts = new Date(tsStr).getTime()
+      // Try multiple date formats
+      let ts = new Date(tsStr).getTime()
+      
+      // If standard parsing fails, try manual parsing for "2026-02-12 0:00:00" format
+      if (isNaN(ts) && tsStr.includes(' ')) {
+        const parts = tsStr.split(' ')
+        if (parts[0] && parts[1]) {
+          ts = new Date(`${parts[0]}T${parts[1]}`).getTime()
+        }
+      }
+      
       if (isNaN(ts)) {
-        console.warn(`⚠️ Row ${i}: Invalid timestamp "${tsStr}"`)
+        if (rowsProcessed <= 5) {
+          console.warn(`⚠️ Row ${i}: Invalid timestamp "${tsStr}"`)
+        }
         parseErrors++
         continue
       }
