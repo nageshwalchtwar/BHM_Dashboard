@@ -161,12 +161,12 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice])
 
-  // Fetch data when viewMode or selectedDate changes
+  // Fetch data when viewMode or selectedDevice changes
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [viewMode, selectedDate, mounted, selectedDevice])
+  }, [viewMode, mounted, selectedDevice])
 
   // Generate calendar dates on mount (all dates in current + previous 2 months)
   useEffect(() => {
@@ -200,18 +200,10 @@ export default function BHMDashboard() {
   }, [autoRefreshInterval, mounted, viewMode])
 
   const fetchData = async () => {
-    if (viewMode === 'date' && !selectedDate) {
-      setError('No data dates available for the selected device')
-      setLoading(false)
-      return
-    }
-
     setConnectionStatus('connecting')
     try {
-      // Use merged-day endpoint for 1-day view, regular endpoint for live modes
-      let apiUrl = viewMode === 'date' 
-        ? `/api/csv-data-merged-day?date=${selectedDate}`
-        : `/api/csv-data-real?mode=${viewMode}`
+      // Simple approach: always use csv-data-real, which handles all modes
+      let apiUrl = `/api/csv-data-real?mode=${viewMode}`
       
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
@@ -627,24 +619,6 @@ export default function BHMDashboard() {
               >
                 Back
               </Button>
-            )}
-
-            {/* Date picker for 1 Day mode */}
-            {viewMode === 'date' && (
-              <div className="w-56">
-                <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-full h-11 text-base font-bold">
-                    <SelectValue placeholder="Select date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDates.map((date) => (
-                      <SelectItem key={date} value={date}>
-                        {date}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             )}
 
             {/* Auto Refresh */}
