@@ -89,7 +89,6 @@ export default function BHMDashboard() {
     const d = new Date(); return d.toISOString().split('T')[0]
   })
   const [availableDates, setAvailableDates] = useState<string[]>([])
-  const [datesLoading, setDatesLoading] = useState(false)
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
   const [isRMSData, setIsRMSData] = useState(false)
 
@@ -169,11 +168,28 @@ export default function BHMDashboard() {
     }
   }, [viewMode, selectedDate, mounted, selectedDevice])
 
-  // Load available dates for currently selected device
+  // Generate calendar dates on mount (all dates in current + previous 2 months)
   useEffect(() => {
     if (!mounted) return
-    fetchAvailableDates()
-  }, [mounted, selectedDevice])
+    
+    const dates = []
+    const today = new Date()
+    
+    // Generate dates for last 3 months
+    for (let m = 2; m >= 0; m--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - m, 1)
+      const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(date.getFullYear(), date.getMonth(), day)
+        dates.push(d.toISOString().split('T')[0])
+      }
+    }
+    
+    // Sort newest first
+    dates.sort((a, b) => b.localeCompare(a))
+    setAvailableDates(dates)
+  }, [mounted])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -257,58 +273,7 @@ export default function BHMDashboard() {
     }
   }
 
-  const fetchAvailableDates = async (forDevice?: string) => {
-    setDatesLoading(true)
-    try {
-      let url = '/api/csv-available-dates'
-      const deviceToUse = forDevice !== undefined ? forDevice : selectedDevice
-      
-      console.log(`📅 Fetching dates for device: ${deviceToUse || 'default'}`)
-      
-      if (deviceToUse) {
-        url += `?device=${deviceToUse}`
-      }
 
-      const response = await fetch(url)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`❌ Dates API HTTP ${response.status}:`, errorText.slice(0, 200))
-        setError(`Failed to load dates (HTTP ${response.status}). Check that device is properly configured.`)
-        setAvailableDates([])
-        setSelectedDate('')
-        return
-      }
-
-      const result = await response.json()
-
-      if (result.success && Array.isArray(result.dates)) {
-        const dates = result.dates as string[]
-        console.log(`✅ Got ${dates.length} dates from device ${result.device?.name || 'unknown'}: ${dates.slice(0, 3).join(', ')}${dates.length > 3 ? '...' : ''}`)
-        setAvailableDates(dates)
-
-        if (dates.length === 0) {
-          setSelectedDate('')
-          setError('No dates found in device folder. Check folder ID and ensure CSV files exist.')
-        } else if (!dates.includes(selectedDate)) {
-          setSelectedDate(dates[0])
-          setError(null)
-        }
-      } else {
-        console.error('❌ Dates API error:', result.error || 'Unknown error')
-        setError(`Date loading failed: ${result.error || 'No dates returned'}`)
-        setAvailableDates([])
-        setSelectedDate('')
-      }
-    } catch (err) {
-      console.error('❌ Failed to fetch dates:', err)
-      setError(`Network error: ${err instanceof Error ? err.message : String(err)}`)
-      setAvailableDates([])
-      setSelectedDate('')
-    } finally {
-      setDatesLoading(false)
-    }
-  }
 
   const runDebugTest = async () => {
     try {
@@ -384,9 +349,6 @@ export default function BHMDashboard() {
       setAutoRefreshInterval('off')
       console.log(`📱 ${deviceId} selected - auto-switched to 1 Day mode (merged CSV)`)
     }
-    
-    // Fetch available dates for the selected device (pass explicitly since state updates are async)
-    fetchAvailableDates(deviceId)
     fetchData()
   }
 
@@ -672,20 +634,14 @@ export default function BHMDashboard() {
               <div className="w-56">
                 <Select value={selectedDate || undefined} onValueChange={setSelectedDate}>
                   <SelectTrigger className="w-full h-11 text-base font-bold">
-                    <SelectValue placeholder={datesLoading ? 'Loading...' : 'Select date'} />
+                    <SelectValue placeholder="Select date" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableDates.length === 0 ? (
-                      <SelectItem value="no-dates" disabled>
-                        {datesLoading ? 'Loading...' : 'No dates found'}
+                    {availableDates.map((date) => (
+                      <SelectItem key={date} value={date}>
+                        {date}
                       </SelectItem>
-                    ) : (
-                      availableDates.map((date) => (
-                        <SelectItem key={date} value={date}>
-                          {date}
-                        </SelectItem>
-                      ))
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
