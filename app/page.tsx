@@ -242,12 +242,16 @@ export default function BHMDashboard() {
     }
   }
 
-  const fetchAvailableDates = async () => {
+  const fetchAvailableDates = async (forDevice?: string) => {
     setDatesLoading(true)
     try {
       let url = '/api/csv-available-dates'
-      if (selectedDevice) {
-        url += `?device=${selectedDevice}`
+      const deviceToUse = forDevice !== undefined ? forDevice : selectedDevice
+      
+      console.log(`📅 Fetching dates for device: ${deviceToUse || 'default'}`)
+      
+      if (deviceToUse) {
+        url += `?device=${deviceToUse}`
       }
 
       const response = await fetch(url)
@@ -255,6 +259,7 @@ export default function BHMDashboard() {
 
       if (result.success && Array.isArray(result.dates)) {
         const dates = result.dates as string[]
+        console.log(`✅ Got ${dates.length} dates: ${dates.slice(0, 3).join(', ')}${dates.length > 3 ? '...' : ''}`)
         setAvailableDates(dates)
 
         if (dates.length === 0) {
@@ -263,10 +268,12 @@ export default function BHMDashboard() {
           setSelectedDate(dates[0])
         }
       } else {
+        console.error('❌ Dates API error:', result.error)
         setAvailableDates([])
         setSelectedDate('')
       }
-    } catch {
+    } catch (err) {
+      console.error('❌ Failed to fetch dates:', err)
       setAvailableDates([])
       setSelectedDate('')
     } finally {
@@ -340,6 +347,17 @@ export default function BHMDashboard() {
   const handleDeviceChange = (deviceId: string | undefined) => {
     setSelectedDevice(deviceId)
     setError(null)
+    
+    // Auto-switch to 'date' mode for devices with merged 1-day CSV data
+    // Device 1 (and Device_S if it exists) use merged day data
+    if (deviceId === 'd1' || deviceId === 'Device_S') {
+      setViewMode('date')
+      setAutoRefreshInterval('off')
+      console.log(`📱 ${deviceId} selected - auto-switched to 1 Day mode (merged CSV)`)
+    }
+    
+    // Fetch available dates for the selected device (pass explicitly since state updates are async)
+    fetchAvailableDates(deviceId)
     fetchData()
   }
 
