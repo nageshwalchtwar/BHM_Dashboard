@@ -131,7 +131,7 @@ export default function BHMDashboard() {
           console.warn(`⚠️ No dates returned for device ${deviceId || 'default'}`)
           setAvailableDates([])
           setDatesLoadingState('error')
-          setDatesErrorMessage(\n            `❌ No data files found. Check: (1) DEVICE_1_FOLDER_ID set? (2) Folder has CSV files? (3) GOOGLE_DRIVE_API_KEY configured?`\n          )
+          setDatesErrorMessage(`No data files found. Check DEVICE_1_FOLDER_ID is set in Railway and contains CSV files.`)
         }
       } else {
         console.error('❌ API returned success=false:', result.error || result.message)
