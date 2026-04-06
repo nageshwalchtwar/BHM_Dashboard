@@ -89,6 +89,8 @@ export default function BHMDashboard() {
     const d = new Date(); return d.toISOString().split('T')[0]
   })
   const [availableDates, setAvailableDates] = useState<string[]>([])
+  const [datesLoadingState, setDatesLoadingState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [datesErrorMessage, setDatesErrorMessage] = useState<string | null>(null)
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
   const [isRMSData, setIsRMSData] = useState(false)
 
@@ -101,24 +103,47 @@ export default function BHMDashboard() {
 
   const fetchAvailableDates = async (deviceId?: string) => {
     try {
+      setDatesLoadingState('loading')
+      setDatesErrorMessage(null)
       let url = '/api/csv-available-dates'
       if (deviceId) {
         url += `?device=${encodeURIComponent(deviceId)}`
       }
 
+      console.log(`📅 Fetching available dates for device: ${deviceId || 'default'}...`)
       const response = await fetch(url)
       const result = await response.json()
 
-      if (result.success && Array.isArray(result.dates) && result.dates.length > 0) {
-        setAvailableDates(result.dates)
+      console.log(`📅 API response:`, { success: result.success, dateCount: result.dates?.length, dates: result.dates?.slice(0, 3) })
 
-        // Keep current selection when valid; otherwise select latest available date
-        if (!result.dates.includes(selectedDate)) {
-          setSelectedDate(result.dates[0])
+      if (result.success && Array.isArray(result.dates)) {
+        if (result.dates.length > 0) {
+          console.log(`✅ Loaded ${result.dates.length} available dates for ${deviceId || 'default'}`)
+          setAvailableDates(result.dates)
+          setDatesLoadingState('idle')
+
+          // Keep current selection when valid; otherwise select latest available date
+          if (!result.dates.includes(selectedDate)) {
+            console.log(`📅 Current date ${selectedDate} not in available dates, selecting latest: ${result.dates[0]}`)
+            setSelectedDate(result.dates[0])
+          }
+        } else {
+          console.warn(`⚠️ No dates returned for device ${deviceId || 'default'}`)
+          setAvailableDates([])
+          setDatesLoadingState('error')
+          setDatesErrorMessage(\n            `❌ No data files found. Check: (1) DEVICE_1_FOLDER_ID set? (2) Folder has CSV files? (3) GOOGLE_DRIVE_API_KEY configured?`\n          )
         }
+      } else {
+        console.error('❌ API returned success=false:', result.error || result.message)
+        setAvailableDates([])
+        setDatesLoadingState('error')
+        setDatesErrorMessage(result.error || result.message || 'Failed to fetch dates')
       }
     } catch (error) {
-      console.warn('⚠️ Failed to fetch available dates:', error)
+      console.error('❌ Failed to fetch available dates:', error)
+      setAvailableDates([])
+      setDatesLoadingState('error')
+      setDatesErrorMessage(error instanceof Error ? error.message : 'Network error')
     }
   }
 
@@ -196,6 +221,14 @@ export default function BHMDashboard() {
     if (!mounted) return
     fetchAvailableDates(selectedDevice)
   }, [mounted, selectedDevice])
+
+  // When switching to 'date' mode, ensure dates are loaded
+  useEffect(() => {
+    if (viewMode === 'date' && mounted && availableDates.length === 0 && datesLoadingState === 'idle') {
+      console.log(`📅 User switched to 1 Day mode, fetching dates for: ${selectedDevice || 'default'}`)
+      fetchAvailableDates(selectedDevice)
+    }
+  }, [viewMode, mounted, availableDates.length, datesLoadingState, selectedDevice])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -618,16 +651,45 @@ export default function BHMDashboard() {
             {viewMode === 'date' && (
               <div className="flex items-center space-x-2">
                 <span className="text-base font-bold text-gray-700">Date:</span>
-                <Select value={selectedDate} onValueChange={setSelectedDate}>
-                  <SelectTrigger className="w-44 h-11 text-base font-bold">
-                    <SelectValue placeholder="Select date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableDates.map((date) => (
-                      <SelectItem key={date} value={date}>{date}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {datesLoadingState === 'error' ? (
+                  <div className="text-sm text-red-600 font-medium bg-red-50 px-3 py-2 rounded-md">
+                    ⚠️ {datesErrorMessage || 'Error loading dates'}
+                    <button
+                      onClick={() => fetchAvailableDates(selectedDevice)}
+                      className="ml-2 underline font-semibold hover:text-red-800"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : datesLoadingState === 'loading' ? (
+                  <div className="text-sm text-orange-600 font-medium">
+                    ⏳ Loading dates...
+                  </div>
+                ) : availableDates.length > 0 ? (
+                  <>
+                    <Select value={selectedDate} onValueChange={setSelectedDate}>
+                      <SelectTrigger className="w-44 h-11 text-base font-bold">
+                        <SelectValue placeholder="Select date" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableDates.map((date) => (
+                          <SelectItem key={date} value={date}>{date}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      onClick={() => fetchAvailableDates(selectedDevice)}
+                      className="p-2 hover:bg-gray-100 rounded text-gray-600"
+                      title="Refresh date list"
+                    >
+                      🔄
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500 font-medium">
+                    No dates available
+                  </div>
+                )}
               </div>
             )}
 
