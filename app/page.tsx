@@ -99,6 +99,29 @@ export default function BHMDashboard() {
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
 
+  const fetchAvailableDates = async (deviceId?: string) => {
+    try {
+      let url = '/api/csv-available-dates'
+      if (deviceId) {
+        url += `?device=${encodeURIComponent(deviceId)}`
+      }
+
+      const response = await fetch(url)
+      const result = await response.json()
+
+      if (result.success && Array.isArray(result.dates) && result.dates.length > 0) {
+        setAvailableDates(result.dates)
+
+        // Keep current selection when valid; otherwise select latest available date
+        if (!result.dates.includes(selectedDate)) {
+          setSelectedDate(result.dates[0])
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch available dates:', error)
+    }
+  }
+
   // Calculate bridge health status dynamically based on actual data
   const bridgeHealthStatus = (() => {
     if (!sensorData || sensorData.length === 0) return 'healthy'
@@ -166,30 +189,13 @@ export default function BHMDashboard() {
     if (mounted) {
       fetchData()
     }
-  }, [viewMode, mounted, selectedDevice])
+  }, [viewMode, mounted, selectedDevice, selectedDate])
 
-  // Generate calendar dates on mount (all dates in current + previous 2 months)
+  // Load available dates from backend whenever device changes
   useEffect(() => {
     if (!mounted) return
-    
-    const dates = []
-    const today = new Date()
-    
-    // Generate dates for last 3 months
-    for (let m = 2; m >= 0; m--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - m, 1)
-      const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-      
-      for (let day = 1; day <= daysInMonth; day++) {
-        const d = new Date(date.getFullYear(), date.getMonth(), day)
-        dates.push(d.toISOString().split('T')[0])
-      }
-    }
-    
-    // Sort newest first
-    dates.sort((a, b) => b.localeCompare(a))
-    setAvailableDates(dates)
-  }, [mounted])
+    fetchAvailableDates(selectedDevice)
+  }, [mounted, selectedDevice])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -207,6 +213,10 @@ export default function BHMDashboard() {
       
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
+      }
+
+      if (viewMode === 'date' && selectedDate) {
+        apiUrl += `&date=${encodeURIComponent(selectedDate)}`
       }
 
 
@@ -603,6 +613,23 @@ export default function BHMDashboard() {
                 </button>
               ))}
             </div>
+
+            {/* Date Selection (1 Day mode) */}
+            {viewMode === 'date' && (
+              <div className="flex items-center space-x-2">
+                <span className="text-base font-bold text-gray-700">Date:</span>
+                <Select value={selectedDate} onValueChange={setSelectedDate}>
+                  <SelectTrigger className="w-44 h-11 text-base font-bold">
+                    <SelectValue placeholder="Select date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDates.map((date) => (
+                      <SelectItem key={date} value={date}>{date}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Temperature Button */}
             {chartView === 'default' ? (
