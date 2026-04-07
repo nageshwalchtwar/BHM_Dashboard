@@ -141,12 +141,12 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice])
 
-  // Fetch data when viewMode or selectedDevice changes
+  // Fetch data when viewMode, selectedDevice, or selectedDate changes
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [viewMode, mounted, selectedDevice])
+  }, [viewMode, mounted, selectedDevice, selectedDate])
 
   // Generate calendar dates on mount (all dates in current + previous 2 months)
   useEffect(() => {
@@ -187,6 +187,11 @@ export default function BHMDashboard() {
       
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
+      }
+      
+      // For date mode, include the selected date
+      if (viewMode === 'date' && selectedDate) {
+        apiUrl += `&date=${selectedDate}`
       }
 
 
@@ -583,6 +588,24 @@ export default function BHMDashboard() {
                 </button>
               ))}
             </div>
+
+            {/* Date Picker - Only show in 'date' mode */}
+            {viewMode === 'date' && availableDates.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <label className="text-base font-bold text-gray-700">Date:</label>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="h-11 px-4 py-2 text-base font-semibold border border-gray-300 rounded-md bg-white text-gray-900 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableDates.map((date) => (
+                    <option key={date} value={date}>
+                      {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Temperature Button */}
             {chartView === 'default' ? (
