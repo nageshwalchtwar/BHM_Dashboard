@@ -148,27 +148,34 @@ export default function BHMDashboard() {
     }
   }, [viewMode, mounted, selectedDevice, selectedDate])
 
-  // Generate calendar dates on mount (all dates in current + previous 2 months)
+  // Fetch actual available dates from Google Drive folder
   useEffect(() => {
     if (!mounted) return
     
-    const dates = []
-    const today = new Date()
-    
-    // Generate dates for last 3 months
-    for (let m = 2; m >= 0; m--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - m, 1)
-      const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-      
-      for (let day = 1; day <= daysInMonth; day++) {
-        const d = new Date(date.getFullYear(), date.getMonth(), day)
-        dates.push(d.toISOString().split('T')[0])
+    const fetchAvailableDates = async () => {
+      try {
+        const response = await fetch('/api/available-dates')
+        const result = await response.json()
+        
+        if (result.success && result.dates) {
+          console.log(`📅 Loaded ${result.dates.length} available dates from Google Drive`)
+          setAvailableDates(result.dates)
+          
+          // Set initial selectedDate to the most recent date if available
+          if (result.dates.length > 0 && !selectedDate) {
+            setSelectedDate(result.dates[0])
+          }
+        } else {
+          console.warn('⚠️ Failed to fetch available dates:', result.error)
+          setAvailableDates([])
+        }
+      } catch (err) {
+        console.error('❌ Error fetching available dates:', err)
+        setAvailableDates([])
       }
     }
     
-    // Sort newest first
-    dates.sort((a, b) => b.localeCompare(a))
-    setAvailableDates(dates)
+    fetchAvailableDates()
   }, [mounted])
 
   // Auto-refresh timer
