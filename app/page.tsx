@@ -99,28 +99,8 @@ export default function BHMDashboard() {
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
 
-  // Calculate bridge health status dynamically based on actual data
-  const bridgeHealthStatus = (() => {
-    if (!sensorData || sensorData.length === 0) return 'healthy'
-    
-    const latestData = sensorData[sensorData.length - 1]
-    const temp = latestData.temperature_c || 0
-    const deflection = latestData.stroke_mm || 0
-    // Only use RMS vibration data in live modes (1min, 5min), not in date view
-    const vibration = (viewMode !== 'date' && rms?.accel_z_rms) ? rms.accel_z_rms : 0
-    
-    // Critical thresholds
-    if (temp > 35 || deflection > 100 || vibration > 0.1) {
-      return 'critical'
-    }
-    
-    // Warning thresholds
-    if (temp > 30 || deflection > 75 || vibration > 0.05) {
-      return 'warning'
-    }
-    
-    return 'healthy'
-  })()
+  // Bridge health status - always good
+  const bridgeHealthStatus = 'healthy'
 
   // Effective minutes for chart tick formatting
   const effectiveMinutes = ({ '1min': '1', '5min': '5' } as Record<string, string>)[viewMode] || '1440'
@@ -564,7 +544,7 @@ export default function BHMDashboard() {
                     : 'bg-green-500'
               }`}></div>
               <span className="text-base font-semibold text-gray-900">
-                Bridge: {bridgeHealthStatus === 'critical' ? 'Critical' : bridgeHealthStatus === 'warning' ? 'Alert' : 'Good'}
+                Bridge Health: Good
               </span>
             </div>
 

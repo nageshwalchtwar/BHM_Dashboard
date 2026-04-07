@@ -83,8 +83,14 @@ export async function GET(request: NextRequest) {
 
         // Strategy 1: Try merged folder first (compute 1-second RMS windows)
         const folderId = getFolderIdForDevice(deviceId || undefined);
-        console.log(`📂 [1] Device=${device?.name || 'unknown'}, trying merged folder=${folderId}, computing RMS...`);
+        console.log(`📂 [1] Device=${device?.name || 'unknown'}, deviceId=${deviceId}, trying merged folder=${folderId}, computing RMS...`);
+        if (!folderId || folderId === '') {
+          console.log(`⚠️ WARNING: Empty folderId returned for device=${deviceId}`);
+        }
         result = await streamCSVByDateAsRMS(date || '', folderId, 1000);
+        if (!result) {
+          console.log(`⚠️ streamCSVByDateAsRMS returned null for folderId=${folderId}`);
+        }
 
         // Strategy 2: Fallback to LATEST folder (RMS computation)
         if (!result) {
