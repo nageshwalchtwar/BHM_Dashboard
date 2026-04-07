@@ -84,13 +84,11 @@ export default function BHMDashboard() {
 
   // Device selector state
   const [selectedDevice, setSelectedDevice] = useState<string | undefined>(undefined)
-  const [viewMode, setViewMode] = useState<string>('5min') // Default to 5 minutes
+  const [viewMode, setViewMode] = useState<string>('1min') // Default to 1 minute
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const d = new Date(); return d.toISOString().split('T')[0]
   })
   const [availableDates, setAvailableDates] = useState<string[]>([])
-  const [datesLoadingState, setDatesLoadingState] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [datesErrorMessage, setDatesErrorMessage] = useState<string | null>(null)
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<string>('off')
   const [isRMSData, setIsRMSData] = useState(false)
 
@@ -100,52 +98,6 @@ export default function BHMDashboard() {
   const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer' | 'temperature' | 'fft'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
-
-  const fetchAvailableDates = async (deviceId?: string) => {
-    try {
-      setDatesLoadingState('loading')
-      setDatesErrorMessage(null)
-      let url = '/api/csv-available-dates'
-      if (deviceId) {
-        url += `?device=${encodeURIComponent(deviceId)}`
-      }
-
-      console.log(`📅 Fetching available dates for device: ${deviceId || 'default'}...`)
-      const response = await fetch(url)
-      const result = await response.json()
-
-      console.log(`📅 API response:`, { success: result.success, dateCount: result.dates?.length, dates: result.dates?.slice(0, 3) })
-
-      if (result.success && Array.isArray(result.dates)) {
-        if (result.dates.length > 0) {
-          console.log(`✅ Loaded ${result.dates.length} available dates for ${deviceId || 'default'}`)
-          setAvailableDates(result.dates)
-          setDatesLoadingState('idle')
-
-          // Keep current selection when valid; otherwise select latest available date
-          if (!result.dates.includes(selectedDate)) {
-            console.log(`📅 Current date ${selectedDate} not in available dates, selecting latest: ${result.dates[0]}`)
-            setSelectedDate(result.dates[0])
-          }
-        } else {
-          console.warn(`⚠️ No dates returned for device ${deviceId || 'default'}`)
-          setAvailableDates([])
-          setDatesLoadingState('error')
-          setDatesErrorMessage(`No data files found. Check DEVICE_1_FOLDER_ID is set in Railway and contains CSV files.`)
-        }
-      } else {
-        console.error('❌ API returned success=false:', result.error || result.message)
-        setAvailableDates([])
-        setDatesLoadingState('error')
-        setDatesErrorMessage(result.error || result.message || 'Failed to fetch dates')
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch available dates:', error)
-      setAvailableDates([])
-      setDatesLoadingState('error')
-      setDatesErrorMessage(error instanceof Error ? error.message : 'Network error')
-    }
-  }
 
   // Calculate bridge health status dynamically based on actual data
   const bridgeHealthStatus = (() => {
@@ -214,21 +166,30 @@ export default function BHMDashboard() {
     if (mounted) {
       fetchData()
     }
-  }, [viewMode, mounted, selectedDevice, selectedDate])
+  }, [viewMode, mounted, selectedDevice])
 
-  // Load available dates from backend whenever device changes
+  // Generate calendar dates on mount (all dates in current + previous 2 months)
   useEffect(() => {
     if (!mounted) return
-    fetchAvailableDates(selectedDevice)
-  }, [mounted, selectedDevice])
-
-  // When switching to 'date' mode, ensure dates are loaded
-  useEffect(() => {
-    if (viewMode === 'date' && mounted && availableDates.length === 0 && datesLoadingState === 'idle') {
-      console.log(`📅 User switched to 1 Day mode, fetching dates for: ${selectedDevice || 'default'}`)
-      fetchAvailableDates(selectedDevice)
+    
+    const dates = []
+    const today = new Date()
+    
+    // Generate dates for last 3 months
+    for (let m = 2; m >= 0; m--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - m, 1)
+      const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(date.getFullYear(), date.getMonth(), day)
+        dates.push(d.toISOString().split('T')[0])
+      }
     }
-  }, [viewMode, mounted, availableDates.length, datesLoadingState, selectedDevice])
+    
+    // Sort newest first
+    dates.sort((a, b) => b.localeCompare(a))
+    setAvailableDates(dates)
+  }, [mounted])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -246,10 +207,6 @@ export default function BHMDashboard() {
       
       if (selectedDevice) {
         apiUrl += `&device=${selectedDevice}`
-      }
-
-      if (viewMode === 'date' && selectedDate) {
-        apiUrl += `&date=${encodeURIComponent(selectedDate)}`
       }
 
 
@@ -646,52 +603,6 @@ export default function BHMDashboard() {
                 </button>
               ))}
             </div>
-
-            {/* Date Selection (1 Day mode) */}
-            {viewMode === 'date' && (
-              <div className="flex items-center space-x-2">
-                <span className="text-base font-bold text-gray-700">Date:</span>
-                {datesLoadingState === 'error' ? (
-                  <div className="text-sm text-red-600 font-medium bg-red-50 px-3 py-2 rounded-md">
-                    ⚠️ {datesErrorMessage || 'Error loading dates'}
-                    <button
-                      onClick={() => fetchAvailableDates(selectedDevice)}
-                      className="ml-2 underline font-semibold hover:text-red-800"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : datesLoadingState === 'loading' ? (
-                  <div className="text-sm text-orange-600 font-medium">
-                    ⏳ Loading dates...
-                  </div>
-                ) : availableDates.length > 0 ? (
-                  <>
-                    <Select value={selectedDate} onValueChange={setSelectedDate}>
-                      <SelectTrigger className="w-44 h-11 text-base font-bold">
-                        <SelectValue placeholder="Select date" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableDates.map((date) => (
-                          <SelectItem key={date} value={date}>{date}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <button
-                      onClick={() => fetchAvailableDates(selectedDevice)}
-                      className="p-2 hover:bg-gray-100 rounded text-gray-600"
-                      title="Refresh date list"
-                    >
-                      🔄
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-sm text-gray-500 font-medium">
-                    No dates available
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Temperature Button */}
             {chartView === 'default' ? (
