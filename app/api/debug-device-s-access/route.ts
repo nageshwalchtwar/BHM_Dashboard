@@ -1,16 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import * as deviceConfig from '@/lib/device-config';
 
 /**
- * Debug endpoint to test Google Drive file access for Device_S
+ * Debug endpoint to test Google Drive file access for a specific device
+ * Query params: ?device=d1  (defaults to Device 1)
  * Tests:
- 1. Device_S configuration
+ 1. Device configuration
  2. Folder access (listing files)
  3. File download permissions
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 DEBUG: Testing Device_S Google Drive access...');
+    const { searchParams } = new URL(request.url);
+    const deviceId = searchParams.get('device') || 'd1';  // Default to Device 1
+    
+    console.log(`🔍 DEBUG: Testing ${deviceId} Google Drive access...`);
 
     const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
     const hasApiKey = apiKey && !apiKey.startsWith('your_');
@@ -24,23 +28,23 @@ export async function GET() {
       }, { status: 500 });
     }
 
-    // Get Device_S
-    let deviceS = null;
+    // Get device
+    let device = null;
     try {
-      deviceS = deviceConfig.getDevice('Device_S');
+      device = deviceConfig.getDevice(deviceId);
     } catch (err) {
       return NextResponse.json({
         success: false,
-        step: 'device-s-config',
-        error: `Device_S not found: ${err instanceof Error ? err.message : String(err)}`,
-        solution: 'Set DEVICE_S_FOLDER_ID in environment variables',
+        step: 'device-config',
+        error: `${deviceId} not found: ${err instanceof Error ? err.message : String(err)}`,
+        solution: `Set DEVICE_${deviceId.replace('d', '')}_FOLDER_ID in environment variables`,
       }, { status: 404 });
     }
 
-    const folderId = deviceS.folderId;
+    const folderId = device.folderId;
 
     // Test: List files in folder
-    console.log(`📂 Testing folder access for Device_S: ${folderId}`);
+    console.log(`📂 Testing folder access for ${deviceId}: ${folderId}`);
     
     const listUrl = `https://www.googleapis.com/drive/v3/files?q=trashed=false&pageSize=10&orderBy=modifiedTime%20desc&fields=files(id,name,mimeType,size,modifiedTime)&key=${apiKey}&corpora=allDrives&includeItemsFromAllDrives=true`;
     
@@ -130,8 +134,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       device: {
-        id: deviceS.id,
-        name: deviceS.name,
+        id: device.id,
+        name: device.name,
         folderId,
       },
       fileFound: {

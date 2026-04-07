@@ -148,21 +148,23 @@ export default function BHMDashboard() {
     }
   }, [viewMode, mounted, selectedDevice, selectedDate])
 
-  // Fetch actual available dates from Google Drive folder
+  // Fetch actual available dates from Google Drive folder (for selected device)
   useEffect(() => {
     if (!mounted) return
     
     const fetchAvailableDates = async () => {
       try {
-        const response = await fetch('/api/available-dates')
+        // Fetch dates for the currently selected device (default to d1)
+        const deviceParam = selectedDevice || 'd1'
+        const response = await fetch(`/api/available-dates?device=${deviceParam}`)
         const result = await response.json()
         
         if (result.success && result.dates) {
-          console.log(`📅 Loaded ${result.dates.length} available dates from Google Drive`)
+          console.log(`📅 Loaded ${result.dates.length} available dates for ${deviceParam}`)
           setAvailableDates(result.dates)
           
           // Set initial selectedDate to the most recent date if available
-          if (result.dates.length > 0 && !selectedDate) {
+          if (result.dates.length > 0) {
             setSelectedDate(result.dates[0])
           }
         } else {
@@ -176,7 +178,7 @@ export default function BHMDashboard() {
     }
     
     fetchAvailableDates()
-  }, [mounted])
+  }, [mounted, selectedDevice])
 
   // Auto-refresh timer
   useEffect(() => {

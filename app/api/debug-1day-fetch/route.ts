@@ -1,32 +1,36 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import * as deviceConfig from '@/lib/device-config';
 import { streamCSVByDateAsRMS } from '@/lib/simple-google-api';
 
 /**
- * Debug endpoint to test "1 Day" mode data fetching for Device 1
- * Visit: /api/debug-1day-fetch
+ * Debug endpoint to test "1 Day" data fetching for a specific device
+ * Query params: ?device=d1  (defaults to Device 1)
+ * Visit: /api/debug-1day-fetch?device=d1
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 DEBUG: Testing 1-Day fetch for Device 1...');
+    const { searchParams } = new URL(request.url);
+    const deviceId = searchParams.get('device') || 'd1';  // Default to Device 1
+    
+    console.log(`🔍 DEBUG: Testing 1-Day fetch for ${deviceId}...`);
 
-    // Step 1: Check if Device 1 exists
-    let device1 = null;
+    // Step 1: Check if Device exists
+    let device = null;
     try {
-      device1 = deviceConfig.getDevice('d1');
-      console.log(`✅ Device 1 found:`, device1);
+      device = deviceConfig.getDevice(deviceId);
+      console.log(`✅ ${deviceId} found:`, device);
     } catch (err) {
       return NextResponse.json({
         success: false,
         step: 'get-device',
-        error: `Device 1 not found: ${err instanceof Error ? err.message : String(err)}`,
+        error: `${deviceId} not found: ${err instanceof Error ? err.message : String(err)}`,
       }, { status: 404 });
     }
 
     // Step 2: Get folder ID
     let folderId = '';
     try {
-      folderId = deviceConfig.getFolderIdForDevice('d1');
+      folderId = deviceConfig.getFolderIdForDevice(deviceId);
       console.log(`✅ Folder ID obtained: ${folderId}`);
     } catch (err) {
       return NextResponse.json({
@@ -59,7 +63,7 @@ export async function GET() {
         error: 'streamCSVByDateAsRMS returned null - no files found or access denied',
         debug: {
           folderId,
-          folderUrl: device1?.folderUrl,
+          folderUrl: device?.folderUrl,
           hasApiKey,
         },
       });
@@ -69,8 +73,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       device: {
-        id: device1.id,
-        name: device1.name,
+        id: device.id,
+        name: device.name,
         folderId,
       },
       result: {
