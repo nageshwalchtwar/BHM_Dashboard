@@ -153,18 +153,18 @@ export default function BHMDashboard() {
   // Fetch actual available dates from Google Drive folder (for selected device)
   useEffect(() => {
     if (!mounted) return
-    
+
     const fetchAvailableDates = async () => {
       try {
         // Fetch dates for the currently selected device (default to d1)
         const deviceParam = selectedDevice || 'd1'
         const response = await fetch(`/api/available-dates?device=${deviceParam}`)
         const result = await response.json()
-        
+
         if (result.success && result.dates) {
           console.log(`📅 Loaded ${result.dates.length} available dates for ${deviceParam}`)
           setAvailableDates(result.dates)
-          
+
           // Set initial selectedDate to the most recent date if available
           if (result.dates.length > 0) {
             setSelectedDate(result.dates[0])
@@ -178,7 +178,7 @@ export default function BHMDashboard() {
         setAvailableDates([])
       }
     }
-    
+
     fetchAvailableDates()
   }, [mounted, selectedDevice])
 
@@ -195,18 +195,18 @@ export default function BHMDashboard() {
     try {
       // Use the passed deviceId if provided, otherwise use the current state value
       const device = deviceId !== undefined ? deviceId : selectedDevice
-      
+
       // Simple approach: always use csv-data-real, which handles all modes
       let apiUrl = `/api/csv-data-real?mode=${viewMode}`
-      
+
       if (device) {
         apiUrl += `&device=${device}`
       }
-      
+
       // Add format parameter for accelerometer data (raw vs rms)
       // Only applies to live modes (1min, 5min), for date mode this is ignored
       apiUrl += `&format=${accelerometerDataType}`
-      
+
       // For date mode, include the selected date
       if (viewMode === 'date' && selectedDate) {
         apiUrl += `&date=${selectedDate}`
@@ -214,7 +214,7 @@ export default function BHMDashboard() {
 
 
       const response = await fetch(apiUrl)
-      
+
       // Guard against non-JSON responses (e.g. rate limit text)
       const contentType = response.headers.get('content-type') || ''
       if (!contentType.includes('application/json')) {
@@ -222,20 +222,20 @@ export default function BHMDashboard() {
         console.error(`❌ API returned non-JSON response:`, text.slice(0, 100))
         throw new Error(text.slice(0, 100) || `Server returned ${response.status}`)
       }
-      
+
       const result = await response.json()
 
       if (result.success && result.data) {
         setSensorData(result.data)
-        
+
         // Diagnostic: Check for missing columns
         if (result.data.length > 0) {
           const hasAccel = result.data.some((d: any) => typeof d.accel_z === 'number' && !isNaN(d.accel_z))
           const hasTemp = result.data.some((d: any) => typeof d.temperature_c === 'number' && !isNaN(d.temperature_c))
           const hasLVDT = result.data.some((d: any) => typeof d.stroke_mm === 'number' && !isNaN(d.stroke_mm))
-          
+
           console.log(`📊 Data fields status: accel_z=${hasAccel ? '✅' : '❌'}, temperature=${hasTemp ? '✅' : '❌'}, lvdt=${hasLVDT ? '✅' : '❌'}`)
-          
+
           if (!hasAccel && viewMode === 'date') {
             console.warn('⚠️ WARNING: accel_z values are missing or NaN. Check CSV parsing in server logs.')
           }
@@ -336,7 +336,7 @@ export default function BHMDashboard() {
   const handleDeviceChange = (deviceId: string | undefined) => {
     setSelectedDevice(deviceId)
     setError(null)
-    
+
     // Only auto-switch viewMode when user explicitly changes device (not on initial load)
     if (initialDeviceLoaded) {
       // Auto-switch to 'date' mode for devices with merged 1-day CSV data
@@ -381,17 +381,17 @@ export default function BHMDashboard() {
     if (!data || data.length < 2) {
       return []
     }
-    
+
     // Use all available 10-minute data (first 60 points is ~10 min at 10s intervals)
     const tenMinDataPoints = Math.min(60, data.length)
     const recentData = data.slice(0, tenMinDataPoints)
-    
+
     // Extract acceleration envelope (RMS of 3-axis)
     const signal: number[] = recentData.map(d => {
       const ax = d.accel_x || 0
       const ay = d.accel_y || 0
       const az = d.accel_z || 0
-      return Math.sqrt(ax*ax + ay*ay + az*az)
+      return Math.sqrt(ax * ax + ay * ay + az * az)
     })
 
     // Compute simple DFT (Discrete Fourier Transform) for frequency analysis
@@ -399,23 +399,23 @@ export default function BHMDashboard() {
     const samplingRate = 0.1 // samples per second (1 sample per 10 seconds)
     const N = signal.length
     const fft: number[] = []
-    
+
     // Calculate magnitude for frequency bins (0 to Nyquist)
     // Nyquist frequency = samplingRate / 2 = 0.05 Hz
     // But we'll extend to show meaningful frequencies
     const numBins = 50
-    
+
     for (let k = 0; k < numBins; k++) {
       let real = 0
       let imag = 0
-      
+
       // DFT formula: X[k] = sum(x[n] * exp(-j*2*pi*k*n/N))
       for (let n = 0; n < N; n++) {
         const angle = (-2 * Math.PI * k * n) / N
         real += signal[n] * Math.cos(angle)
         imag += signal[n] * Math.sin(angle)
       }
-      
+
       // Magnitude spectrum
       const magnitude = Math.sqrt(real * real + imag * imag) / N
       fft.push(magnitude)
@@ -427,7 +427,7 @@ export default function BHMDashboard() {
       // This gives a proper time range for plotting
       const secondsOffset = (index / numBins) * 600 // 0 to 600 seconds
       const timestamp = new Date(new Date().getTime() - 600000 + secondsOffset * 1000)
-      
+
       return {
         timestamp: timestamp.toISOString(),
         accel_x: magnitude,
@@ -448,9 +448,9 @@ export default function BHMDashboard() {
         <div className="flex flex-col items-center gap-6">
           {/* BHM Letters */}
           <div className="bhm-glow">
-            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>B</span>
-            <span className="bhm-letter text-7xl font-black tracking-wider text-blue-400" style={{fontFamily: 'system-ui'}}>H</span>
-            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>M</span>
+            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{ fontFamily: 'system-ui' }}>B</span>
+            <span className="bhm-letter text-7xl font-black tracking-wider text-blue-400" style={{ fontFamily: 'system-ui' }}>H</span>
+            <span className="bhm-letter text-7xl font-black tracking-wider text-white" style={{ fontFamily: 'system-ui' }}>M</span>
           </div>
           {/* Subtitle */}
           <p className="bhm-subtitle text-sm tracking-[0.3em] uppercase text-blue-300/70 font-medium">
@@ -481,9 +481,9 @@ export default function BHMDashboard() {
           <div className="flex flex-col items-center gap-6">
             {/* BHM Letters */}
             <div className="bhm-glow">
-              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>B</span>
-              <span className="bhm-letter text-8xl font-black tracking-wider text-blue-400" style={{fontFamily: 'system-ui'}}>H</span>
-              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{fontFamily: 'system-ui'}}>M</span>
+              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{ fontFamily: 'system-ui' }}>B</span>
+              <span className="bhm-letter text-8xl font-black tracking-wider text-blue-400" style={{ fontFamily: 'system-ui' }}>H</span>
+              <span className="bhm-letter text-8xl font-black tracking-wider text-white" style={{ fontFamily: 'system-ui' }}>M</span>
             </div>
             {/* Subtitle */}
             <p className="bhm-subtitle text-sm tracking-[0.3em] uppercase text-blue-300/70 font-medium">
@@ -519,7 +519,7 @@ export default function BHMDashboard() {
                 Real-time structural monitoring
               </p>
             </div>
-            
+
             {/* Device Selector - Top Integrated */}
             <div className="border-l border-gray-300 pl-6">
               <div className="text-sm font-bold text-gray-900">Device:</div>
@@ -565,20 +565,18 @@ export default function BHMDashboard() {
             </div>
 
             {/* Bridge Health Status */}
-            <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${
-              bridgeHealthStatus === 'critical' 
-                ? 'bg-red-50 border-red-200' 
+            <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border ${bridgeHealthStatus === 'critical'
+                ? 'bg-red-50 border-red-200'
                 : bridgeHealthStatus === 'warning'
                   ? 'bg-yellow-50 border-yellow-200'
                   : 'bg-green-50 border-green-200'
-            }`}>
-              <div className={`w-3 h-3 rounded-full ${
-                bridgeHealthStatus === 'critical' 
-                  ? 'bg-red-500 animate-pulse' 
+              }`}>
+              <div className={`w-3 h-3 rounded-full ${bridgeHealthStatus === 'critical'
+                  ? 'bg-red-500 animate-pulse'
                   : bridgeHealthStatus === 'warning'
                     ? 'bg-yellow-500 animate-pulse'
                     : 'bg-green-500'
-              }`}></div>
+                }`}></div>
               <span className="text-base font-semibold text-gray-900">
                 Bridge Health: Good
               </span>
@@ -609,11 +607,10 @@ export default function BHMDashboard() {
                 <button
                   key={value}
                   onClick={() => handleViewModeChange(value)}
-                  className={`px-5 py-2.5 text-base font-bold rounded-md transition-colors ${
-                    viewMode === value
+                  className={`px-5 py-2.5 text-base font-bold rounded-md transition-colors ${viewMode === value
                       ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   {label}
                 </button>
@@ -739,10 +736,10 @@ export default function BHMDashboard() {
           <div className="fixed inset-0 z-40 bg-white flex flex-col">
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold">
-                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 
-                 fullscreenChart === 'accelerometer' ? 'Accelerometer' :
-                 fullscreenChart === 'temperature' ? 'Temperature vs Time' :
-                 'FFT - Acceleration Envelope Spectrum'} - Fullscreen
+                {fullscreenChart === 'lvdt' ? 'LVDT Displacement' :
+                  fullscreenChart === 'accelerometer' ? 'Accelerometer' :
+                    fullscreenChart === 'temperature' ? 'Temperature vs Time' :
+                      'FFT - Acceleration Envelope Spectrum'} - Fullscreen
               </h2>
               <button
                 onClick={() => setIsChartFullscreen(false)}
@@ -777,21 +774,19 @@ export default function BHMDashboard() {
                     <div className="flex items-center bg-gray-100 rounded-lg p-2 gap-2 mb-4 w-fit">
                       <button
                         onClick={() => setAccelerometerDataType('raw')}
-                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${
-                          accelerometerDataType === 'raw'
+                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${accelerometerDataType === 'raw'
                             ? 'bg-white text-blue-700 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                          }`}
                       >
                         Raw Data (1 sec - 1 value)
                       </button>
                       <button
                         onClick={() => setAccelerometerDataType('rms')}
-                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${
-                          accelerometerDataType === 'rms'
+                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${accelerometerDataType === 'rms'
                             ? 'bg-white text-blue-700 shadow-sm'
                             : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                          }`}
                       >
                         RMS
                       </button>
@@ -859,211 +854,201 @@ export default function BHMDashboard() {
               </div>
             </div>
           </div>
-        ) : (
-          <>
-            <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-              {chartView === 'temperature' ? (
-                // Temperature Chart View
-                <div className="w-full h-full flex flex-col">
-                  <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
-                    Temperature
-                  </div>
-                  <div className="flex-1 overflow-hidden p-4">
-                    <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
-                      <PlotlyTimeSeriesChart
-                        data={sensorData}
-                        isLoading={loading}
-                        dataKey="temperature_c"
-                        title="Temperature vs Time"
-                        yAxisLabel="Temperature (°C)"
-                        color="#f59e0b"
-                        unit="°C"
-                        timeRange={effectiveMinutes}
-                        basicLineplot={true}
-                        scaleFromZero={autoScale}
-                        referenceLines={[
-                          { y: 35, color: "#ef4444", label: "Critical (35°C)" },
-                        ]}
-                      />
-                    </ChartErrorBoundary>
-                  </div>
-                </div>
-              ) : (
-                // Default Side-by-Side LVDT and Accelerometer View
-                <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
-                  {/* LVDT Chart */}
-                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
-                      LVDT Displacement
-                    </div>
-                    <div className="flex-1 overflow-hidden p-4">
-                      <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
-                        <PlotlyTimeSeriesChart
-                          data={sensorData}
-                          isLoading={loading}
-                          dataKey="stroke_mm"
-                          title="LVDT Displacement"
-                          yAxisLabel="Stroke (mm)"
-                          color="#7c3aed"
-                          unit="mm"
-                          timeRange={effectiveMinutes}
-                          basicLineplot={true}
-                          scaleFromZero={autoScale}
-                          referenceLines={[
-                            { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
-                          ]}
-                        />
-                      </ChartErrorBoundary>
-                    </div>
-                    
-                    {/* Fullscreen Button - LVDT */}
-                    <button
-                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('lvdt')}}
-                      className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
-                    >
-                      ⛶
-                    </button>
-                  </div>
-
-                  {/* Accelerometer Chart */}
-                  <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="flex justify-between items-center px-4 py-4 border-b border-gray-200">
-                      <div className="text-xl font-bold text-gray-900">
-                        Accelerometer
-                      </div>
-                      {/* Raw/RMS Toggle Button */}
-                      <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
-                        <button
-                          onClick={() => setAccelerometerDataType('raw')}
-                          className={`px-3 py-1.5 text-sm font-semibold rounded transition-colors ${
-                            accelerometerDataType === 'raw'
-                              ? 'bg-white text-blue-700 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          Raw Data
-                        </button>
-                        <button
-                          onClick={() => setAccelerometerDataType('rms')}
-                          className={`px-3 py-1.5 text-sm font-semibold rounded transition-colors ${
-                            accelerometerDataType === 'rms'
-                              ? 'bg-white text-blue-700 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          RMS
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex-1 overflow-hidden p-4">
-                      <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
-                        <PlotlyTimeSeriesChart
-                          data={sensorData}
-                          isLoading={loading}
-                          dataKey={accelerometerDataType === 'rms' 
-                            ? (viewMode === 'date' ? "accel_z" : "az_adxl")
-                            : (viewMode === 'date' ? "accel_z" : "az_adxl")}
-                          title={accelerometerDataType === 'rms' ? "RMS Acceleration vs Time" : "Raw Acceleration vs Time"}
-                          yAxisLabel={accelerometerDataType === 'rms' ? "RMS Acceleration (g)" : "Acceleration (g)"}
-                          color="#10b981"
-                          unit="g"
-                          rms={accelerometerDataType === 'rms' && viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
-                          timeRange={effectiveMinutes}
-                          basicLineplot={true}
-                          scaleFromZero={autoScale}
-                          referenceLines={[
-                            { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                          ]}
-                        />
-                      </ChartErrorBoundary>
-                    </div>
-
-                    {/* Fullscreen Button - Accelerometer */}
-                    <button
-                      onClick={() => {setIsChartFullscreen(true); setFullscreenChart('accelerometer')}}
-                      className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
-                    >
-                      ⛶
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Bottom Row: Temperature Chart (Left) and FFT Chart (Right) */}
-        <div className="grid grid-cols-2 h-[500px] gap-3 p-4">
-          {/* Temperature Chart */}
-          <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
-              Temperature vs Time
-            </div>
-            <div className="flex-1 overflow-hidden p-4">
-              <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
-                <PlotlyTimeSeriesChart
-                  data={sensorData}
-                  isLoading={loading}
-                  dataKey="temperature_c"
-                  title="Temperature vs Time"
-                  yAxisLabel="Temperature (°C)"
-                  color="#f59e0b"
-                  unit="°C"
-                  timeRange={effectiveMinutes}
-                  basicLineplot={true}
-                  scaleFromZero={autoScale}
-                  referenceLines={[
-                    { y: 35, color: "#ef4444", label: "Critical (35°C)" },
-                  ]}
-                />
-              </ChartErrorBoundary>
-            </div>
-            
-            {/* Fullscreen Button - Temperature */}
-            <button
-              onClick={() => {setIsChartFullscreen(true); setFullscreenChart('temperature')}}
-              className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
-            >
-              ⛶
-            </button>
-          </div>
-
-          {/* FFT Chart (10 Minute Frequency Analysis) */}
-          <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-            <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
-              FFT - Acceleration Envelope Spectrum
-            </div>
-            <div className="flex-1 overflow-hidden p-4">
-              <ChartErrorBoundary fallbackMessage="FFT chart failed to render">
-                {sensorData.length > 0 ? (
+        ) : chartView === 'temperature' ? (
+          <div className="relative flex-1 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            {/* Temperature Chart View */}
+            <div className="w-full h-full flex flex-col">
+              <div className="text-base font-bold text-gray-900 px-4 py-3 border-b border-gray-200">
+                Temperature
+              </div>
+              <div className="flex-1 overflow-hidden p-4">
+                <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
                   <PlotlyTimeSeriesChart
-                    data={generateFFTData(sensorData)}
+                    data={sensorData}
                     isLoading={loading}
-                    dataKey="accel_x"
-                    title="Frequency Domain Analysis"
-                    yAxisLabel="Amplitude"
-                    color="#ef4444"
-                    unit="m/s²"
+                    dataKey="temperature_c"
+                    title="Temperature vs Time"
+                    yAxisLabel="Temperature (°C)"
+                    color="#f59e0b"
+                    unit="°C"
+                    timeRange={effectiveMinutes}
                     basicLineplot={true}
                     scaleFromZero={autoScale}
+                    referenceLines={[
+                      { y: 35, color: "#ef4444", label: "Critical (35°C)" },
+                    ]}
                   />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    No data available for FFT analysis
-                  </div>
-                )}
-              </ChartErrorBoundary>
+                </ChartErrorBoundary>
+              </div>
             </div>
-            
-            {/* Fullscreen Button - FFT */}
-            <button
-              onClick={() => {setIsChartFullscreen(true); setFullscreenChart('fft')}}
-              className="absolute top-12 right-2 bg-gray-600 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded transition-colors font-medium"
-            >
-              ⛶
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex-1 grid grid-cols-1 2xl:grid-cols-2 grid-rows-2 gap-4 min-h-[800px] 2xl:min-h-0 pb-4">
+            {/* LVDT Chart */}
+            <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm h-full">
+              <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+                LVDT Displacement
+              </div>
+              <div className="flex-1 overflow-hidden p-4">
+                <ChartErrorBoundary fallbackMessage="LVDT chart failed to render">
+                  <PlotlyTimeSeriesChart
+                    data={sensorData}
+                    isLoading={loading}
+                    dataKey="stroke_mm"
+                    title="LVDT Displacement"
+                    yAxisLabel="Stroke (mm)"
+                    color="#7c3aed"
+                    unit="mm"
+                    timeRange={effectiveMinutes}
+                    basicLineplot={true}
+                    scaleFromZero={autoScale}
+                    referenceLines={[
+                      { y: 100, color: "#ef4444", label: "Critical (100mm L/600)" },
+                    ]}
+                  />
+                </ChartErrorBoundary>
+              </div>
+
+              {/* Fullscreen Button - LVDT */}
+              <button
+                onClick={() => { setIsChartFullscreen(true); setFullscreenChart('lvdt') }}
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-2 rounded transition-colors font-bold border border-gray-300"
+              >
+                ⛶ Fullscreen
+              </button>
+            </div>
+
+            {/* Accelerometer Chart */}
+            <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm h-full">
+              <div className="flex justify-between items-center px-4 py-4 border-b border-gray-200 pr-36">
+                <div className="text-xl font-bold text-gray-900">
+                  Accelerometer
+                </div>
+                {/* Raw/RMS Toggle Button */}
+                <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1 border border-gray-200">
+                  <button
+                    onClick={() => setAccelerometerDataType('raw')}
+                    className={`px-3 py-1.5 text-sm font-bold rounded transition-colors ${accelerometerDataType === 'raw'
+                        ? 'bg-white text-blue-700 shadow-sm border border-gray-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    Raw Data
+                  </button>
+                  <button
+                    onClick={() => setAccelerometerDataType('rms')}
+                    className={`px-3 py-1.5 text-sm font-bold rounded transition-colors ${accelerometerDataType === 'rms'
+                        ? 'bg-white text-blue-700 shadow-sm border border-gray-200'
+                        : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    RMS
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden p-4">
+                <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
+                  <PlotlyTimeSeriesChart
+                    data={sensorData}
+                    isLoading={loading}
+                    dataKey={accelerometerDataType === 'rms'
+                      ? (viewMode === 'date' ? "accel_z" : "az_adxl")
+                      : (viewMode === 'date' ? "accel_z" : "az_adxl")}
+                    title={accelerometerDataType === 'rms' ? "RMS Acceleration vs Time" : "Raw Acceleration vs Time"}
+                    yAxisLabel={accelerometerDataType === 'rms' ? "RMS Acceleration (g)" : "Acceleration (g)"}
+                    color="#10b981"
+                    unit="g"
+                    rms={accelerometerDataType === 'rms' && viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                    timeRange={effectiveMinutes}
+                    basicLineplot={true}
+                    scaleFromZero={autoScale}
+                    referenceLines={[
+                      { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                    ]}
+                  />
+                </ChartErrorBoundary>
+              </div>
+
+              {/* Fullscreen Button - Accelerometer */}
+              <button
+                onClick={() => { setIsChartFullscreen(true); setFullscreenChart('accelerometer') }}
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-2 rounded transition-colors font-bold border border-gray-300"
+              >
+                ⛶ Fullscreen
+              </button>
+            </div>
+
+            {/* Temperature Chart */}
+            <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm h-full">
+              <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+                Temperature vs Time
+              </div>
+              <div className="flex-1 overflow-hidden p-4">
+                <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
+                  <PlotlyTimeSeriesChart
+                    data={sensorData}
+                    isLoading={loading}
+                    dataKey="temperature_c"
+                    title="Temperature vs Time"
+                    yAxisLabel="Temperature (°C)"
+                    color="#f59e0b"
+                    unit="°C"
+                    timeRange={effectiveMinutes}
+                    basicLineplot={true}
+                    scaleFromZero={autoScale}
+                    referenceLines={[
+                      { y: 35, color: "#ef4444", label: "Critical (35°C)" },
+                    ]}
+                  />
+                </ChartErrorBoundary>
+              </div>
+
+              {/* Fullscreen Button - Temperature */}
+              <button
+                onClick={() => { setIsChartFullscreen(true); setFullscreenChart('temperature') }}
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-2 rounded transition-colors font-bold border border-gray-300"
+              >
+                ⛶ Fullscreen
+              </button>
+            </div>
+
+            {/* FFT Chart (10 Minute Frequency Analysis) */}
+            <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm h-full">
+              <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
+                FFT - Acceleration Envelope Spectrum
+              </div>
+              <div className="flex-1 overflow-hidden p-4">
+                <ChartErrorBoundary fallbackMessage="FFT chart failed to render">
+                  {sensorData.length > 0 ? (
+                    <PlotlyTimeSeriesChart
+                      data={generateFFTData(sensorData)}
+                      isLoading={loading}
+                      dataKey="accel_x"
+                      title="Frequency Domain Analysis"
+                      yAxisLabel="Amplitude"
+                      color="#ef4444"
+                      unit="m/s²"
+                      basicLineplot={true}
+                      scaleFromZero={autoScale}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-500">
+                      No data available for FFT analysis
+                    </div>
+                  )}
+                </ChartErrorBoundary>
+              </div>
+
+              {/* Fullscreen Button - FFT */}
+              <button
+                onClick={() => { setIsChartFullscreen(true); setFullscreenChart('fft') }}
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-2 rounded transition-colors font-bold border border-gray-300"
+              >
+                ⛶ Fullscreen
+              </button>
+            </div>
+          </div>
+        )}
 
 
       </div>
