@@ -16,10 +16,10 @@ async function autoDiscoverDevices(parentFolderUrl?: string) {
   // Sort discovered folders alphabetically for stable ordering.
   const candidates = [...subfolders]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 4);
+    .slice(0, 5);
 
   const existing = deviceConfig.getAllDevices();
-  const envDeviceIds = ['d1', 'd2', 'd3', 'd4'];
+  const envDeviceIds = ['d1', 'd2', 'd3', 'd4', 'd5'];
   const envDevices = existing.filter(d => envDeviceIds.includes(d.id));
 
   // ── If we already have env-configured devices, only UPDATE their folderIds ──
@@ -31,7 +31,7 @@ async function autoDiscoverDevices(parentFolderUrl?: string) {
       const norm = (s: string) => s.toLowerCase().replace(/[_\s-]/g, '');
       let match = envDevices.find(d => norm(d.name) === norm(candidate.name));
 
-      // Fallback: positional match (sorted auto-discovered → d1, d2, d3, d4)
+      // Fallback: positional match (sorted auto-discovered → d1, d2, d3, d4, d5)
       if (!match) {
         const idx = candidates.indexOf(candidate);
         if (idx < envDevices.length) {

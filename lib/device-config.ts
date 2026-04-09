@@ -53,9 +53,9 @@ function isPlaceholderValue(value: string | undefined): boolean {
 function getDevicesFromEnv(): Device[] {
   const devices: Device[] = [];
   
-  // Build devices 1-4 from env vars.
+  // Build devices 1-5 from env vars.
   // A device is created if EITHER DEVICE_N_FOLDER_ID or DEVICE_N_LATEST_FOLDER_ID is set.
-  for (let n = 1; n <= 4; n++) {
+  for (let n = 1; n <= 5; n++) {
     const folderId = process.env[`DEVICE_${n}_FOLDER_ID`] || '';
     const latestFolderId = process.env[`DEVICE_${n}_LATEST_FOLDER_ID`] || '';
     const hasFolderId = folderId && !isPlaceholderValue(folderId);
