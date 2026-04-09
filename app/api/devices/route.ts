@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     // Clean up: remove any stale auto-discovered devices if env devices exist.
     const allDevices = deviceConfig.getAllDevices();
-    const envDeviceIds = ['d1', 'd2', 'd3', 'd4'];
+    const envDeviceIds = ['d1', 'd2', 'd3', 'd4', 'd5'];
     const envDevices = allDevices.filter(d => envDeviceIds.includes(d.id));
     if (envDevices.length > 0) {
       for (const d of allDevices) {
