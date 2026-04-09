@@ -143,12 +143,12 @@ export default function BHMDashboard() {
   //   }
   // }, [autoRefresh, timeRange, selectedDevice])
 
-  // Fetch data when viewMode, selectedDevice, or selectedDate changes
+  // Fetch data when viewMode, selectedDevice, selectedDate, or accelerometerDataType changes
   useEffect(() => {
     if (mounted) {
       fetchData()
     }
-  }, [viewMode, mounted, selectedDevice, selectedDate])
+  }, [viewMode, mounted, selectedDevice, selectedDate, accelerometerDataType])
 
   // Fetch actual available dates from Google Drive folder (for selected device)
   useEffect(() => {
@@ -202,6 +202,10 @@ export default function BHMDashboard() {
       if (device) {
         apiUrl += `&device=${device}`
       }
+      
+      // Add format parameter for accelerometer data (raw vs rms)
+      // Only applies to live modes (1min, 5min), for date mode this is ignored
+      apiUrl += `&format=${accelerometerDataType}`
       
       // For date mode, include the selected date
       if (viewMode === 'date' && selectedDate) {

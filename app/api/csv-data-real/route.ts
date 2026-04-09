@@ -12,19 +12,20 @@ export async function GET(request: NextRequest) {
   const mode = (['1min', '5min'].includes(modeParam) ? modeParam : 'date') as '1min' | '5min' | 'date'
   const date = searchParams.get("date") || ""
   const deviceId = searchParams.get("device")
+  const format = searchParams.get("format") || "rms"  // 'rms' or 'raw'
 
   const isLive = mode === '1min' || mode === '5min'
   const cacheTTL = isLive ? 15_000 : 120_000  // 15s for live, 2min for historical
 
   // ── Check response cache ─────────────────────────────────────────────
-  const cacheKey = `${deviceId || 'default'}:${mode}:${date}`;
+  const cacheKey = `${deviceId || 'default'}:${mode}:${date}:${format}`;
   const cached = responseCache.get(cacheKey);
   if (cached && (Date.now() - cached.cachedAt) < cacheTTL) {
     console.log(`⚡ Cache hit for ${cacheKey}`);
     return NextResponse.json(cached.json);
   }
 
-  console.log(`📊 API: mode=${mode}, date=${date || 'latest'}, device=${deviceId || 'default'}`)
+  console.log(`📊 API: mode=${mode}, date=${date || 'latest'}, device=${deviceId || 'default'}, format=${format}`)
 
   try {
     const device = deviceId ? deviceConfig.getDevice(deviceId) : deviceConfig.getDefaultDevice();
@@ -71,10 +72,16 @@ export async function GET(request: NextRequest) {
       const cutoff = latestTs - windowMs;
       const filteredData = parsedData.filter((row: any) => row.timestamp >= cutoff);
 
-      // Compute 1-second RMS windows on the live data (matching historical view)
-      allData = downsampleToRMSPerSecond(filteredData, 1000);
-
-      console.log(`📈 Live: ${parsedData.length} parsed → ${filteredData.length} rows in last ${mode === '1min' ? '1' : '5'} min → ${allData.length} RMS windows`);
+      // Return raw data or RMS-windowed data based on format parameter
+      if (format === 'raw') {
+        // Return raw data (1 sample per row)
+        allData = filteredData;
+        console.log(`📈 Live RAW: ${parsedData.length} parsed → ${filteredData.length} raw rows in last ${mode === '1min' ? '1' : '5'} min`);
+      } else {
+        // Compute 1-second RMS windows on the live data (matching historical view)
+        allData = downsampleToRMSPerSecond(filteredData, 1000);
+        console.log(`📈 Live RMS: ${parsedData.length} parsed → ${filteredData.length} rows in last ${mode === '1min' ? '1' : '5'} min → ${allData.length} RMS windows`);
+      }
 
     } else {
       // ── Historical (date) — use RMS-windowed aggregation instead of sampling ──
