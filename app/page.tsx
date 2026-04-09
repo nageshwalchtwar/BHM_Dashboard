@@ -98,6 +98,7 @@ export default function BHMDashboard() {
   const [fullscreenChart, setFullscreenChart] = useState<'lvdt' | 'accelerometer' | 'temperature' | 'fft'>('lvdt')
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
+  const [initialDeviceLoaded, setInitialDeviceLoaded] = useState(false) // Track if initial device has been loaded
 
   // Bridge health status - always good
   const bridgeHealthStatus = 'healthy'
@@ -188,14 +189,17 @@ export default function BHMDashboard() {
     return () => clearInterval(interval)
   }, [autoRefreshInterval, mounted, viewMode])
 
-  const fetchData = async () => {
+  const fetchData = async (deviceId?: string) => {
     setConnectionStatus('connecting')
     try {
+      // Use the passed deviceId if provided, otherwise use the current state value
+      const device = deviceId !== undefined ? deviceId : selectedDevice
+      
       // Simple approach: always use csv-data-real, which handles all modes
       let apiUrl = `/api/csv-data-real?mode=${viewMode}`
       
-      if (selectedDevice) {
-        apiUrl += `&device=${selectedDevice}`
+      if (device) {
+        apiUrl += `&device=${device}`
       }
       
       // For date mode, include the selected date
@@ -328,14 +332,27 @@ export default function BHMDashboard() {
     setSelectedDevice(deviceId)
     setError(null)
     
-    // Auto-switch to 'date' mode for devices with merged 1-day CSV data
-    // Device 1 (and Device_S if it exists) use merged day data
-    if (deviceId === 'd1' || deviceId === 'Device_S') {
-      setViewMode('date')
-      setAutoRefreshInterval('off')
-      console.log(`📱 ${deviceId} selected - auto-switched to 1 Day mode (merged CSV)`)
+    // Only auto-switch viewMode when user explicitly changes device (not on initial load)
+    if (initialDeviceLoaded) {
+      // Auto-switch to 'date' mode for devices with merged 1-day CSV data
+      // Device 1 (and Device_S if it exists) use merged day data
+      if (deviceId === 'd1' || deviceId === 'Device_S') {
+        setViewMode('date')
+        setAutoRefreshInterval('off')
+        console.log(`📱 ${deviceId} selected - auto-switched to 1 Day mode (merged CSV)`)
+      } else {
+        // For all other devices (d2, d3, d4, d5, etc), use 1min mode
+        setViewMode('1min')
+        setAutoRefreshInterval('off')
+        console.log(`📱 ${deviceId} selected - using 1 Min live mode`)
+      }
+    } else {
+      // On initial load, just mark that device has been loaded but don't switch modes
+      setInitialDeviceLoaded(true)
+      console.log(`📱 Initial device ${deviceId} loaded - keeping default 1 Min view mode`)
     }
-    fetchData()
+    // Pass the new deviceId to fetchData so it fetches with the correct device BEFORE state updates
+    fetchData(deviceId)
   }
 
   const handleAdminClick = () => {
