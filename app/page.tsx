@@ -99,6 +99,7 @@ export default function BHMDashboard() {
   const [chartView, setChartView] = useState<'default' | 'temperature'>('default')
   const [autoScale] = useState(true) // Auto-scale is always enabled by default
   const [initialDeviceLoaded, setInitialDeviceLoaded] = useState(false) // Track if initial device has been loaded
+  const [accelerometerDataType, setAccelerometerDataType] = useState<'raw' | 'rms'>('rms') // Toggle between raw and RMS data
 
   // Bridge health status - always good
   const bridgeHealthStatus = 'healthy'
@@ -735,7 +736,7 @@ export default function BHMDashboard() {
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <h2 className="text-2xl font-bold">
                 {fullscreenChart === 'lvdt' ? 'LVDT Displacement' : 
-                 fullscreenChart === 'accelerometer' ? 'Accelerometer RMS Vibration' :
+                 fullscreenChart === 'accelerometer' ? 'Accelerometer' :
                  fullscreenChart === 'temperature' ? 'Temperature vs Time' :
                  'FFT - Acceleration Envelope Spectrum'} - Fullscreen
               </h2>
@@ -767,24 +768,51 @@ export default function BHMDashboard() {
                     />
                   </ChartErrorBoundary>
                 ) : fullscreenChart === 'accelerometer' ? (
-                  <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
-                    <PlotlyTimeSeriesChart
-                      data={sensorData}
-                      isLoading={loading}
-                      dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                      title="Accelerometer RMS Vibration vs Time"
-                      yAxisLabel="RMS Acceleration (g)"
-                      color="#10b981"
-                      unit="g"
-                      rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
-                      timeRange={effectiveMinutes}
-                      basicLineplot={true}
-                      scaleFromZero={autoScale}
-                      referenceLines={[
-                        { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
-                      ]}
-                    />
-                  </ChartErrorBoundary>
+                  <>
+                    {/* Raw/RMS Toggle for Fullscreen */}
+                    <div className="flex items-center bg-gray-100 rounded-lg p-2 gap-2 mb-4 w-fit">
+                      <button
+                        onClick={() => setAccelerometerDataType('raw')}
+                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${
+                          accelerometerDataType === 'raw'
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Raw Data (1 sec - 1 value)
+                      </button>
+                      <button
+                        onClick={() => setAccelerometerDataType('rms')}
+                        className={`px-4 py-2 text-base font-semibold rounded transition-colors ${
+                          accelerometerDataType === 'rms'
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        RMS
+                      </button>
+                    </div>
+                    <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
+                      <PlotlyTimeSeriesChart
+                        data={sensorData}
+                        isLoading={loading}
+                        dataKey={accelerometerDataType === 'rms'
+                          ? (viewMode === 'date' ? "accel_z" : "az_adxl")
+                          : (viewMode === 'date' ? "accel_z" : "az_adxl")}
+                        title={accelerometerDataType === 'rms' ? "RMS Acceleration vs Time" : "Raw Acceleration vs Time"}
+                        yAxisLabel={accelerometerDataType === 'rms' ? "RMS Acceleration (g)" : "Acceleration (g)"}
+                        color="#10b981"
+                        unit="g"
+                        rms={accelerometerDataType === 'rms' && viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                        timeRange={effectiveMinutes}
+                        basicLineplot={true}
+                        scaleFromZero={autoScale}
+                        referenceLines={[
+                          { y: 0.1, color: "#ef4444", label: "Critical (0.1g)" },
+                        ]}
+                      />
+                    </ChartErrorBoundary>
+                  </>
                 ) : fullscreenChart === 'temperature' ? (
                   <ChartErrorBoundary fallbackMessage="Temperature chart failed to render">
                     <PlotlyTimeSeriesChart
@@ -895,20 +923,47 @@ export default function BHMDashboard() {
 
                   {/* Accelerometer Chart */}
                   <div className="bg-white border border-gray-200 rounded-lg flex flex-col overflow-hidden relative shadow-sm">
-                    <div className="text-xl font-bold text-gray-900 px-4 py-4 border-b border-gray-200">
-                      Accelerometer RMS Vibration
+                    <div className="flex justify-between items-center px-4 py-4 border-b border-gray-200">
+                      <div className="text-xl font-bold text-gray-900">
+                        Accelerometer
+                      </div>
+                      {/* Raw/RMS Toggle Button */}
+                      <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
+                        <button
+                          onClick={() => setAccelerometerDataType('raw')}
+                          className={`px-3 py-1.5 text-sm font-semibold rounded transition-colors ${
+                            accelerometerDataType === 'raw'
+                              ? 'bg-white text-blue-700 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          Raw Data
+                        </button>
+                        <button
+                          onClick={() => setAccelerometerDataType('rms')}
+                          className={`px-3 py-1.5 text-sm font-semibold rounded transition-colors ${
+                            accelerometerDataType === 'rms'
+                              ? 'bg-white text-blue-700 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          RMS
+                        </button>
+                      </div>
                     </div>
                     <div className="flex-1 overflow-hidden p-4">
-                      <ChartErrorBoundary fallbackMessage="ADXL Z chart failed to render">
+                      <ChartErrorBoundary fallbackMessage="Accelerometer chart failed to render">
                         <PlotlyTimeSeriesChart
                           data={sensorData}
                           isLoading={loading}
-                          dataKey={viewMode === 'date' ? "accel_z" : "az_adxl"}
-                          title="Accelerometer RMS Vibration vs Time"
-                          yAxisLabel="RMS Acceleration (g)"
+                          dataKey={accelerometerDataType === 'rms' 
+                            ? (viewMode === 'date' ? "accel_z" : "az_adxl")
+                            : (viewMode === 'date' ? "accel_z" : "az_adxl")}
+                          title={accelerometerDataType === 'rms' ? "RMS Acceleration vs Time" : "Raw Acceleration vs Time"}
+                          yAxisLabel={accelerometerDataType === 'rms' ? "RMS Acceleration (g)" : "Acceleration (g)"}
                           color="#10b981"
                           unit="g"
-                          rms={viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
+                          rms={accelerometerDataType === 'rms' && viewMode !== 'date' && rms ? rms.accel_z_rms : undefined}
                           timeRange={effectiveMinutes}
                           basicLineplot={true}
                           scaleFromZero={autoScale}
